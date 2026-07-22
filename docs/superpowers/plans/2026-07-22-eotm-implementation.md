@@ -16,7 +16,11 @@
 - 모든 유저 표시 문구·코드 주석은 한국어.
 - 신규 런타임 의존성은 `hono`, `zod`만. (dev: wrangler, vite, react, vitest 계열 허용)
 - LLM 호출은 반드시 mock 폴백을 가진다 — 키가 없거나 전부 실패해도 게임이 끝까지 돈다.
-- 게임 규칙 수치는 원본 그대로: `MAX_SPEECH_CHARS = 160`, 발언 시간 싱글 0(무제한)/멀티 60·120·180(기본 60), 난이도 easy/normal/hard, 계급 5단계(채택 4회 우승), 페르소나 6종.
+- 게임 규칙 수치는 원본 그대로: `MAX_SPEECH_CHARS = 160`, 발언 시간 싱글 0(무제한)/멀티 60·120·180(기본 60), 난이도 easy/normal/hard, 계급 5단계(채택 4회 우승).
+- 페르소나는 v1에서 **조조(caocao)·유비(liubei) 2종만** 이식한다. 나머지는 추후 팩 폴더 추가로 확장.
+- **LLM 입출력 계약**: 모든 LLM 호출은 요청에 JSON Schema(Gemini responseSchema / NVIDIA guided_json)를 싣고, 응답은 zod 출력 스키마로 검증한다. 검증 실패 = 페일오버 사유.
+- **하드코딩 금지**: 대사·프롬프트·에러/안내 문구를 소스코드에 넣지 않는다 — 전부 `@eotm/content`(팩 또는 `global/strings.json`의 `errors` 포함)에서 온다.
+- **로그**: `log.ts`의 타입드 이벤트 핸들러(`logger.*`)로만 남긴다. 호출부에서 임의 이벤트명 문자열·console 직접 호출 금지.
 - 클라이언트 feed 아이템·publicRoom 형태는 원본과 최대한 동일하게 유지해 화면 이식 diff를 최소화한다. 단 `syco` 접두어는 제거한다(`syco-verdict`→`verdict` 등).
 - 시크릿(`GOOGLE_AI_STUDIO_API_KEY`, `NVIDIA_API_KEY`)은 `.dev.vars`/`wrangler secret`으로만. 코드·커밋 금지. `.env`는 이미 루트에 있고 gitignore됨.
 - 각 Task 완료 시 커밋. 커밋 메시지는 한국어 + conventional prefix.
@@ -308,18 +312,40 @@ fs.mkdirSync(dst + '/global', { recursive: true });
 fs.copyFileSync(src + '/sycophant-prompts.json', dst + '/global/prompts.json');
 fs.copyFileSync(src + '/sycophant-strings.json', dst + '/global/strings.json');
 const personas = JSON.parse(fs.readFileSync(src + '/personas.json', 'utf-8'));
-for (const p of personas) {
+const KEEP = ['caocao', 'liubei']; // v1은 조조·유비만. 확장 = 폴더 추가
+for (const p of personas.filter((x) => KEEP.includes(x.id))) {
   const dir = dst + '/packs/' + p.id;
   fs.mkdirSync(dir, { recursive: true });
   const { situations, ...meta } = p;
   fs.writeFileSync(dir + '/persona.json', JSON.stringify(meta, null, 2));
   fs.writeFileSync(dir + '/situations.json', JSON.stringify(situations, null, 2));
 }
-console.log('packs:', personas.map(p => p.id).join(', '));
+console.log('packs: caocao, liubei');
 "
 ```
 
-Expected 출력: `packs: caocao, liubei, sunquan, yuanshao, dongzhuo, kimceo`
+Expected 출력: `packs: caocao, liubei`
+
+이어서 `global/strings.json`에 `errors` 섹션을 추가한다 (원본 코드에 하드코딩돼 있던 문구를 데이터로 이관):
+
+```json
+"errors": {
+  "notHost": "방장만 시작할 수 있습니다.",
+  "notHostNext": "방장만 진행할 수 있습니다.",
+  "alreadyStarted": "이미 시작되었습니다.",
+  "needTwo": "2명 이상 모여야 시작할 수 있습니다.",
+  "notYourTurn": "아직 당신의 순번이 아닙니다.",
+  "noRoom": "존재하지 않는 방 코드입니다.",
+  "roomStarted": "이미 시작된 방입니다.",
+  "roomFull": "정원이 가득 찼습니다.",
+  "noPersona": "존재하지 않는 인물입니다.",
+  "notNow": "지금은 다음으로 갈 수 없습니다.",
+  "badAuth": "인증에 실패했습니다.",
+  "rateLimited": "방 생성이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+  "codeAllocFail": "방 코드 할당 실패. 다시 시도해 주세요.",
+  "connectFail": "서버에 연결할 수 없습니다."
+}
+```
 
 - [ ] **Step 2: package.json** — gen 스크립트를 test/typecheck 앞에 자동 실행
 
@@ -373,9 +399,10 @@ console.log(`packs.gen.ts: ${ids.length}개 팩 (${ids.join(', ')})`);
 import { test, expect } from 'vitest';
 import { getPersona, listPersonas, PROMPTS, STRINGS, fmt, personaSchema } from '../src/index';
 
-test('페르소나 6종이 로드된다', () => {
+test('페르소나 2종(조조·유비)이 로드된다', () => {
   const list = listPersonas();
-  expect(list.length).toBe(6);
+  expect(list.length).toBe(2);
+  expect(list.map((p) => p.id).sort()).toEqual(['caocao', 'liubei']);
   for (const p of list) {
     expect(p.id && p.name && p.intro).toBeTruthy();
     expect(p.axes.length).toBeGreaterThanOrEqual(3);
@@ -456,6 +483,7 @@ export const stringsSchema = z.object({
   round: z.record(tmpl),
   fallback: z.record(z.string()),
   mock: z.record(tmpl),
+  errors: z.record(z.string()), // UI 에러 문구 — 코드 하드코딩 금지, 여기서만
 }).passthrough();
 ```
 
@@ -523,7 +551,7 @@ index.ts: `export * from './loader'; export * from './schema';`
 - Consumes: `listPersonas` (@eotm/content), `HealthRes`/`PersonaSummary` (@eotm/shared)
 - Produces:
   - `Env` 타입: `{ ROOM_DO: DurableObjectNamespace; QUOTA_DO: DurableObjectNamespace; ASSETS: Fetcher; GOOGLE_AI_STUDIO_API_KEY?: string; NVIDIA_API_KEY?: string; GEMINI_MODEL: string; NVIDIA_MODEL: string; LLM_DAILY_LIMIT_GEMINI: string; LLM_DAILY_LIMIT_NVIDIA: string }`
-  - `log(level, event, fields)` — JSON 한 줄 로그
+  - `logger` — 타입드 로그 핸들러 (이벤트별 메서드, 스펙 §11의 이벤트 목록과 1:1)
   - `GET /api/health`, `GET /api/personas` 동작
 
 - [ ] **Step 1: package.json**
@@ -620,14 +648,30 @@ export interface Env {
 ```
 
 ```ts
-// log.ts — JSON 한 줄 로그. Workers Logs(observability)가 수집한다. 스펙 §11.
+// log.ts — 타입드 JSON 로그 핸들러. 이벤트명·필드 정의는 이 파일이 유일한 출처다 (스펙 §11).
+// 호출부는 logger.* 만 사용한다 — 임의 이벤트명 문자열·console 직접 호출 금지.
 type Level = 'info' | 'warn' | 'error';
-export function log(level: Level, event: string, fields: Record<string, unknown> = {}) {
+
+function write(level: Level, event: string, fields: Record<string, unknown>) {
   const line = JSON.stringify({ level, event, ...fields });
   if (level === 'error') console.error(line);
   else if (level === 'warn') console.warn(line);
   else console.log(line);
 }
+
+export const logger = {
+  roomCreated: (f: { roomCode: string; mode: string; personaId: string }) => write('info', 'room_created', f),
+  gameStarted: (f: { roomCode: string; nicks: string[] }) => write('info', 'game_started', f),
+  gameEnded: (f: { roomCode: string; rounds: number; winnerNick?: string }) => write('info', 'game_ended', f),
+  roundStarted: (f: { roomCode: string; roundNo: number; situation: string }) => write('info', 'round_started', f),
+  speechSubmitted: (f: { roomCode: string; roundNo: number; nick: string; text: string }) => write('info', 'speech_submitted', f),
+  verdictIssued: (f: { roomCode: string; roundNo: number; provider: string; adoptedNick: string | null; totals: Record<string, number>; comments: string[] }) => write('info', 'verdict_issued', f),
+  llmCall: (f: { kind: string; provider: string; ok: boolean; latencyMs: number; failedOver?: boolean; error?: string }) => write(f.ok ? 'info' : 'warn', 'llm_call', f),
+  quotaExceeded: (f: { provider: string }) => write('warn', 'quota_exceeded', f),
+  sseConnect: (f: { roomCode: string; playerId: string }) => write('info', 'sse_connect', f),
+  sseDisconnect: (f: { roomCode: string; playerId: string }) => write('info', 'sse_disconnect', f),
+  error: (f: { where: string; error: string; stack?: string }) => write('error', 'error', f),
+};
 ```
 
 room-do.ts / quota-do.ts 스텁 (Task 6·8에서 구현):
@@ -666,10 +710,10 @@ test('GET /api/health — 공급자 상태를 준다', async () => {
   expect(typeof body.providers.gemini).toBe('boolean');
 });
 
-test('GET /api/personas — 6종 요약, 상황 본문 없음', async () => {
+test('GET /api/personas — 2종 요약, 상황 본문 없음', async () => {
   const res = await SELF.fetch('http://x/api/personas');
   const list = await res.json() as Record<string, unknown>[];
-  expect(list.length).toBe(6);
+  expect(list.length).toBe(2);
   expect(list[0]).not.toHaveProperty('situations');
   expect(list[0]).not.toHaveProperty('personaPrompt');
 });
@@ -828,13 +872,27 @@ export function isChampion(favor: number, ranks: string[]): boolean {
 ### Task 6: ai/prompts.ts + ai/mock.ts + ai/verdict.ts 이식
 
 **Files:**
-- Create: `apps/worker/src/ai/prompts.ts`, `src/ai/mock.ts`, `src/ai/verdict.ts`
+- Create: `apps/worker/src/ai/prompts.ts`, `src/ai/schemas.ts`, `src/ai/mock.ts`, `src/ai/verdict.ts`
 - Test: `apps/worker/test/ai-pure.test.ts`
 
 **Interfaces:**
 - Consumes: `PROMPTS`, `STRINGS`, `fmt`, `getPersona`, `FullPersona` (@eotm/content), `computeAdoption` (Task 5)
 - Produces:
   - prompts.ts: `APPROACHES`, `DIFFICULTY`, `advisorBatchSystem(persona, advisors, difficulty)`, `advisorBatchUser(persona, situation)`, `advisorBatchSchema()`, `judgeSystem(persona, difficulty)`, `judgeUser(persona, situation, candidates)`, `judgeSchema(axes)`, `epilogueSystem(persona)`, `epilogueUser(persona, situation, adopted)`, `epilogueSchema()`
+  - schemas.ts — LLM **출력** zod 스키마 (JSON Schema와 쌍을 이루는 수신측 검증. 위반 = 페일오버):
+    ```ts
+    import { z } from 'zod';
+    export const advisorBatchOut = z.object({
+      speeches: z.array(z.object({ name: z.string(), text: z.string(), approach: z.string() })).min(1),
+    });
+    export const judgeOut = z.object({
+      perSpeaker: z.array(z.object({ key: z.string(), axisScores: z.record(z.number()), comment: z.string() })).min(1),
+      adoptedKey: z.string(),
+      adoptReason: z.string(),
+    });
+    export const epilogueOut = z.object({ story: z.string().min(1) });
+    ```
+    (worker package.json dependencies에 `"zod": "^3.23.0"` 추가)
   - mock.ts: `mockAdvisorTurnsBatch({persona, advisors, situation})`, `mockJudgeSpeeches({persona, situation, candidates})`, `mockEpilogue({persona, situation, adopted})`
   - verdict.ts: `trimSpeech(text, max?)`, `finalizeVerdict(raw, candidates, axes) -> Verdict`
   - `Candidate` 타입: `{ key: string; name: string; kind: 'ai'|'user'; order: number; text: string }`
@@ -1055,8 +1113,9 @@ Run: `npm test --workspace @eotm/worker -- chain` / Expected: FAIL
 - [ ] **Step 3: providers/nvidia.ts 구현**
 
 ```ts
-// NVIDIA NIM (OpenAI 호환 chat completions). 모델별 structured output 지원이 달라
-// 스키마는 프롬프트로 강제하고 관용 파싱한다. 스키마 위반은 체인이 다음 공급자로 넘긴다.
+// NVIDIA NIM (OpenAI 호환 chat completions). 요청은 nvext.guided_json으로 JSON Schema를
+// 강제하고(NIM 구조화 출력), 프롬프트에도 스키마를 명시해 이중 방어. 응답은 관용 파싱 후
+// 호출측 zod 검증 — 위반은 체인이 다음 공급자로 넘긴다.
 import { parseLenientJson } from '../parse';
 import type { Env } from '../../env';
 import type { LlmArgs, Provider } from '../chain';
@@ -1074,6 +1133,7 @@ async function callJson(env: Env, { system, user, schema, temperature = 0.9, tim
     ],
     temperature,
     max_tokens: 2048,
+    nvext: { guided_json: schema }, // NIM 구조화 출력 — 요청측 JSON Schema 강제
   };
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -1109,7 +1169,7 @@ export const nvidia: Provider = {
 
 ```ts
 // LLM 공급자 체인: gemini → nvidia. 429·타임아웃·스키마 위반 시 다음 공급자로 (스펙 §7).
-import { log } from '../log';
+import { logger } from '../log';
 import type { Env } from '../env';
 import { gemini } from './providers/gemini';
 import { nvidia } from './providers/nvidia';
@@ -1127,26 +1187,28 @@ export class ChainExhaustedError extends Error {
 const CHAIN: Provider[] = [gemini, nvidia];
 
 export interface ChainOpts {
+  kind?: string;                                      // 로그용 호출 종류 (advisors|judge|epilogue)
   quotaTake?: (provider: string) => Promise<boolean>; // false면 해당 공급자 스킵 (일일 쿼터)
-  validate?: (raw: unknown) => void;                  // 응답 형태 검증 — throw 시 페일오버
+  validate?: (raw: unknown) => void;                  // zod 출력 검증 — throw 시 페일오버
 }
 
 export async function callJsonChain(env: Env, args: LlmArgs, opts: ChainOpts = {}): Promise<{ raw: unknown; provider: 'gemini' | 'nvidia' }> {
   let failedOver = false;
+  const kind = opts.kind ?? 'unknown';
   for (const p of CHAIN) {
     if (!p.hasKey(env)) continue;
     if (opts.quotaTake && !(await opts.quotaTake(p.name))) {
-      log('warn', 'quota_exceeded', { provider: p.name });
+      logger.quotaExceeded({ provider: p.name });
       continue;
     }
     const t0 = Date.now();
     try {
       const raw = await p.callJson(env, args);
       opts.validate?.(raw);
-      log('info', 'llm_call', { provider: p.name, ok: true, latencyMs: Date.now() - t0, failedOver });
+      logger.llmCall({ kind, provider: p.name, ok: true, latencyMs: Date.now() - t0, failedOver });
       return { raw, provider: p.name };
     } catch (e) {
-      log('warn', 'llm_call', { provider: p.name, ok: false, latencyMs: Date.now() - t0, error: e instanceof Error ? e.message : String(e) });
+      logger.llmCall({ kind, provider: p.name, ok: false, latencyMs: Date.now() - t0, error: e instanceof Error ? e.message : String(e) });
       failedOver = true;
     }
   }
@@ -1266,7 +1328,7 @@ export class QuotaDO implements DurableObject {
 ```
 
 - [ ] **Step 3: orchestrate.ts 구현** — 원본 `server/sycophant/ai.js`의 `withFallback`·`advisorTurnsBatch`(재시도·approach 재배정 포함)·`judgeSpeeches`(익명 마스킹·복원 포함)·`makeEpilogue`를 그대로 옮기되:
-  - `callGeminiJson(...)` 호출부를 `callJsonChain(deps.env, {...}, { quotaTake: deps.quotaTake, validate })`로 교체
+  - `callGeminiJson(...)` 호출부를 `callJsonChain(deps.env, {...}, { kind, quotaTake: deps.quotaTake, validate })`로 교체. `validate`는 Task 6 schemas.ts의 zod 스키마: advisors → `(raw) => advisorBatchOut.parse(raw)`, judge → `judgeOut.parse`, epilogue → `epilogueOut.parse`
   - `hasKey()` 분기를 "체인에 키 있는 공급자가 하나도 없으면 mock" (`gemini.hasKey(env) || nvidia.hasKey(env)`)으로 교체
   - `source`: 성공 시 체인이 돌려준 `provider`, 체인 소진 폴백 시 `'mock(fallback)'`, 키 자체가 없으면 `'mock'`
   - `withFallback` 시그니처: `withFallback(deps, label, chainFn, mockFn)` — 원본의 try/catch 구조 유지, `console.warn` → `log('warn', ...)`
@@ -1340,7 +1402,7 @@ test('RoomState는 JSON 왕복이 된다', () => {
 
 Run: `npm test --workspace @eotm/worker -- state` / Expected: FAIL
 
-- [ ] **Step 2: 구현** — 원본 `server/rooms.js`의 sycophant 경로(createRoom 33~53행, makePlayer, joinRoom, publicRoom 129~149행)를 RoomState 형태로 이식. debate 분기 제거. `rankForScore` 의존 제거(간신배는 `persona.ranks[0]`만 사용). `_timer`·`socketId` 제거, `tokens`(playerId→token 맵)·`feed`·`seq`·`lastActivity` 추가. config 정규화 값은 원본 그대로: `speakTime: mode==='single' ? 0 : ([60,120,180].includes(N) ? N : 60)`, `difficulty: ['easy','normal','hard'].includes(d) ? d : 'normal'`, `maxPlayers: single 1 / multi clamp(2..6, 기본 4)`.
+- [ ] **Step 2: 구현** — 원본 `server/rooms.js`의 sycophant 경로(createRoom 33~53행, makePlayer, joinRoom, publicRoom 129~149행)를 RoomState 형태로 이식. 에러 문구('존재하지 않는 인물입니다.' 등)는 하드코딩하지 않고 전부 `STRINGS.errors.*` 키를 사용한다. debate 분기 제거. `rankForScore` 의존 제거(간신배는 `persona.ranks[0]`만 사용). `_timer`·`socketId` 제거, `tokens`(playerId→token 맵)·`feed`·`seq`·`lastActivity` 추가. config 정규화 값은 원본 그대로: `speakTime: mode==='single' ? 0 : ([60,120,180].includes(N) ? N : 60)`, `difficulty: ['easy','normal','hard'].includes(d) ? d : 'normal'`, `maxPlayers: single 1 / multi clamp(2..6, 기본 4)`.
 
 - [ ] **Step 3: 테스트 통과 확인** — Run: `npm test --workspace @eotm/worker -- state` → PASS
 
@@ -1389,7 +1451,7 @@ Run: `npm test --workspace @eotm/worker -- state` / Expected: FAIL
 | `room._pendingChampion` | `room.pendingChampion` (직렬화 가능 필드) |
 | `line()` / STRINGS / fmt | `@eotm/content`에서 import — 코드 동일 |
 
-각 액션 처리 끝에 `bus.persist()` + `room.lastActivity = Date.now()` 갱신. `speechGapMs`·`REVEAL_DELAY_SEC`·`JUDGING_PAUSE_MS` 상수 원본 값 유지 (2.5초 / `min(7000, 1100+len*40)` / 900ms).
+각 액션 처리 끝에 `bus.persist()` + `room.lastActivity = Date.now()` 갱신. `speechGapMs`·`REVEAL_DELAY_SEC`·`JUDGING_PAUSE_MS` 상수 원본 값 유지 (2.5초 / `min(7000, 1100+len*40)` / 900ms). 엔진의 에러 반환 문구('방장만 시작할 수 있습니다.' 등)와 시스템 대사는 전부 `STRINGS.errors.*` / `line()`(STRINGS.session·round) 경유 — 코드 내 리터럴 금지. 로그는 `logger.gameStarted/roundStarted/verdictIssued/gameEnded` 사용.
 
 - [ ] **Step 1: 실패하는 테스트 작성** — `test/engine.test.ts`. FakeBus로 이벤트를 배열에 수집, `delay`는 즉시 실행(`fn()`), `schedule`은 태그 기록. AI는 키 없는 env → mock 경로(결정적).
 
@@ -1504,9 +1566,10 @@ export class RoomDO implements DurableObject {
 - **EngineBus 구현**: `emit(ev)` → `seq = ++room.seq` 부여, `kind==='feed'`면 `room.feed.push(item)`(최근 300개 슬라이스), `kind==='turn'/'timer'/'ended'`면 lastX 캐시 갱신, 전 sink에 `data: JSON.stringify(event)\n\n` 인코딩 push. `persist()` → `ctx.storage.put('room', this.room)`. `schedule(at, tag)` → `ctx.storage.put('alarmTag', tag)` + `ctx.storage.setAlarm(at)`. `cancelSchedule()` → `deleteAlarm` + tag 삭제. `delay(ms, fn)` → `setTimeout`.
 - **SSE**: `new ReadableStream({ start(c){ 스냅샷 전송; sinks.add(c); }, cancel(c){ sinks.delete(c); } })`. 헤더 `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `X-Accel-Buffering: no`. 스냅샷: `{kind:'snapshot', seq: room.seq, room: publicRoom(room), feed: room.feed, speakTurn: lastTurn, timer: lastTimer, ended: lastEnded}`. heartbeat: 20초 interval로 `: hb\n\n` 주석 push (스트림별 interval, cancel 시 clear). 접속 시 `setConnected(playerId, true)` + `log('info','sse_connect',...)`, cancel 시 `setConnected(false)` + disconnect 로그.
 - **alarm()**: `alarmTag` 읽어 `cleanup`이면 `ctx.storage.deleteAll()`(방 소멸), `turnTimeout:*`이면 `engine.onAlarm(tag)`. 모든 액션 후 TTL 재예약: 활성 타이머가 없을 때 `setAlarm(lastActivity + ROOM_TTL_MS)` + tag `cleanup` — 단, 턴 타임아웃 알람이 활성일 땐 건드리지 않는다 (알람은 DO당 1개 — 턴 알람 처리 직후 TTL 알람을 다시 건다).
-- **/create**: `storage.get('room')` 존재 시 409. `createRoomState` → 저장 → 엔진 생성 → `mode==='single'`이면 즉시 `engine.start(playerId)` (원본 index.js 73행 동작). `log('info','room_created',{mode,personaId})`.
-- **인증**: `/speak`·`/start`·`/next`·`/debug`·`/leave`는 `authPlayer(room, playerId, token)` 실패 시 401.
-- **speech 로그**: handleSpeak 성공 경로에서 `log('info','speech_submitted',{roundNo, nick, text})` (스펙 §11 게임플레이 로그).
+- **/create**: `storage.get('room')` 존재 시 409. `createRoomState` → 저장 → 엔진 생성 → `mode==='single'`이면 즉시 `engine.start(playerId)` (원본 index.js 73행 동작). `logger.roomCreated(...)`.
+- **인증**: `/speak`·`/start`·`/next`·`/debug`·`/leave`는 `authPlayer(room, playerId, token)` 실패 시 401 + `STRINGS.errors.badAuth`.
+- **SSE 접속/해제**: `logger.sseConnect/sseDisconnect`.
+- **speech 로그**: handleSpeak 성공 경로에서 `logger.speechSubmitted({roomCode, roundNo, nick, text})` (스펙 §11 게임플레이 로그).
 
 - [ ] **Step 1: 실패하는 테스트 작성** — `test/room-do.test.ts`
 
@@ -1613,7 +1676,7 @@ app.post('/api/rooms', async (c) => {
     method: 'POST',
     body: JSON.stringify({ key: `room-create:${ip}`, limit: 5, ttlMs: 60_000 }),
   }).then((r) => r.json() as Promise<{ ok: boolean }>);
-  if (!rl.ok) return c.json({ error: '방 생성이 너무 잦습니다. 잠시 후 다시 시도해 주세요.' }, 429);
+  if (!rl.ok) return c.json({ error: STRINGS.errors.rateLimited }, 429); // 문구는 content에서
 
   const body = await c.req.json();
   // 코드 충돌 시 재시도 (DO /create가 409를 돌려줌)
@@ -1623,7 +1686,7 @@ app.post('/api/rooms', async (c) => {
     const res = await room.fetch('http://do/create', { method: 'POST', body: JSON.stringify({ ...body, code }) });
     if (res.status !== 409) return new Response(res.body, res);
   }
-  return c.json({ error: '방 코드 할당 실패. 다시 시도해 주세요.' }, 503);
+  return c.json({ error: STRINGS.errors.codeAllocFail }, 503);
 });
 
 // /api/rooms/:code/* — RoomDO로 위임 (GET events 포함)

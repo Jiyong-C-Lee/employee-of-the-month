@@ -101,7 +101,7 @@ employee-of-the-month/
 ### 4.1 소스/데이터 경계 규칙
 
 - **팩에 들어가는 것**: 페르소나 메타(이름·이모지·소개·listenerBrief·judgeAddress), 채점 축, 계급 사다리, 조언자(이름·성향·성향 프롬프트), 인물 프롬프트, 상황 목록. — 새 페르소나 추가 시 코드 수정 없이 `packs/` 폴더 하나 추가가 전부.
-- **전역 게임데이터**(`packages/content/global/`): 프롬프트 템플릿(조언자 배치/판정/에필로그 시스템 프롬프트, 난이도 문구, 해법 축)과 시스템 대사(라운드 안내·폴백 문구·mock 대사) — 원본의 `sycophant-prompts.json`·`sycophant-strings.json`을 승계. 문구 수정은 데이터 수정.
+- **전역 게임데이터**(`packages/content/global/`): 프롬프트 템플릿(조언자 배치/판정/에필로그 시스템 프롬프트, 난이도 문구, 해법 축)과 시스템 대사(라운드 안내·폴백 문구·mock 대사·**에러/안내 문구 `errors`**) — 원본의 `sycophant-prompts.json`·`sycophant-strings.json`을 승계. 문구 수정은 데이터 수정. 소스코드에 대사·프롬프트·에러 문구 하드코딩 금지.
 - **코드에 남는 것**: 프롬프트 조립 로직(`fmt` 토큰 치환)·responseSchema, 게임 규칙(순번·채택·승진), mock 생성 로직.
 - 콘텐츠는 빌드 시 번들에 포함(Workers는 파일시스템이 없으므로 import로 정적 포함). loader가 모듈 로드 시점에 zod 검증 — 스키마 위반 팩이 있으면 배포 전에 실패한다.
 
@@ -140,11 +140,11 @@ employee-of-the-month/
 - 발언 큐: AI 조언자 블록 먼저, 사람 블록 나중(앞 의견을 보고 반박할 수 있는 유리한 자리). 블록 내에서는 총애 높은 순(1라운드는 정의순/입장순). 채택: 축 합산 최고점, 동점은 늦게 말한 쪽. 승진: 채택 수 = 계급 인덱스, 최고 계급(채택 4회) 도달 시 우승. 상황 소진 시 종료(멀티=총애 최다 우승, 싱글=실패 엔딩).
 - AI 3종 호출(조언자 배치 1콜·판정·에필로그)과 `finalizeVerdict` 검증 규칙(0~10 클램프, 서버 채택 재계산, key/이름 관용 매칭, 불일치 시 사유 대체), 판정 시 익명 라벨 마스킹(이름값 편향 방지)은 기존 그대로.
 - 발언 160자 제한(문장 끝에서 자르는 `trimSpeech`), 발언 시간 싱글 무제한 / 멀티 60·120·180초(기본 60), 난이도(조언자 완성도) easy/normal/hard 유지.
-- 페르소나 6종(caocao·liubei·sunquan·yuanshao·dongzhuo·kimceo) 이식.
+- 페르소나는 v1에서 조조(caocao)·유비(liubei) 2종만 이식. 나머지 4종(sunquan·yuanshao·dongzhuo·kimceo)은 추후 팩 폴더 추가로 확장.
 
 ## 7. 운영·안전장치
 
-- **LLM 공급자 체인**: 1차 Gemini flash-lite → 2차 NVIDIA NIM(OpenAI 호환 chat completions, RPM 40) → 최종 mock. 429·타임아웃·응답 스키마 위반 시 다음 공급자로 페일오버한다 — 사전 RPM 관리 없이 429 응답 기반으로 단순하게. 두 공급자는 `callJson({ system, user, schema, temperature, timeoutMs })` 공통 인터페이스(chain.ts)로 묶고, NIM은 모델별 structured output 지원이 달라 관용 JSON 파싱 + zod 검증 실패 시 다음 공급자로 취급한다. 모델명은 vars로 설정(`GEMINI_MODEL`, `NVIDIA_MODEL`).
+- **LLM 공급자 체인**: 1차 Gemini flash-lite → 2차 NVIDIA NIM(OpenAI 호환 chat completions, RPM 40) → 최종 mock. 429·타임아웃·응답 스키마 위반 시 다음 공급자로 페일오버한다 — 사전 RPM 관리 없이 429 응답 기반으로 단순하게. 두 공급자는 `callJson({ system, user, schema, temperature, timeoutMs })` 공통 인터페이스(chain.ts)로 묶는다. **입출력 계약**: 요청은 JSON Schema를 명시적으로 싣고(Gemini `responseSchema`, NIM `nvext.guided_json` + 프롬프트 스키마 병기), 응답은 zod 출력 스키마로 검증 — 위반은 페일오버 사유. 모델명은 vars로 설정(`GEMINI_MODEL`, `NVIDIA_MODEL`).
 - **LLM 비용 상한**: QuotaDO(싱글턴)에 공급자별 일일 호출 카운터 — 상한 초과한 공급자는 체인에서 스킵. 전부 소진돼도 mock으로 게임은 계속 동작. 방당 호출 수도 구조적으로 유한(라운드당 3회 × 최대 5라운드).
 - **남용 방지**: 방 생성 IP당 rate limit(Worker 레벨), 발언 길이·순번 서버 검증, join 정원 검증.
 - **방 수명**: 마지막 활동 후 30분 경과 시 alarm으로 storage 삭제(자체 청소). DO는 참조가 없으면 자연 소멸.
@@ -192,7 +192,7 @@ employee-of-the-month/
 프로토타입 규모에 맞게 **Workers 내장 기능만 사용**하고, 외부 로깅 서비스·라이브러리는 두지 않는다.
 
 - **수집**: wrangler.jsonc에 `observability.enabled = true` — `console.log` 출력이 Workers Logs로 자동 수집되어 대시보드에서 검색·필터 가능(무료 플랜 일 20만 이벤트, 3일 보관). 실시간 확인은 `wrangler tail`.
-- **형식**: JSON 한 줄 로그. 공통 필드 `{ event, roomCode, level }` + 이벤트별 필드. `console.log(JSON.stringify(...))` 래퍼 함수 하나(`log.ts`)로 통일한다.
+- **형식**: JSON 한 줄 로그. 공통 필드 `{ event, roomCode, level }` + 이벤트별 필드. `log.ts`의 **타입드 이벤트 핸들러**(`logger.roomCreated(...)` 등 이벤트별 메서드)로만 남긴다 — 이벤트명·필드 정의는 이 파일이 유일한 출처, 호출부의 임의 문자열·console 직접 호출 금지.
 - **로그 이벤트 목록** (info):
   - `room_created` `{ mode, personaId }` / `game_started` `{ nicks }` / `game_ended` `{ rounds, winnerNick? }`
   - `round_started` `{ roundNo, situation }` / `speech_submitted` `{ roundNo, nick, text }`
