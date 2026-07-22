@@ -275,7 +275,7 @@ export class Engine {
   private async beginJudging(): Promise<void> {
     if (this.room.phase === 'JUDGING' || this.room.phase === 'RESULT') return;
     this.setPhase('JUDGING');
-    this.sysMsg(this.line('round.judging'));
+    // 심판 자막(round.judging)은 분노 게이지 스트립이 '검토 중…'을 이미 렌더하므로 중복 — 발행하지 않는다.
 
     const room = this.room;
     // 채택 후보: 유저 발언 + (aiCompete면 조언자 발언). order = 발언 순서.
