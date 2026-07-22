@@ -16,7 +16,7 @@
 - 모든 유저 표시 문구·코드 주석은 한국어.
 - 신규 런타임 의존성은 `hono`, `zod`만. (dev: wrangler, vite, react, vitest 계열 허용)
 - LLM 호출은 반드시 mock 폴백을 가진다 — 키가 없거나 전부 실패해도 게임이 끝까지 돈다.
-- 게임 규칙 수치는 원본 그대로: `MAX_SPEECH_CHARS = 160`, 발언 시간 싱글 0(무제한)/멀티 60·120·180(기본 60), 난이도 easy/normal/hard, 계급 5단계(채택 4회 우승).
+- 게임 규칙 수치는 원본 그대로: `MAX_SPEECH_CHARS = 160`, 발언 시간 싱글 0(무제한)/멀티 60·120·180(기본 60), 난이도 easy/normal/hard. 계급 사다리는 페르소나 데이터가 정의한다(현행 데이터 7단계 '사원'→'사장', 최상위 도달 = 우승) — 코드는 계급 수를 하드코딩하지 않는다.
 - 페르소나는 v1에서 **조조(caocao)·유비(liubei) 2종만** 이식한다. 나머지는 추후 팩 폴더 추가로 확장.
 - **LLM 입출력 계약**: 모든 LLM 호출은 요청에 JSON Schema(Gemini responseSchema / NVIDIA guided_json)를 싣고, 응답은 zod 출력 스키마로 검증한다. 검증 실패 = 페일오버 사유.
 - **하드코딩 금지**: 대사·프롬프트·에러/안내 문구를 소스코드에 넣지 않는다 — 전부 `@eotm/content`(팩 또는 `global/strings.json`의 `errors` 포함)에서 온다.
@@ -1368,7 +1368,7 @@ import { createRoomState, addPlayer, authPlayer, publicRoom } from '../src/game/
 test('싱글 방 생성: speakTime 0, aiCompete 강제, 정원 1', () => {
   const { room, playerId, token } = createRoomState('AB12', '호스트', { mode: 'single', personaId: 'caocao' });
   expect(room.config).toMatchObject({ mode: 'single', speakTime: 0, aiCompete: true, maxPlayers: 1 });
-  expect(room.players[0]!.rank).toBe('문객'); // caocao 1계급
+  expect(room.players[0]!.rank).toBe('사원'); // caocao 데이터의 1계급 (전 페르소나 공통 회사 직급)
   expect(authPlayer(room, playerId, token)).toBe(true);
   expect(authPlayer(room, playerId, 'wrong')).toBe(false);
 });
