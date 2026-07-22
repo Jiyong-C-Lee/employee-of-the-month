@@ -1,3 +1,5 @@
 # apps/worker/.dev.vars 로 복사한 뒤 실제 키를 채울 것 (.env 파일에 있는 값)
 GOOGLE_AI_STUDIO_API_KEY=your-gemini-key
 NVIDIA_API_KEY=your-nvidia-key
+# 디버그 액션(/debug: adoptMe 등)을 로컬에서 켜려면 아래 주석을 해제. 프로덕션(wrangler.jsonc)에는 넣지 않는다(I4).
+# DEBUG_ACTIONS=true

@@ -1,7 +1,7 @@
 // 방 상태 모델 — 원본 server/rooms.js의 sycophant 경로 이식(debate 분기 제거, DO storage 저장용 순수 상태).
 import { getPersona, STRINGS } from '@eotm/content';
 import type {
-  FeedItem, HallEntry, PublicPlayer, PublicRoom, QueueEntry, RoomConfig, Situation, Speech, Verdict,
+  FeedItem, HallEntry, PublicPlayer, PublicRoom, QueueEntry, RoomConfig, Situation, Speech, Standing, Verdict,
 } from '@eotm/shared';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 문자 제외
@@ -46,6 +46,8 @@ export interface RoomState {
   tokens: Record<string, string>;
   pendingChampion: string | null;
   lastActivity: number;
+  // 종료 사유 — 재기동 후 스냅샷의 ended 페이로드를 room 상태에서 재구성하기 위해 저장한다(직렬화 가능).
+  endedReason: string | null;
 }
 
 function makePlayer(nick: string, joinOrder: number, rank: string): PlayerState {
@@ -100,6 +102,7 @@ export function createRoomState(
     tokens: { [host.id]: token },
     pendingChampion: null,
     lastActivity: now,
+    endedReason: null,
   };
 
   return { room, playerId: host.id, token };
@@ -122,7 +125,16 @@ export function addPlayer(room: RoomState, nick: string): { playerId: string; to
 }
 
 export function authPlayer(room: RoomState, playerId: string, token: string): boolean {
+  // 비문자열·빈 값은 거부 — tokens에 빈 키가 우연히 매칭되는 우회를 막는다(M1).
+  if (typeof playerId !== 'string' || typeof token !== 'string' || !playerId || !token) return false;
   return room.tokens[playerId] === token;
+}
+
+// 총애 내림차순(동률은 입장순) 순위표. 엔진·재기동 스냅샷(ended 재구성)이 공유한다.
+export function computeStandings(room: RoomState): Standing[] {
+  return [...room.players]
+    .sort((a, b) => b.favor - a.favor || a.joinOrder - b.joinOrder)
+    .map((p) => ({ id: p.id, nick: p.nick, rank: p.rank, favor: p.favor, connected: p.connected }));
 }
 
 // 화면 전송용 방 스냅샷 (tokens 등 내부 필드 제외).

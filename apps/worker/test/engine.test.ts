@@ -79,3 +79,47 @@ test('멀티: 순번 아닌 발언 거부, 타임아웃 알람 예약·발동', 
     findFeed(events, 'system').some((e) => (e as { item: { tag?: string } }).item.tag === 'timeout'),
   ).toBe(true);
 });
+
+test('재기동 재개: 사람 턴에서 turn 이벤트 재발행 + 턴 알람 재무장 (C1)', async () => {
+  const { room, playerId: hostId } = createRoomState('T3', '호스트', {
+    mode: 'multi', personaId: 'caocao', maxPlayers: 2, speakTime: 60,
+  });
+  addPlayer(room, '게스트');
+  const b1 = fakeBus();
+  const eng1 = new Engine(room, b1.bus, deps);
+  expect(eng1.start(hostId)).toEqual({ ok: true });
+  await waitUntil(
+    () => room.phase === 'PLAYER_TURNS' && room.round!.queue[room.round!.turnIdx]?.kind === 'user',
+  );
+
+  // 재기동 시뮬레이션: 같은 room 상태로 새 엔진을 만들고 resumeAfterRestore.
+  const b2 = fakeBus();
+  const eng2 = new Engine(room, b2.bus, deps);
+  eng2.resumeAfterRestore();
+
+  // 사람 턴이 turn 이벤트로 재발행되고(입력창 복구), 멀티라 턴 마감 알람도 재무장된다.
+  const turnEv = b2.events.find((e) => e.kind === 'turn');
+  expect(turnEv).toBeTruthy();
+  expect((turnEv as { turn: { current: string } }).turn.current).toBe(room.round!.queue[room.round!.turnIdx]!.key);
+  expect(b2.scheduled.some((t) => t.startsWith('turnTimeout:'))).toBe(true);
+});
+
+test('재기동 재개: 발언 종료 후 심판 대기 창에서 beginJudging 재킥 (I5)', async () => {
+  const { room, playerId } = createRoomState('T4', '나', { mode: 'single', personaId: 'caocao' });
+  const b1 = fakeBus();
+  const eng1 = new Engine(room, b1.bus, deps);
+  expect(eng1.start(playerId)).toEqual({ ok: true });
+  await waitUntil(
+    () => room.phase === 'PLAYER_TURNS' && room.round!.queue[room.round!.turnIdx]?.kind === 'user',
+  );
+
+  // 모든 순번이 끝난 직후(turnIdx==queue.length)이지만 phase는 아직 PLAYER_TURNS인 창을 만든다.
+  room.round!.turnIdx = room.round!.queue.length;
+
+  // 재기동: 새 엔진으로 재개 → 심판을 재킥해 정지하지 않고 RESULT로 진행해야 한다.
+  const b2 = fakeBus();
+  const eng2 = new Engine(room, b2.bus, deps);
+  eng2.resumeAfterRestore();
+  await waitUntil(() => room.phase === 'RESULT');
+  expect(room.round!.verdict).not.toBeNull();
+});

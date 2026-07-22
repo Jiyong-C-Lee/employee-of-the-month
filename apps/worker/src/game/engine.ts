@@ -5,7 +5,7 @@ import { getPersona, STRINGS, fmt, type FullPersona } from '@eotm/content';
 import type {
   AdoptedInfo, FeedItem, ServerEvent, Situation, Standing, Verdict,
 } from '@eotm/shared';
-import { publicRoom, type RoomState } from './state';
+import { computeStandings, publicRoom, type RoomState } from './state';
 import { buildSpeakQueue, rankIdxFor, isChampion, MAX_SPEECH_CHARS } from './logic';
 import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, type Deps } from '../ai/orchestrate';
 import { logger } from '../log';
@@ -368,9 +368,7 @@ export class Engine {
   }
 
   private standings(): Standing[] {
-    return [...this.room.players]
-      .sort((a, b) => b.favor - a.favor || a.joinOrder - b.joinOrder)
-      .map((p) => ({ id: p.id, nick: p.nick, rank: p.rank, favor: p.favor, connected: p.connected }));
+    return computeStandings(this.room);
   }
 
   nextRound(byPlayerId: string): { ok: true } | { error: string } {
@@ -443,6 +441,7 @@ export class Engine {
     this.clearTimer();
     room.state = 'ENDED';
     room.phase = 'END';
+    room.endedReason = reason; // 재기동 후 스냅샷 ended 재구성용
     const standings = this.standings();
     logger.gameEnded({ roomCode: room.code, rounds: room.roundNo, winnerNick: standings[0]?.nick });
     // hall = 라운드별 채택자 (명예의 전당 연출용)
@@ -468,8 +467,13 @@ export class Engine {
     if (room.phase === 'SITUATION') {
       this.beginSpeeches();
     } else if (room.phase === 'PLAYER_TURNS') {
-      const entry = room.round.queue[room.round.turnIdx];
-      if (entry?.kind === 'ai') void this.nextTurn(); // 사람 턴은 입력·alarm 대기 — 재킥 불필요
+      if (room.round.turnIdx >= room.round.queue.length) {
+        // 발언 종료 후 심판 대기 창에서 재기동 — beginJudging 재킥으로 정지 방지(I5).
+        void this.beginJudging();
+      } else {
+        // AI·사람 턴 모두 nextTurn으로 재발행 — turn 이벤트 재발행과 (멀티)turnTimeout·(싱글)TTL 알람을 되살린다(C1).
+        void this.nextTurn();
+      }
     } else if (room.phase === 'JUDGING') {
       void this.beginJudging();
     }

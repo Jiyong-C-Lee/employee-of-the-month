@@ -8,4 +8,6 @@ export interface Env {
   NVIDIA_MODEL: string;
   LLM_DAILY_LIMIT_GEMINI: string;
   LLM_DAILY_LIMIT_NVIDIA: string;
+  // 'true'일 때만 디버그 액션(/debug) 허용. 프로덕션 기본 미설정=비활성(I4).
+  DEBUG_ACTIONS?: string;
 }

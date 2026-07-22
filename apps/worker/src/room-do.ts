@@ -1,7 +1,7 @@
 // RoomDO — 방 하나의 권위 인스턴스. SSE 브로드캐스트·storage 영속·alarm 배선을 맡고,
 // 게임 규칙은 Engine(Task 10)에 위임한다. Worker(index.ts)가 HTTP로 이 DO에 위임 호출한다.
 import { Engine, type EngineBus, type EngineEvent, type AiDeps } from './game/engine';
-import { createRoomState, addPlayer, authPlayer, publicRoom, type RoomState } from './game/state';
+import { createRoomState, addPlayer, authPlayer, computeStandings, publicRoom, type RoomState } from './game/state';
 import { ROOM_TTL_MS, type ServerEvent, type SpeakTurn, type TimerInfo, type EndedPayload } from '@eotm/shared';
 import { STRINGS } from '@eotm/content';
 import { logger } from './log';
@@ -27,10 +27,10 @@ export class RoomDO implements DurableObject {
   room: RoomState | null = null;
   engine: Engine | null = null;
   sinks = new Set<ReadableStreamDefaultController<Uint8Array>>();
-  // 스냅샷용 최신값 캐시 — RoomState에 담지 않는 파생 뷰이므로 emit 시 갱신한다.
-  lastTurn: SpeakTurn | null = null;
-  lastTimer: TimerInfo | null = null;
-  lastEnded: EndedPayload | null = null;
+  // sink별 heartbeat 인터벌 — sink 제거 시 함께 정리한다(M2).
+  heartbeats = new Map<ReadableStreamDefaultController<Uint8Array>, ReturnType<typeof setInterval>>();
+  // DO 알람은 1개뿐 — schedule/cancel/TTL 재무장이 마이크로태스크 경합으로 뒤섞이지 않게 직렬화한다(I1).
+  private alarmChain: Promise<unknown> = Promise.resolve();
 
   constructor(readonly ctx: DurableObjectState, readonly env: Env) {
     ctx.blockConcurrencyWhile(async () => {
@@ -67,25 +67,38 @@ export class RoomDO implements DurableObject {
     };
   }
 
+  // 알람 storage 조작을 호출 순서대로 직렬 실행한다 — clear→start 마이크로태스크 경합 방지(I1).
+  private runAlarmOp<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.alarmChain.then(fn, fn);
+    this.alarmChain = next.catch(() => {});
+    return next;
+  }
+
+  // 턴 알람을 걷어내고 TTL(cleanup) 알람으로 되돌린다 — DO 알람은 1개뿐이므로 항상 하나는 무장 상태로 유지(I2).
+  private async setCleanupAlarm(): Promise<void> {
+    if (!this.room) return;
+    await this.ctx.storage.put('alarmTag', 'cleanup');
+    await this.ctx.storage.setAlarm(this.room.lastActivity + ROOM_TTL_MS);
+  }
+
   // 엔진이 아는 유일한 전송·영속·스케줄 계층.
   private makeBus(): EngineBus {
     return {
       emit: (ev: EngineEvent) => this.emit(ev),
       persist: () => this.ctx.storage.put('room', this.room),
-      schedule: async (at: number, tag: string) => {
+      schedule: (at: number, tag: string) => this.runAlarmOp(async () => {
         // 턴 마감 알람 — DO 알람은 1개뿐이라 tag로 종류를 구분한다.
         await this.ctx.storage.put('alarmTag', tag);
         await this.ctx.storage.setAlarm(at);
-      },
-      cancelSchedule: async () => {
-        await this.ctx.storage.deleteAlarm();
-        await this.ctx.storage.delete('alarmTag');
-      },
+      }),
+      // 턴 알람 취소 시 알람을 비우지 않고 TTL로 되돌린다 — 싱글 무제한 턴에서 방치 방 영구 잔존 방지(I2).
+      cancelSchedule: () => this.runAlarmOp(() => this.setCleanupAlarm()),
       delay: (ms: number, fn: () => void) => { setTimeout(fn, ms); },
     };
   }
 
-  // seq 부여 → 피드 영속·최신값 캐시 갱신 → 전 sink 브로드캐스트.
+  // seq 부여 → 피드 영속 → 전 sink 브로드캐스트. 파생 뷰(turn/timer/ended)는 캐시하지 않고
+  // 스냅샷 시점에 room 상태에서 재구성한다(C1 — 재기동 후 캐시 유실로 인한 정지 방지).
   private emit(ev: EngineEvent): void {
     const room = this.room;
     if (!room) return;
@@ -93,12 +106,6 @@ export class RoomDO implements DurableObject {
     if (ev.kind === 'feed') {
       room.feed.push(ev.item);
       if (room.feed.length > FEED_CAP) room.feed = room.feed.slice(-FEED_CAP);
-    } else if (ev.kind === 'turn') {
-      this.lastTurn = ev.turn;
-    } else if (ev.kind === 'timer') {
-      this.lastTimer = ev.timer;
-    } else if (ev.kind === 'ended') {
-      this.lastEnded = ev.payload;
     }
     this.broadcast(event);
   }
@@ -109,8 +116,18 @@ export class RoomDO implements DurableObject {
       try {
         c.enqueue(data);
       } catch {
-        this.sinks.delete(c); // 닫힌 스트림 정리
+        this.removeSink(c); // 닫힌 스트림 정리 — heartbeat 인터벌도 함께(M2)
       }
+    }
+  }
+
+  // sink 제거 시 해당 heartbeat 인터벌도 정리한다(M2 — 닫힌 스트림의 유령 인터벌 누수 방지).
+  private removeSink(c: ReadableStreamDefaultController<Uint8Array>): void {
+    this.sinks.delete(c);
+    const hb = this.heartbeats.get(c);
+    if (hb) {
+      clearInterval(hb);
+      this.heartbeats.delete(c);
     }
   }
 
@@ -136,7 +153,10 @@ export class RoomDO implements DurableObject {
     switch (path) {
       case '/start': return this.handleEngineAction(() => this.engine!.start(playerId));
       case '/next': return this.handleEngineAction(() => this.engine!.nextRound(playerId));
-      case '/debug': return this.handleEngineAction(() => this.engine!.debug(playerId, String(body.action ?? '')));
+      case '/debug':
+        // 디버그 액션은 DEBUG_ACTIONS='true'일 때만 — 프로덕션에서 adoptMe 등 부정승리 차단(I4).
+        if (this.env.DEBUG_ACTIONS !== 'true') return jsonRes({ error: STRINGS.errors.noRoom }, 404);
+        return this.handleEngineAction(() => this.engine!.debug(playerId, String(body.action ?? '')));
       case '/speak': return this.handleSpeak(playerId, String(body.text ?? ''));
       case '/leave': return this.handleLeave(playerId);
       default: return jsonRes({ error: STRINGS.errors.noRoom }, 404);
@@ -191,13 +211,14 @@ export class RoomDO implements DurableObject {
 
   // ---- SSE ----
 
-  private handleEvents(url: URL): Response {
+  private async handleEvents(url: URL): Promise<Response> {
     const playerId = url.searchParams.get('playerId') ?? '';
     const token = url.searchParams.get('token') ?? '';
     if (!this.room) return jsonRes({ error: STRINGS.errors.noRoom }, 404);
     if (!authPlayer(this.room, playerId, token)) return jsonRes({ error: STRINGS.errors.badAuth }, 401);
 
-    let hb: ReturnType<typeof setInterval> | undefined;
+    // 파생 뷰(turn/timer/ended)를 storage·room 상태에서 재구성 — 재기동 후 캐시 유실로 인한 정지 방지(C1).
+    const derived = await this.derivedSnapshot();
     const stream = new ReadableStream<Uint8Array>({
       start: (c) => {
         // 접속 즉시 현재 상태 전체를 스냅샷으로 전달 (신규 접속·재접속 동일).
@@ -206,21 +227,21 @@ export class RoomDO implements DurableObject {
           seq: this.room!.seq,
           room: publicRoom(this.room!),
           feed: this.room!.feed,
-          speakTurn: this.lastTurn,
-          timer: this.lastTimer,
-          ended: this.lastEnded,
+          speakTurn: derived.speakTurn,
+          timer: derived.timer,
+          ended: derived.ended,
         };
         c.enqueue(frame(snapshot));
         this.sinks.add(c);
-        hb = setInterval(() => {
+        const hb = setInterval(() => {
           try { c.enqueue(enc.encode(': hb\n\n')); } catch { /* 닫힘 — cancel이 정리 */ }
         }, HEARTBEAT_MS);
+        this.heartbeats.set(c, hb);
         this.engine?.setConnected(playerId, true);
         logger.sseConnect({ roomCode: this.room!.code, playerId });
       },
       cancel: (c) => {
-        this.sinks.delete(c);
-        if (hb) clearInterval(hb);
+        this.removeSink(c);
         this.engine?.setConnected(playerId, false);
         if (this.room) logger.sseDisconnect({ roomCode: this.room.code, playerId });
       },
@@ -236,11 +257,40 @@ export class RoomDO implements DurableObject {
     });
   }
 
+  // 스냅샷의 파생 뷰를 room 상태·storage 알람에서 재구성한다(C1).
+  // - 사람 턴이면 speakTurn 재구성(입력창 복구). 멀티 turnTimeout 알람이 있으면 timer도 함께(마감시각은 storage에서).
+  // - 종료 상태면 ended 페이로드를 room에서 재구성(종료 화면 복구).
+  private async derivedSnapshot(): Promise<{ speakTurn: SpeakTurn | null; timer: TimerInfo | null; ended: EndedPayload | null }> {
+    const room = this.room!;
+    let speakTurn: SpeakTurn | null = null;
+    let timer: TimerInfo | null = null;
+    let ended: EndedPayload | null = null;
+
+    if (room.state === 'PLAYING' && room.phase === 'PLAYER_TURNS' && room.round) {
+      const entry = room.round.queue[room.round.turnIdx];
+      if (entry?.kind === 'user') {
+        const p = room.players.find((x) => x.id === entry.key);
+        speakTurn = { current: entry.key, nick: p?.nick ?? entry.name, speakTime: room.config.speakTime };
+        const tag = await this.ctx.storage.get<string>('alarmTag');
+        if (tag?.startsWith('turnTimeout:')) {
+          const at = await this.ctx.storage.getAlarm();
+          if (at) timer = { phase: 'PLAYER_TURNS', deadline: at, total: room.config.speakTime };
+        }
+      }
+    } else if (room.state === 'ENDED') {
+      ended = { reason: room.endedReason ?? '', standings: computeStandings(room), hall: room.hall };
+    }
+    return { speakTurn, timer, ended };
+  }
+
   // ---- alarm ----
 
   async alarm(): Promise<void> {
-    const tag = await this.ctx.storage.get<string>('alarmTag');
-    await this.ctx.storage.delete('alarmTag');
+    const tag = await this.runAlarmOp(async () => {
+      const t = await this.ctx.storage.get<string>('alarmTag');
+      await this.ctx.storage.delete('alarmTag');
+      return t;
+    });
     if (tag === 'cleanup') {
       await this.ctx.storage.deleteAll(); // 방 소멸 — TTL 만료
       return;
@@ -250,12 +300,13 @@ export class RoomDO implements DurableObject {
     await this.armTtlIfIdle();
   }
 
-  // 턴 타임아웃 알람이 없을 때만 TTL(cleanup) 알람을 예약한다. DO 알람은 1개뿐이다.
-  private async armTtlIfIdle(): Promise<void> {
-    if (!this.room) return;
-    const tag = await this.ctx.storage.get<string>('alarmTag');
-    if (tag?.startsWith('turnTimeout:')) return; // 턴 알람 활성 — 유지
-    await this.ctx.storage.put('alarmTag', 'cleanup');
-    await this.ctx.storage.setAlarm(this.room.lastActivity + ROOM_TTL_MS);
+  // 턴 타임아웃 알람이 없을 때만 TTL(cleanup) 알람을 예약한다. DO 알람은 1개뿐이다. 알람 체인으로 직렬화(I1).
+  private armTtlIfIdle(): Promise<void> {
+    return this.runAlarmOp(async () => {
+      if (!this.room) return;
+      const tag = await this.ctx.storage.get<string>('alarmTag');
+      if (tag?.startsWith('turnTimeout:')) return; // 턴 알람 활성 — 유지
+      await this.setCleanupAlarm();
+    });
   }
 }
