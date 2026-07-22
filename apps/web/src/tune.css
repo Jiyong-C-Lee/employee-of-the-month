@@ -1,0 +1,31 @@
+/* 포즈 튜닝 화면(?tune=1) 전용 스타일 — 게임 화면과 무관한 개발용 도구 UI. */
+
+.tune-panel { min-height: 100%; max-width: 1100px; margin: 0 auto; padding: 22px 20px 40px; }
+.tune-head h1 { margin: 0 0 4px; font-size: 1.25rem; }
+.tune-head p { margin: 0 0 14px; color: var(--muted); font-size: .84rem; }
+.tune-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.tune-alpha { display: flex; align-items: center; gap: 8px; font-size: .84rem; color: var(--muted); }
+.tune-alpha input { width: 150px; }
+
+.tune-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+@media (max-width: 900px) { .tune-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.tune-pose { display: flex; flex-direction: column; gap: 6px; }
+.tune-box {
+  position: relative; width: 100%; touch-action: none;
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #000;
+}
+.tune-box img { display: block; width: 100%; height: auto; user-select: none; }
+
+.tune-circle {
+  position: absolute; transform: translate(-50%, -50%);
+  aspect-ratio: 1 / 1; border-radius: 50%; cursor: grab;
+  background: rgba(108, 140, 255, .28); border: 2px dashed #6c8cff;
+}
+.tune-circle:active { cursor: grabbing; }
+.tune-circle.sel { border-color: var(--gold); background: rgba(255, 211, 77, .32); }
+.tune-cross-v, .tune-cross-h { position: absolute; background: rgba(255, 255, 255, .85); }
+.tune-cross-v { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
+.tune-cross-h { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
+
+.tune-readout { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
