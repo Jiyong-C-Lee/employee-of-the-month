@@ -1,0 +1,64 @@
+import type { DIFFICULTIES } from './constants';
+
+export type Phase = 'SITUATION' | 'PLAYER_TURNS' | 'JUDGING' | 'RESULT' | 'END';
+export type Difficulty = (typeof DIFFICULTIES)[number];
+
+export interface Situation { text: string; question: string }
+export interface RoomConfig {
+  mode: 'single' | 'multi';
+  personaId: string;
+  speakTime: number;        // 0 = 무제한(싱글)
+  aiCompete: boolean;
+  difficulty: Difficulty;
+  maxPlayers: number;
+}
+export interface PublicPlayer {
+  id: string; nick: string; rank: string; joinOrder: number; favor: number; connected: boolean;
+}
+export interface PublicPersona {
+  id: string; name: string; emoji: string; intro: string;
+  axes: string[]; ranks: string[];
+  advisors: { name: string; emoji: string; style: string }[];
+}
+export interface QueueEntry { kind: 'ai' | 'user'; key: string; name: string }
+export interface Speech { key: string; name: string; kind: 'ai' | 'user'; text: string }
+export interface PublicRoom {
+  code: string; hostId: string;
+  state: 'LOBBY' | 'PLAYING' | 'ENDED';
+  phase: Phase | null; roundNo: number;
+  config: RoomConfig; players: PublicPlayer[];
+  persona: PublicPersona; situation: Situation | null;
+  round: { queue: QueueEntry[]; speeches: Speech[] } | null;
+  advisorFavor: Record<string, number>;
+  capacity: number;
+}
+export interface VerdictSpeaker {
+  key: string; name: string; kind: 'ai' | 'user';
+  axisScores: Record<string, number>; total: number; comment: string;
+}
+export interface Verdict {
+  perSpeaker: VerdictSpeaker[]; adoptedKey: string | null;
+  adoptReason: string; totals: Record<string, number>;
+}
+export interface Standing { id: string; nick: string; rank: string; favor: number; connected: boolean }
+export interface HallEntry { roundNo: number; key: string; name: string; kind: 'ai' | 'user'; rank?: string; emoji?: string }
+export interface AdoptedInfo { key: string; name: string; kind: 'ai' | 'user'; rank?: string; emoji?: string }
+
+export type FeedItem =
+  | { type: 'system'; text: string; tag?: string; ts: number }
+  | { type: 'speech'; speakerType: 'ai' | 'user'; playerId?: string; name: string; emoji?: string; style?: string; rank?: string; text: string; ts: number }
+  | { type: 'verdict'; roundNo: number; situation: Situation; verdict: Verdict; adoptedName: string | null; adopted: AdoptedInfo | null; standings: Standing[]; source: string; ts: number }
+  | { type: 'epilogue'; roundNo: number; story: string; source: string; ts: number };
+
+export interface SpeakTurn { current: string; nick: string; speakTime: number }
+export interface TimerInfo { phase: string; deadline: number; total: number } // deadline = epoch ms. 카운트다운은 클라 로컬 렌더
+export interface EndedPayload { reason: string; standings: Standing[]; hall: HallEntry[] }
+
+export type ServerEvent =
+  | { kind: 'snapshot'; seq: number; room: PublicRoom; feed: FeedItem[]; speakTurn: SpeakTurn | null; timer: TimerInfo | null; ended: EndedPayload | null }
+  | { kind: 'room'; seq: number; room: PublicRoom }
+  | { kind: 'phase'; seq: number; phase: Phase; roundNo: number; situation?: Situation }
+  | { kind: 'turn'; seq: number; turn: SpeakTurn | null }
+  | { kind: 'timer'; seq: number; timer: TimerInfo | null }
+  | { kind: 'feed'; seq: number; item: FeedItem }
+  | { kind: 'ended'; seq: number; payload: EndedPayload };
