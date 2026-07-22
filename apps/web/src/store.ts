@@ -28,6 +28,7 @@ export type Action =
   | { type: 'server'; ev: ServerEvent }
   | { type: 'connected'; value: boolean }
   | { type: 'session'; code: string; playerId: string; room: PublicRoom }
+  | { type: 'restore'; code: string; playerId: string }
   | { type: 'toast'; value: string | null };
 
 export const initialState: State = {
@@ -95,6 +96,10 @@ export function reducer(state: State, action: Action): State {
       return { ...state, connected: action.value };
     case 'session':
       return { ...state, code: action.code, playerId: action.playerId, room: action.room, phase: action.room.phase ?? state.phase };
+    case 'restore':
+      // 새로고침 재접속: 세션(code·playerId)을 상태로 복원한다. room·phase·speakTurn은 곧 도착할 snapshot이 채운다.
+      // 이게 없으면 playerId가 null로 남아 "내 차례" 게이팅(speakTurn.current === playerId)이 실패해 입력창이 안 뜬다.
+      return { ...state, code: action.code, playerId: action.playerId };
     case 'toast':
       return { ...state, toast: action.value };
     default:
@@ -171,7 +176,11 @@ export function useGame(): { state: PublicState; actions: GameActions } {
 
   useEffect(() => {
     const saved = loadSession();
-    if (saved) connect(saved);
+    if (saved) {
+      // 세션을 먼저 상태에 복원한 뒤 구독 — snapshot 도착 전에도 playerId 게이팅이 성립하게 한다.
+      dispatch({ type: 'restore', code: saved.code, playerId: saved.playerId });
+      connect(saved);
+    }
     return () => unsubRef.current?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

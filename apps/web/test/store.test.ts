@@ -30,6 +30,17 @@ test('중복 seq는 무시한다 (재접속 스냅샷 직후 이벤트 중복 �
   expect(s.feed.length).toBe(1);
 });
 
+test('restore는 새로고침 시 playerId·code를 복원한다 (입력창 게이팅 복구)', () => {
+  // 새로고침: session 액션 없이 restore + snapshot만 들어온다. playerId가 채워져야 내 차례 게이팅이 성립한다.
+  let s = reducer(initialState, { type: 'restore', code: 'AB12', playerId: 'p1' });
+  expect(s.playerId).toBe('p1');
+  s = reducer(s, { type: 'server', ev: snap });
+  // snapshot이 speakTurn·phase를 채우고, restore가 채운 playerId와 일치해 "내 차례"가 성립.
+  expect(s.playerId).toBe('p1');
+  expect(s.phase).toBe('PLAYER_TURNS');
+  expect(s.speakTurn?.current).toBe(s.playerId);
+});
+
 test('timer 이벤트는 deadline 원본을 저장한다', () => {
   let s = reducer(initialState, { type: 'server', ev: snap });
   s = reducer(s, { type: 'server', ev: { kind: 'timer', seq: 7, timer: { phase: 'PLAYER_TURNS', deadline: Date.now() + 60000, total: 60 } } });
