@@ -42,10 +42,10 @@ export default function Game({ state, actions }) {
     const showWindow = last && last.key !== verdict.adoptedKey;
     resultBlock = (
       <>
-        <div className="comic-sec"><b>③ 심판 &amp; ④ 최종 결과</b><i /></div>
+        <div className="comic-sec"><b>③ 결과</b><i /></div>
         <GaugeStrip persona={persona} done />
         <div className={`judge-row ${showWindow ? '' : 'solo'}`}>
-          <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} playerId={playerId} />
+          <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} playerId={playerId} players={room.players} />
           {showWindow && <WindowCut last={last} pose={poseMap[last.key]} />}
         </div>
         {rows.length > 0 && <ScoreCut verdict={verdict} rows={rows} axes={axes} />}

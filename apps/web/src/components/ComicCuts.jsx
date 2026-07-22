@@ -1,7 +1,10 @@
 // 회의실 코믹 컷 모음 — 디자인 프로젝트 '코믹 UI 목업.dc.html' 확정안 + 1차 플레이테스트 피드백 반영.
 // 모든 컷은 상태(room.round.queue/speeches, phase, verdict)로만 그린다. 피드는 자막·에필로그에만 쓴다.
 import { useEffect, useState } from 'react';
-import { POSES, BOSS_FRONT, USER_POSE, SEAT_POSES, poseUrl, hashColor } from '../comic-assets.js';
+import {
+  BOSS_FRONT, USER_POSE, SEAT_POSES, poseUrl, hashColor,
+  getPoses, getFaceAlpha, hexToRgba,
+} from '../comic-assets.js';
 
 // 타이핑 연출: 마운트/텍스트 변경 시 한 글자씩 출력.
 function TypeText({ text, speed = 28 }) {
@@ -56,17 +59,38 @@ export function buildPoseMap({ persona, players }) {
   return map;
 }
 
-function FaceSlot({ pose, entry, mine }) {
-  const p = POSES[pose];
+// 얼굴 슬롯 — 포즈 이미지 위에 아바타/이니셜/이모지를 반투명(FACE_ALPHA)으로 합성한다.
+// avatar가 있으면 원형 이미지, 없으면 기존 색원+이니셜(유저) / 이모지(AI)로 폴백한다.
+function FaceSlot({ pose, entry, mine, avatar }) {
+  const p = getPoses()[pose];
+  const alpha = getFaceAlpha();
   const style = { left: `${p.x}%`, top: `${p.y}%`, width: `${p.d}%` };
   if (entry.kind === 'ai') {
-    return <div className="face-slot ai" style={style}><span>{entry.emoji || '🤖'}</span></div>;
+    return (
+      <div className="face-slot ai" style={{ ...style, background: `rgba(255, 255, 255, ${alpha})` }}>
+        <span>{entry.emoji || '🤖'}</span>
+      </div>
+    );
+  }
+  if (avatar) {
+    return (
+      <div className="face-slot user avatar" style={style}>
+        <img src={avatar} alt="" style={{ opacity: alpha }} />
+      </div>
+    );
   }
   return (
-    <div className="face-slot user" style={{ ...style, background: mine ? '#5cb87a' : hashColor(entry.name) }}>
+    <div className="face-slot user" style={{ ...style, background: hexToRgba(mine ? '#5cb87a' : hashColor(entry.name), alpha) }}>
       <span>{entry.name.slice(0, 1)}</span>
     </div>
   );
+}
+
+// 유저 id → avatar dataURL. players에 avatar가 없으면 키가 아예 없다(FaceSlot은 undefined면 기본 색원 폴백).
+function avatarByKeyFromPlayers(players) {
+  const map = {};
+  (players || []).forEach((p) => { if (p.avatar) map[p.id] = p.avatar; });
+  return map;
 }
 
 // ── 보스 프로필 카드: 원형 썸네일 + 이름 + 한 줄 소개 + 성향 태그 ──
@@ -90,14 +114,11 @@ export function BossCard({ persona, roundNo, phase }) {
 
 // ── ① 문제 상황 ──
 export function SituationCut({ persona, situation }) {
-  const p = POSES[BOSS_FRONT];
   return (
     <div className="cut situation-cut">
       <div className="sc-boss">
         <img src={poseUrl(BOSS_FRONT)} alt="" />
-        <div className="face-slot ai" style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${p.d}%` }}>
-          <span>{persona.emoji}</span>
-        </div>
+        <FaceSlot pose={BOSS_FRONT} entry={{ kind: 'ai', emoji: persona.emoji }} />
       </div>
       <div className="sc-bubble-wrap">
         <div className="bubble-left">
@@ -115,6 +136,7 @@ export function SituationCut({ persona, situation }) {
 export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players, poseMap }) {
   const speechByKey = Object.fromEntries(speeches.map((s) => [s.key, s]));
   const rankByKey = Object.fromEntries((players || []).map((p) => [p.id, p.rank]));
+  const avatarByKey = avatarByKeyFromPlayers(players);
   const showTimer = timer && timer.phase === 'PLAYER_TURNS' && timer.total > 0;
 
   return (
@@ -141,7 +163,7 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
             </div>
             <div className="sp-figure">
               <img src={poseUrl(poseMap[entry.key])} alt="" />
-              <FaceSlot pose={poseMap[entry.key]} entry={entry} mine={mine} />
+              <FaceSlot pose={poseMap[entry.key]} entry={entry} mine={mine} avatar={avatarByKey[entry.key]} />
             </div>
             <span className="sp-label">{label}</span>
           </div>
@@ -166,8 +188,9 @@ export function GaugeStrip({ persona, done }) {
 }
 
 // ── ④-a 수상 컷 (이달의 사원 액자) ──
-export function AwardCut({ adopted, poseMap, playerId }) {
+export function AwardCut({ adopted, poseMap, playerId, players }) {
   const awardPose = adopted ? (poseMap[adopted.key] ?? USER_POSE) : USER_POSE;
+  const avatarByKey = avatarByKeyFromPlayers(players);
   return (
     <div className="cut award-cut">
       {adopted ? (
@@ -184,6 +207,7 @@ export function AwardCut({ adopted, poseMap, playerId }) {
                       pose={awardPose}
                       entry={adopted.kind === 'ai' ? { kind: 'ai', emoji: adopted.emoji } : { kind: 'user', name: adopted.name }}
                       mine={adopted.kind === 'user' && adopted.key === playerId}
+                      avatar={adopted.kind === 'user' ? avatarByKey[adopted.key] : undefined}
                     />
                   </div>
                 </div>

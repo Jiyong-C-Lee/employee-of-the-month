@@ -149,8 +149,8 @@ export interface PublicState {
 }
 
 export interface GameActions {
-  createRoom(nick: string, config: object): Promise<unknown>;
-  joinRoom(code: string, nick: string): Promise<unknown>;
+  createRoom(nick: string, config: object, avatar?: string): Promise<unknown>;
+  joinRoom(code: string, nick: string, avatar?: string): Promise<unknown>;
   start(): Promise<unknown>;
   speak(text: string): Promise<unknown>;
   nextRound(): Promise<unknown>;
@@ -208,8 +208,8 @@ export function useGame(): { state: PublicState; actions: GameActions } {
   };
 
   const actions: GameActions = {
-    async createRoom(nick, config) {
-      const res = await post<{ ok: true; code: string; playerId: string; token: string; room: PublicRoom }>('/rooms', { nick, config });
+    async createRoom(nick, config, avatar) {
+      const res = await post<{ ok: true; code: string; playerId: string; token: string; room: PublicRoom }>('/rooms', { nick, config, avatar });
       if ('error' in res) {
         showToast(res.error);
         return res;
@@ -220,8 +220,8 @@ export function useGame(): { state: PublicState; actions: GameActions } {
       connect(session);
       return res;
     },
-    async joinRoom(code, nick) {
-      const res = await post<{ ok: true; code: string; playerId: string; token: string; room: PublicRoom }>(`/rooms/${code}/join`, { nick });
+    async joinRoom(code, nick, avatar) {
+      const res = await post<{ ok: true; code: string; playerId: string; token: string; room: PublicRoom }>(`/rooms/${code}/join`, { nick, avatar });
       if ('error' in res) {
         showToast(res.error);
         return res;

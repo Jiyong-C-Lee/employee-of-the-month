@@ -41,6 +41,7 @@ button { font-family: inherit; cursor: pointer; }
 .btn.primary { background: var(--primary-d); border-color: var(--primary); }
 .btn.big { padding: 14px 18px; font-size: 1.05rem; font-weight: 600; }
 .btn.ghost { background: transparent; }
+.btn.small { padding: 7px 12px; font-size: .8rem; }
 
 input, select, textarea {
   font-family: inherit;
@@ -82,6 +83,16 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); b
 .row .btn { flex: 1; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > span { font-size: .85rem; color: var(--muted); }
+
+/* 프로필 사진 설정 (Home) */
+.avatar-setting { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.avatar-preview {
+  flex: none; width: 56px; height: 56px; border-radius: 50%;
+  background: var(--panel-2) center / cover no-repeat; border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+}
+.avatar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.avatar-actions label.btn { display: inline-flex; align-items: center; }
 
 /* ---------- Lobby ---------- */
 .lobby-card h2 { margin: 0 0 18px; }

@@ -1,5 +1,31 @@
 import { useEffect, useState } from 'react';
 
+const AVATAR_KEY = 'eotm.avatar';
+const AVATAR_SIZE = 128;
+
+// 이미지 파일 → 128x128 커버 크롭 → JPEG dataURL(품질 0.8). 실패하면 reject(호출부가 토스트로 안내).
+function resizeAvatar(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read-fail'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('decode-fail'));
+      img.onload = () => {
+        const side = Math.min(img.width, img.height);
+        const canvas = document.createElement('canvas');
+        canvas.width = AVATAR_SIZE;
+        canvas.height = AVATAR_SIZE;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // eslint-disable-next-line no-unused-vars -- App.tsx가 항상 state를 함께 넘겨 호출부 타입과 맞춘다.
 export default function Home({ state, actions }) {
   // menu | single | create | join
@@ -7,6 +33,27 @@ export default function Home({ state, actions }) {
   const [nick, setNick] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [avatar, setAvatar] = useState(() => {
+    try { return localStorage.getItem(AVATAR_KEY) || null; } catch { return null; }
+  });
+
+  async function onAvatarPick(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // 같은 파일 재선택도 change가 뜨도록
+    if (!file) return;
+    try {
+      const dataUrl = await resizeAvatar(file);
+      localStorage.setItem(AVATAR_KEY, dataUrl);
+      setAvatar(dataUrl);
+    } catch {
+      actions.toast('이미지를 처리하지 못했습니다.');
+    }
+  }
+
+  function resetAvatar() {
+    localStorage.removeItem(AVATAR_KEY);
+    setAvatar(null);
+  }
 
   // 초대 링크(?code=XXXX)로 들어오면 참가 모드로 자동 전환
   useEffect(() => {
@@ -39,7 +86,7 @@ export default function Home({ state, actions }) {
     if (!nick.trim()) return actions.toast('닉네임을 입력하세요.');
     if (!code.trim()) return actions.toast('방 코드를 입력하세요.');
     setBusy(true);
-    const res = await actions.joinRoom(code, nick);
+    const res = await actions.joinRoom(code, nick, avatar || undefined);
     setBusy(false);
     if (res.error) actions.toast(res.error);
   }
@@ -51,7 +98,7 @@ export default function Home({ state, actions }) {
     const config = modeKind === 'single'
       ? { mode: 'single', personaId, difficulty } // 싱글은 제한시간 없음
       : { mode: 'multi', personaId, speakTime: Number(speakTime), maxPlayers: Number(maxPlayers), aiCompete, difficulty };
-    const res = await actions.createRoom(nick, config);
+    const res = await actions.createRoom(nick, config, avatar || undefined);
     setBusy(false);
     if (res.error) actions.toast(res.error);
   }
@@ -108,6 +155,19 @@ export default function Home({ state, actions }) {
       <div className="home-card">
         <h1 className="logo">🏆 이달의 사원</h1>
         <p className="tagline">AI 보스가 가장 듣고 싶어할 말로 채택을 노리고, 사원에서 사장까지 승진하는 눈치 게임</p>
+
+        <div className="avatar-setting">
+          <span className="avatar-preview" style={avatar ? { backgroundImage: `url(${avatar})` } : undefined}>
+            {!avatar && '🙂'}
+          </span>
+          <div className="avatar-actions">
+            <label className="btn small">
+              프로필 사진 선택
+              <input type="file" accept="image/*" onChange={onAvatarPick} style={{ display: 'none' }} />
+            </label>
+            {avatar && <button type="button" className="btn small ghost" onClick={resetAvatar}>기본으로 되돌리기</button>}
+          </div>
+        </div>
 
         {mode === 'menu' && (
           <div className="stack">

@@ -115,7 +115,9 @@
 }
 .face-slot.user { border: 2px solid var(--ink); }
 .face-slot.user span { line-height: 1; color: #fff; font-weight: 800; font-size: 42cqw; }
-.face-slot.ai { background: rgba(255, 255, 255, .55); border: 2px solid var(--ink); }
+.face-slot.user.avatar { overflow: hidden; background: #fff; }
+.face-slot.user.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.face-slot.ai { border: 2px solid var(--ink); }
 .face-slot.ai span { line-height: 1; font-size: 52cqw; }
 
 /* ── 심판: 분노 게이지 스트립 (가로 1줄, 1회 채움) ── */
