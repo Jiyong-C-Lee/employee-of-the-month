@@ -20,7 +20,7 @@
 | DB | **없음** | 게임 상태는 세션 수명. DO 내장 SQLite storage로 방 수명만큼의 영속성 확보 |
 | 게임데이터 | 콘텐츠 팩 디렉토리 + zod 스키마 검증 | 목적: 콘텐츠 확장 용이성. 페르소나 추가 = 폴더 추가 |
 | 저장소 구조 | npm workspaces 경량 모노레포 | 서버·클라가 이벤트 계약 타입을 공유 |
-| LLM | Gemini flash-lite REST + 결정적 mock 폴백 유지 | 기존 구조 보존. 폴백 덕에 비용 상한 장치가 공짜 |
+| LLM | Gemini flash-lite + **NVIDIA NIM**(OpenAI 호환, RPM 40) 이중 공급자 → 결정적 mock 최종 폴백 | 무료 쿼터 두 개 합산으로 처리량 확보. 체인 덕에 비용·장애 하방 방어 |
 | 테스트 | vitest (+ @cloudflare/vitest-pool-workers) | 기존 node:test 자산 이식 |
 
 ## 3. 전체 아키텍처
@@ -43,7 +43,7 @@
    ├─ 인메모리 상태 + ctx.storage(SQLite)에 저장 → hibernation·재배포에도 방 생존
    ├─ Alarms: 발언 마감 시각 집행 (마감 지나면 자동 진행)
    ├─ SSE 스트림 관리 (접속 시 스냅샷 → 이후 이벤트 푸시, heartbeat)
-   └─ AI 호출: Gemini fetch → 실패/키 없음/쿼터 초과 시 mock 폴백
+   └─ AI 호출: 공급자 체인 Gemini → NVIDIA NIM → mock (실패·429·쿼터 초과 시 다음으로)
 ```
 
 ### 3.1 타이머 — 마감 시각 방식
@@ -69,7 +69,7 @@ employee-of-the-month/
 │  │  │  ├─ room-do.ts         # RoomDO 클래스 (엔진 호스팅·storage·alarm·SSE)
 │  │  │  ├─ http/              # routes.ts, sse.ts, guard.ts(rate limit·토큰 검증)
 │  │  │  ├─ game/              # engine.ts(상태머신), logic.ts(순번·채택·승진 순수함수), state.ts(방 상태 타입·직렬화)
-│  │  │  └─ ai/                # llm.ts(Gemini 공통 fetch), prompts.ts, mock.ts, verdict.ts(검증·교정)
+│  │  │  └─ ai/                # chain.ts(공급자 체인), providers/{gemini,nvidia}.ts, prompts.ts, mock.ts, verdict.ts(검증·교정)
 │  │  ├─ test/
 │  │  └─ wrangler.jsonc        # DO 바인딩·assets·환경변수 선언
 │  └─ web/                     # @eotm/web — React + Vite SPA
@@ -117,7 +117,7 @@ employee-of-the-month/
 | `POST /api/rooms/:code/next` | (방장 토큰) | `{ ok }` |
 | `POST /api/rooms/:code/leave` | | `{ ok }` |
 | `GET /api/personas` | | 공개 요약 배열 (상황 본문 제외 — 스포일러 방지 유지) |
-| `GET /api/health` | | `{ ok, llm: 'gemini'\|'mock', model }` |
+| `GET /api/health` | | `{ ok, providers: { gemini: boolean, nvidia: boolean }, models }` |
 
 ### 5.2 SSE (푸시) — `GET /api/rooms/:code/events?playerId&token`
 
@@ -142,7 +142,8 @@ employee-of-the-month/
 
 ## 7. 운영·안전장치
 
-- **LLM 비용 상한**: QuotaDO(싱글턴)에 일일 Gemini 호출 카운터. 상한 초과 시 mock 폴백 — 게임은 계속 동작. 방당 호출 수도 구조적으로 유한(라운드당 3회 × 최대 5라운드).
+- **LLM 공급자 체인**: 1차 Gemini flash-lite → 2차 NVIDIA NIM(OpenAI 호환 chat completions, RPM 40) → 최종 mock. 429·타임아웃·응답 스키마 위반 시 다음 공급자로 페일오버한다 — 사전 RPM 관리 없이 429 응답 기반으로 단순하게. 두 공급자는 `callJson({ system, user, schema, temperature, timeoutMs })` 공통 인터페이스(chain.ts)로 묶고, NIM은 모델별 structured output 지원이 달라 관용 JSON 파싱 + zod 검증 실패 시 다음 공급자로 취급한다. 모델명은 vars로 설정(`GEMINI_MODEL`, `NVIDIA_MODEL`).
+- **LLM 비용 상한**: QuotaDO(싱글턴)에 공급자별 일일 호출 카운터 — 상한 초과한 공급자는 체인에서 스킵. 전부 소진돼도 mock으로 게임은 계속 동작. 방당 호출 수도 구조적으로 유한(라운드당 3회 × 최대 5라운드).
 - **남용 방지**: 방 생성 IP당 rate limit(Worker 레벨), 발언 길이·순번 서버 검증, join 정원 검증.
 - **방 수명**: 마지막 활동 후 30분 경과 시 alarm으로 storage 삭제(자체 청소). DO는 참조가 없으면 자연 소멸.
 - **SSE 배포 체크리스트**: heartbeat 20초, 클라이언트 EventSource 자동 재접속 + 스냅샷 복구.
@@ -164,7 +165,7 @@ employee-of-the-month/
 |---|---|---|
 | `server/sycophant/logic.js` | `apps/worker/src/game/logic.ts` | 거의 그대로 TS화 |
 | `server/sycophant/{prompts,mock,ai}.js` | `apps/worker/src/ai/` | 그대로 TS화, `ai.js`→`verdict.ts`+오케스트레이션 |
-| `server/llm.js` | `apps/worker/src/ai/llm.ts` | fetch 기반이라 Workers에서 그대로 동작 |
+| `server/llm.js` | `apps/worker/src/ai/providers/gemini.ts` | fetch 기반이라 Workers에서 그대로 동작. NVIDIA 공급자(providers/nvidia.ts)를 신설하고 chain.ts 공통 인터페이스로 묶음 |
 | `server/sycophant/engine.js` | `apps/worker/src/game/engine.ts` | 소켓 브로드캐스트→SSE 발행, setTimeout→Alarm. **가장 손 많이 가는 부분** |
 | `server/rooms.js` (간신배 경로) | `apps/worker/src/game/state.ts` | debate 분기 제거, DO storage 직렬화 추가 |
 | `server/data/personas.json` | `packages/content/packs/*/` | 팩 구조로 분해 |
@@ -176,7 +177,7 @@ employee-of-the-month/
 ## 10. 배포
 
 - `wrangler deploy` 한 번으로 Worker + DO + 정적 SPA 동시 배포. 무료 `*.workers.dev` 서브도메인으로 시작, 커스텀 도메인은 필요 시 추가.
-- **시크릿**: `GOOGLE_AI_STUDIO_API_KEY`는 프로덕션은 `wrangler secret put`, 로컬은 `.dev.vars` 파일(.gitignore 필수). 키가 코드·저장소·wrangler.jsonc에 절대 들어가지 않는다. 모델명 등 비밀 아닌 설정은 wrangler.jsonc `vars`.
+- **시크릿**: `GOOGLE_AI_STUDIO_API_KEY`·`NVIDIA_API_KEY`는 프로덕션은 `wrangler secret put`, 로컬은 `.dev.vars` 파일(.gitignore 필수). 키가 코드·저장소·wrangler.jsonc에 절대 들어가지 않는다. 모델명(`GEMINI_MODEL`, `NVIDIA_MODEL`) 등 비밀 아닌 설정은 wrangler.jsonc `vars`.
 - **wrangler.jsonc 체크리스트**: DO 마이그레이션 선언(`migrations` + `new_sqlite_classes: ["RoomDO", "QuotaDO"]` — 누락 시 배포 실패), Workers Assets `not_found_handling: "single-page-application"`(SPA 라우팅 폴백), `observability.enabled = true`(§11).
 - **재배포 안전성**: 배포 시 활성 DO는 새 코드로 재기동되지만 storage가 유지되므로 진행 중인 방이 살아남는다(§3의 직렬화가 전제). 상태 직렬화 형식을 바꾸는 배포는 마이그레이션 로직을 동반해야 한다.
 - **롤백**: `wrangler rollback`으로 직전 배포 버전 즉시 복귀 가능. 단 storage 형식을 바꾼 뒤의 롤백은 위 호환성 규칙에 걸리므로 주의.
@@ -190,13 +191,14 @@ employee-of-the-month/
 - **수집**: wrangler.jsonc에 `observability.enabled = true` — `console.log` 출력이 Workers Logs로 자동 수집되어 대시보드에서 검색·필터 가능(무료 플랜 일 20만 이벤트, 3일 보관). 실시간 확인은 `wrangler tail`.
 - **형식**: JSON 한 줄 로그. 공통 필드 `{ event, roomCode, level }` + 이벤트별 필드. `console.log(JSON.stringify(...))` 래퍼 함수 하나(`log.ts`)로 통일한다.
 - **로그 이벤트 목록** (info):
-  - `room_created` `{ mode, personaId }` / `game_started` / `game_ended` `{ rounds, winner: boolean }`
-  - `round_started` `{ roundNo }` / `verdict_issued` `{ roundNo, source }`
-  - `llm_call` `{ kind: advisors|judge|epilogue, source: gemini|mock|fallback, ok, latencyMs }` — 폴백률·지연 추적의 핵심
+  - `room_created` `{ mode, personaId }` / `game_started` `{ nicks }` / `game_ended` `{ rounds, winnerNick? }`
+  - `round_started` `{ roundNo, situation }` / `speech_submitted` `{ roundNo, nick, text }`
+  - `verdict_issued` `{ roundNo, provider, adoptedNick, totals, comments }`
+  - `llm_call` `{ kind: advisors|judge|epilogue, provider: gemini|nvidia|mock, ok, latencyMs, failedOver? }` — 공급자별 폴백률·지연 추적의 핵심
   - `sse_connect` / `sse_disconnect` `{ playerId }`
-  - `quota_exceeded` (warn) — 일일 LLM 쿼터 도달
-- **에러**: 예외는 error 레벨로 스택 포함 기록. LLM 실패는 warn + mock 폴백 태그(기존 패턴 유지). Workers의 미처리 예외는 플랫폼이 자동 수집.
-- **개인정보 규칙**: 발언 본문·닉네임은 로그에 남기지 않는다(LLM 프롬프트로는 가되 로그 제외). playerId·roomCode 같은 임의 식별자만 기록.
+  - `quota_exceeded` `{ provider }` (warn) — 해당 공급자 일일 쿼터 도달
+- **에러**: 예외는 error 레벨로 스택 포함 기록. LLM 실패는 warn + 다음 공급자 페일오버 태그. Workers의 미처리 예외는 플랫폼이 자동 수집.
+- **게임플레이 로그 방침**: 게임 튜닝(어떤 발언이 어떻게 채점되는지 관찰)이 로깅의 주 목적이므로 닉네임·발언 본문·판정 코멘트를 로그에 **포함**한다. 단 Workers Logs 보관이 3일이므로, 장기 분석용 게임 기록 보존이 필요해지는 시점에 D1 적재로 승격(v2).
 - **지표**: 별도 지표 시스템 없음. 판수·폴백률·판정 지연은 Workers Logs 검색으로, 요청 수·에러율·지역 분포는 Cloudflare 기본 Analytics로 충분.
 
 ## 12. 범위 제외 (v2 후보)
