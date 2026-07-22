@@ -146,7 +146,7 @@ employee-of-the-month/
 - **남용 방지**: 방 생성 IP당 rate limit(Worker 레벨), 발언 길이·순번 서버 검증, join 정원 검증.
 - **방 수명**: 마지막 활동 후 30분 경과 시 alarm으로 storage 삭제(자체 청소). DO는 참조가 없으면 자연 소멸.
 - **SSE 배포 체크리스트**: heartbeat 20초, 클라이언트 EventSource 자동 재접속 + 스냅샷 복구.
-- 로그: Workers 기본 로그(`wrangler tail` / 대시보드). 구조화 로깅 라이브러리는 두지 않는다.
+- 로깅: §11 로깅 플랜 참조.
 
 ## 8. 테스트 전략
 
@@ -176,14 +176,34 @@ employee-of-the-month/
 ## 10. 배포
 
 - `wrangler deploy` 한 번으로 Worker + DO + 정적 SPA 동시 배포. 무료 `*.workers.dev` 서브도메인으로 시작, 커스텀 도메인은 필요 시 추가.
+- **시크릿**: `GOOGLE_AI_STUDIO_API_KEY`는 프로덕션은 `wrangler secret put`, 로컬은 `.dev.vars` 파일(.gitignore 필수). 키가 코드·저장소·wrangler.jsonc에 절대 들어가지 않는다. 모델명 등 비밀 아닌 설정은 wrangler.jsonc `vars`.
+- **wrangler.jsonc 체크리스트**: DO 마이그레이션 선언(`migrations` + `new_sqlite_classes: ["RoomDO", "QuotaDO"]` — 누락 시 배포 실패), Workers Assets `not_found_handling: "single-page-application"`(SPA 라우팅 폴백), `observability.enabled = true`(§11).
+- **재배포 안전성**: 배포 시 활성 DO는 새 코드로 재기동되지만 storage가 유지되므로 진행 중인 방이 살아남는다(§3의 직렬화가 전제). 상태 직렬화 형식을 바꾸는 배포는 마이그레이션 로직을 동반해야 한다.
+- **롤백**: `wrangler rollback`으로 직전 배포 버전 즉시 복귀 가능. 단 storage 형식을 바꾼 뒤의 롤백은 위 호환성 규칙에 걸리므로 주의.
 - 로컬 개발: `wrangler dev` (DO·alarm 로컬 에뮬레이션) + Vite dev 서버 프록시.
 - CI/CD는 v1 범위 외 (로컬 배포). 반응이 생기면 GitHub Actions 추가.
 
-## 11. 범위 제외 (v2 후보)
+## 11. 로깅 플랜
+
+프로토타입 규모에 맞게 **Workers 내장 기능만 사용**하고, 외부 로깅 서비스·라이브러리는 두지 않는다.
+
+- **수집**: wrangler.jsonc에 `observability.enabled = true` — `console.log` 출력이 Workers Logs로 자동 수집되어 대시보드에서 검색·필터 가능(무료 플랜 일 20만 이벤트, 3일 보관). 실시간 확인은 `wrangler tail`.
+- **형식**: JSON 한 줄 로그. 공통 필드 `{ event, roomCode, level }` + 이벤트별 필드. `console.log(JSON.stringify(...))` 래퍼 함수 하나(`log.ts`)로 통일한다.
+- **로그 이벤트 목록** (info):
+  - `room_created` `{ mode, personaId }` / `game_started` / `game_ended` `{ rounds, winner: boolean }`
+  - `round_started` `{ roundNo }` / `verdict_issued` `{ roundNo, source }`
+  - `llm_call` `{ kind: advisors|judge|epilogue, source: gemini|mock|fallback, ok, latencyMs }` — 폴백률·지연 추적의 핵심
+  - `sse_connect` / `sse_disconnect` `{ playerId }`
+  - `quota_exceeded` (warn) — 일일 LLM 쿼터 도달
+- **에러**: 예외는 error 레벨로 스택 포함 기록. LLM 실패는 warn + mock 폴백 태그(기존 패턴 유지). Workers의 미처리 예외는 플랫폼이 자동 수집.
+- **개인정보 규칙**: 발언 본문·닉네임은 로그에 남기지 않는다(LLM 프롬프트로는 가되 로그 제외). playerId·roomCode 같은 임의 식별자만 기록.
+- **지표**: 별도 지표 시스템 없음. 판수·폴백률·판정 지연은 Workers Logs 검색으로, 요청 수·에러율·지역 분포는 Cloudflare 기본 Analytics로 충분.
+
+## 12. 범위 제외 (v2 후보)
 
 계정·전적·통계(D1), 판정 카드 공유 링크, 토론 게임 이식, 비개발자용 콘텐츠 편집 파이프라인, CI/CD, 커스텀 도메인.
 
-## 12. 리스크와 완화
+## 13. 리스크와 완화
 
 - **SSE가 DO를 깨워둠**: 열린 스트림 동안 DO가 활성 상태로 duration 쿼터(무료 13,000 GB-s/일 ≈ 128MB 기준 약 28 인스턴스-시간/일)를 소모한다. 프로토타입 동접 규모에선 여유. 초과 조짐이 보이면 유휴 스트림 자동 종료(클라 자동 재접속) 또는 WebSocket hibernation 전환이 출구.
 - **Workers 런타임 학습 곡선**: Hono·DO·wrangler가 팀에 새로움. 게임 로직·콘텐츠·shared는 순수 TS라 플랫폼 무관 — 리스크는 배선 계층에 국한.
