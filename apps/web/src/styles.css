@@ -69,6 +69,32 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); b
 }
 @keyframes pop { from { transform: translate(-50%, -8px); opacity: 0; } }
 
+/* ---------- 메뉴 패널 (게임/로비 상단 우측 ☰) ----------
+   comic.css 톤(잉크 보더 · 화이트 배경)을 그대로 써서 다크 테마(로비)·코믹 페이퍼 테마(게임)
+   양쪽 배경에서도 항상 또렷하게 보이도록 색을 하드코딩한다(공용 CSS 변수 스코프 밖이라). */
+.menu-fab { position: relative; flex: none; }
+.menu-btn {
+  width: 34px; height: 34px; border-radius: 8px; padding: 0; cursor: pointer;
+  background: #fff; color: #2a2330; border: 2px solid #2a2330;
+  font-size: 1.05rem; line-height: 1; display: flex; align-items: center; justify-content: center;
+}
+.menu-btn:hover { filter: brightness(.95); }
+.menu-panel {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 70; min-width: 210px;
+  background: #fff; color: #2a2330; border: 2px solid #2a2330; border-radius: 10px;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+}
+.menu-code-row { display: flex; align-items: center; gap: 8px; }
+.menu-code-label { font-size: .72rem; color: #6e6878; }
+.menu-code-value { font-weight: 800; letter-spacing: 3px; margin-right: auto; }
+.menu-panel .btn {
+  background: #fff; color: #2a2330; border: 1px solid #2a2330; border-radius: 6px;
+  padding: 7px 10px; font-size: .82rem;
+}
+.menu-panel .btn:hover:not(:disabled) { background: #f6f1e9; filter: none; }
+.menu-panel .btn.menu-leave { color: #b3312f; border-color: #b3312f; }
+
 /* ---------- Home ---------- */
 .home, .lobby { min-height: 100%; display: grid; place-items: center; padding: 24px; }
 .home-card, .lobby-card {
@@ -108,7 +134,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); b
 .avatar-emoji-btn.sel { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
 
 /* ---------- Lobby ---------- */
-.lobby-card h2 { margin: 0 0 18px; }
+.lobby-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.lobby-card h2 { margin: 0; }
 .code-box { display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
 .code-label { font-size: .75rem; color: var(--muted); }

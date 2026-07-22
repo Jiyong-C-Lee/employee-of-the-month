@@ -29,7 +29,8 @@ export type Action =
   | { type: 'connected'; value: boolean }
   | { type: 'session'; code: string; playerId: string; room: PublicRoom }
   | { type: 'restore'; code: string; playerId: string }
-  | { type: 'toast'; value: string | null };
+  | { type: 'toast'; value: string | null }
+  | { type: 'reset' };
 
 export const initialState: State = {
   connected: false,
@@ -102,6 +103,9 @@ export function reducer(state: State, action: Action): State {
       return { ...state, code: action.code, playerId: action.playerId };
     case 'toast':
       return { ...state, toast: action.value };
+    case 'reset':
+      // 메인으로 나가기: 세션·방 상태를 모두 비워 App.tsx가 Home 화면으로 되돌아가게 한다.
+      return { ...initialState };
     default:
       return state;
   }
@@ -135,6 +139,11 @@ function saveSession(session: Session) {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
+function clearSession() {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
 export interface PublicState {
   connected: boolean;
   code: string | null;
@@ -155,6 +164,7 @@ export interface GameActions {
   speak(text: string): Promise<unknown>;
   nextRound(): Promise<unknown>;
   debugAction(action: string): Promise<unknown>;
+  leave(): Promise<void>;
   toast(msg: string): void;
 }
 
@@ -243,6 +253,15 @@ export function useGame(): { state: PublicState; actions: GameActions } {
     },
     debugAction(action) {
       return withSession((s) => post(`/rooms/${s.code}/debug`, { playerId: s.playerId, token: s.token, action }));
+    },
+    async leave() {
+      const session = sessionRef.current;
+      if (session) await post(`/rooms/${session.code}/leave`, { playerId: session.playerId, token: session.token });
+      unsubRef.current?.();
+      unsubRef.current = null;
+      sessionRef.current = null;
+      clearSession();
+      dispatch({ type: 'reset' });
     },
     toast: showToast,
   };

@@ -1,3 +1,5 @@
+import MenuPanel from '../components/MenuPanel.jsx';
+
 export default function Lobby({ state, actions }) {
   const { room, playerId } = state;
   const isHost = room.hostId === playerId;
@@ -21,7 +23,10 @@ export default function Lobby({ state, actions }) {
   return (
     <div className="lobby">
       <div className="lobby-card">
-        <h2>대기실</h2>
+        <div className="lobby-head">
+          <h2>대기실</h2>
+          <MenuPanel code={room.code} onLeave={actions.leave} />
+        </div>
         <div className="code-box">
           <div>
             <div className="code-label">방 코드</div>

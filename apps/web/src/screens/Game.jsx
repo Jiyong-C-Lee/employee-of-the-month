@@ -2,6 +2,7 @@
 // 한 라운드 = 스크롤되는 만화 한 페이지: 상황 → 발언 컷 → 심판(분노 게이지) → 결과(액자·창밖) → 채점표 → 총평.
 import { useEffect, useRef } from 'react';
 import ActionBar from '../components/ActionBar.jsx';
+import MenuPanel from '../components/MenuPanel.jsx';
 import { HallOfFame } from '../components/EmployeeFrame.jsx';
 import {
   BossCard, SituationCut, SpeakGrid, GaugeStrip, AwardCut, WindowCut, ScoreCut, BossCommentCut,
@@ -77,6 +78,7 @@ export default function Game({ state, actions }) {
         {room.roundNo > 0 && <span className="ca-round">R.{room.roundNo}</span>}
         <span className="ca-phase">{ended ? PHASE_LABEL.END : PHASE_LABEL[phase] || '대기'}</span>
         {showTimer && <span className={`ca-timer ${timer.remaining <= 10 ? 'low' : ''}`}>⏱ {fmtSec(timer.remaining)}</span>}
+        <MenuPanel code={room.code} onLeave={actions.leave} />
       </header>
 
       <div className="comic-page" ref={pageRef}>

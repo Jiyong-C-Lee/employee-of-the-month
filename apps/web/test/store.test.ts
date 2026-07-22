@@ -46,3 +46,11 @@ test('timer 이벤트는 deadline 원본을 저장한다', () => {
   s = reducer(s, { type: 'server', ev: { kind: 'timer', seq: 7, timer: { phase: 'PLAYER_TURNS', deadline: Date.now() + 60000, total: 60 } } });
   expect(s.deadline?.total).toBe(60);
 });
+
+test('reset은 메인으로 나가기 시 세션·방 상태를 초기값으로 되돌린다', () => {
+  let s = reducer(initialState, { type: 'restore', code: 'AB12', playerId: 'p1' });
+  s = reducer(s, { type: 'server', ev: snap });
+  expect(s.room).not.toBeNull();
+  s = reducer(s, { type: 'reset' });
+  expect(s).toEqual(initialState);
+});
