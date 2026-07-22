@@ -165,10 +165,10 @@ export class RoomDO implements DurableObject {
 
   private async handleCreate(req: Request): Promise<Response> {
     if (await this.ctx.storage.get('room')) return jsonRes({ error: STRINGS.errors.roomStarted }, 409);
-    const { code, nick, config } = (await req.json()) as {
-      code: string; nick: string; config: Parameters<typeof createRoomState>[2];
+    const { code, nick, config, avatar } = (await req.json()) as {
+      code: string; nick: string; config: Parameters<typeof createRoomState>[2]; avatar?: unknown;
     };
-    const { room, playerId, token } = createRoomState(code, nick, config);
+    const { room, playerId, token } = createRoomState(code, nick, config, avatar);
     this.room = room;
     this.engine = this.makeEngine(room);
     await this.ctx.storage.put('room', room);
@@ -181,7 +181,7 @@ export class RoomDO implements DurableObject {
 
   private async handleJoin(body: Record<string, unknown>): Promise<Response> {
     if (!this.room) return jsonRes({ error: STRINGS.errors.noRoom }, 404);
-    const r = addPlayer(this.room, String(body.nick ?? ''));
+    const r = addPlayer(this.room, String(body.nick ?? ''), body.avatar);
     if ('error' in r) return jsonRes({ error: r.error }, 400);
     await this.ctx.storage.put('room', this.room);
     this.emit({ kind: 'room', room: publicRoom(this.room) });

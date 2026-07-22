@@ -14,6 +14,7 @@ export interface RoomConfig {
 }
 export interface PublicPlayer {
   id: string; nick: string; rank: string; joinOrder: number; favor: number; connected: boolean;
+  avatar?: string; // 커스텀 프로필 이미지(JPEG dataURL) — 없으면 클라이언트가 색원+이니셜로 대체
 }
 export interface PublicPersona {
   id: string; name: string; emoji: string; intro: string;

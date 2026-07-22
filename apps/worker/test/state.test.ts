@@ -30,6 +30,32 @@ test('publicRoom은 내부 필드를 숨기고 페르소나 요약을 포함', (
   expect(pub.capacity).toBe(1);
 });
 
+test('avatar 검증: 유효한 data URL만 저장, 형식이 아니거나 길이 초과면 조용히 무시', () => {
+  const validAvatar = 'data:image/jpeg;base64,AAAA';
+  const { room: ok } = createRoomState('AB12', '호스트', { mode: 'single', personaId: 'caocao' }, validAvatar);
+  expect(ok.players[0]!.avatar).toBe(validAvatar);
+
+  const { room: badFormat } = createRoomState('AB12', '호스트', { mode: 'single', personaId: 'caocao' }, 'not-a-data-url');
+  expect(badFormat.players[0]!.avatar).toBeUndefined();
+
+  const tooLong = `data:image/jpeg;base64,${'A'.repeat(40001)}`;
+  const { room: tooLongRoom } = createRoomState('AB12', '호스트', { mode: 'single', personaId: 'caocao' }, tooLong);
+  expect(tooLongRoom.players[0]!.avatar).toBeUndefined();
+});
+
+test('addPlayer도 avatar를 같은 규칙으로 검증한다', () => {
+  const { room } = createRoomState('AB12', '호스트', { mode: 'multi', personaId: 'liubei', maxPlayers: 3 });
+  const validAvatar = 'data:image/png;base64,BBBB';
+  const joined = addPlayer(room, '게스트', validAvatar);
+  expect('playerId' in joined).toBe(true);
+  const p1 = room.players.find((p) => p.id === (joined as { playerId: string }).playerId);
+  expect(p1?.avatar).toBe(validAvatar);
+
+  const joined2 = addPlayer(room, '게스트2', 12345); // 문자열이 아님 → 무시
+  const p2 = room.players.find((p) => p.id === (joined2 as { playerId: string }).playerId);
+  expect(p2?.avatar).toBeUndefined();
+});
+
 test('RoomState는 JSON 왕복이 된다', () => {
   const { room } = createRoomState('AB12', 'h', { mode: 'single', personaId: 'caocao' });
   expect(JSON.parse(JSON.stringify(room))).toEqual(room);

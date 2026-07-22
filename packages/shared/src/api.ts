@@ -7,9 +7,9 @@ export interface PersonaSummary {
   advisors: { name: string; emoji: string; style: string }[];
   situationCount: number;
 }
-export interface CreateRoomReq { nick: string; config: Partial<RoomConfig> & { personaId: string } }
+export interface CreateRoomReq { nick: string; avatar?: string; config: Partial<RoomConfig> & { personaId: string } }
 export interface CreateRoomRes { ok: true; code: string; playerId: string; token: string; room: PublicRoom }
-export interface JoinRoomReq { nick: string }
+export interface JoinRoomReq { nick: string; avatar?: string }
 export interface JoinRoomRes { ok: true; code: string; playerId: string; token: string; room: PublicRoom }
 export interface AuthedReq { playerId: string; token: string }
 export interface SpeakReq extends AuthedReq { text: string }

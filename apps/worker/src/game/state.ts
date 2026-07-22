@@ -50,8 +50,16 @@ export interface RoomState {
   endedReason: string | null;
 }
 
-function makePlayer(nick: string, joinOrder: number, rank: string): PlayerState {
-  return {
+// 아바타는 문자열이고 data:image/ dataURL이며 길이 4만자 이하일 때만 허용한다. 그 외엔 조용히 무시(에러 아님) —
+// 잘못된 값을 보내는 클라이언트를 막을 필요는 없고, 그냥 기본 아바타(색원+이니셜)로 폴백시키면 된다.
+const AVATAR_MAX_LEN = 40000;
+
+function isValidAvatar(avatar: unknown): avatar is string {
+  return typeof avatar === 'string' && avatar.startsWith('data:image/') && avatar.length <= AVATAR_MAX_LEN;
+}
+
+function makePlayer(nick: string, joinOrder: number, rank: string, avatar?: unknown): PlayerState {
+  const player: PlayerState = {
     id: newId(),
     nick: nick.trim().slice(0, 16) || `게스트${joinOrder + 1}`,
     rank,
@@ -59,12 +67,15 @@ function makePlayer(nick: string, joinOrder: number, rank: string): PlayerState 
     favor: 0,
     connected: true,
   };
+  if (isValidAvatar(avatar)) player.avatar = avatar;
+  return player;
 }
 
 export function createRoomState(
   code: string,
   hostNick: string,
   config: Partial<RoomConfig> & { personaId: string },
+  avatar?: unknown,
 ): { room: RoomState; playerId: string; token: string } {
   const persona = getPersona(config.personaId);
   if (!persona) throw new Error(STRINGS.errors.noPersona);
@@ -82,7 +93,7 @@ export function createRoomState(
     maxPlayers: mode === 'single' ? 1 : Math.min(6, Math.max(2, Number(config.maxPlayers) || 4)),
   };
 
-  const host = makePlayer(hostNick, 0, persona.ranks[0]!);
+  const host = makePlayer(hostNick, 0, persona.ranks[0]!, avatar);
   const token = newToken();
   const now = Date.now();
 
@@ -108,14 +119,14 @@ export function createRoomState(
   return { room, playerId: host.id, token };
 }
 
-export function addPlayer(room: RoomState, nick: string): { playerId: string; token: string } | { error: string } {
+export function addPlayer(room: RoomState, nick: string, avatar?: unknown): { playerId: string; token: string } | { error: string } {
   if (room.state !== 'LOBBY') return { error: STRINGS.errors.roomStarted! };
   if (room.players.length >= room.config.maxPlayers) return { error: STRINGS.errors.roomFull! };
 
   const persona = getPersona(room.config.personaId);
   if (!persona) throw new Error(STRINGS.errors.noPersona);
 
-  const player = makePlayer(nick, room.players.length, persona.ranks[0]!);
+  const player = makePlayer(nick, room.players.length, persona.ranks[0]!, avatar);
   const token = newToken();
   room.players.push(player);
   room.tokens[player.id] = token;
@@ -156,6 +167,7 @@ export function publicRoom(room: RoomState): PublicRoom {
       joinOrder: p.joinOrder,
       favor: p.favor,
       connected: p.connected,
+      avatar: p.avatar,
     })),
     persona: {
       id: persona.id,
