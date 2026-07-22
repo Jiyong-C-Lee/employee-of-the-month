@@ -1,0 +1,14 @@
+{
+  "name": "employee-of-the-month",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace @eotm/worker",
+    "dev:web": "npm run dev --workspace @eotm/web",
+    "build": "npm run build --workspace @eotm/web && npm run build --workspace @eotm/worker",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "deploy": "npm run build --workspace @eotm/web && npm run deploy --workspace @eotm/worker"
+  }
+}
