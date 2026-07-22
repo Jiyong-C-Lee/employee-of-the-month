@@ -40,17 +40,19 @@ export function josa(word, withFinal, noFinal) {
   return (ch - 0xac00) % 28 > 0 ? withFinal : noFinal;
 }
 
-// 포즈 배정: 큐 순서가 아니라 캐릭터 고정 — 참모는 명단 순, 유저는 입장순. 라운드가 바뀌어도 몸이 안 바뀐다.
-// 내 컷만 지정석(턱받침).
-export function buildPoseMap({ persona, players, playerId }) {
+// 포즈 배정: 큐 순서가 아니라 캐릭터 고정 — 참모는 명단 순, 유저는 입장순으로 결정적 배정.
+// 뷰어와 무관하게 배정한다 → 같은 유저는 모든 클라이언트에서·라운드가 바뀌어도 같은 몸. (뷰어 본인 강조는
+// FaceSlot의 mine으로만 처리한다.) 이전엔 뷰어 본인만 USER_POSE로 빼면서 seat 인덱스가 어긋나
+// 같은 유저가 클라이언트마다 다른 포즈로 보였다.
+export function buildPoseMap({ persona, players }) {
   const map = {};
   persona.advisors.forEach((a, i) => {
     map[`ai:${a.name}`] = SEAT_POSES[i % SEAT_POSES.length];
   });
-  let seat = persona.advisors.length;
-  for (const p of [...(players || [])].sort((a, b) => a.joinOrder - b.joinOrder)) {
-    map[p.id] = p.id === playerId ? USER_POSE : SEAT_POSES[seat++ % SEAT_POSES.length];
-  }
+  const seats = [USER_POSE, ...SEAT_POSES]; // 사람 자리 풀 (지정석 포함)
+  [...(players || [])]
+    .sort((a, b) => a.joinOrder - b.joinOrder)
+    .forEach((p, i) => { map[p.id] = seats[i % seats.length]; });
   return map;
 }
 
