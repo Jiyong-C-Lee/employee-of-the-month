@@ -127,7 +127,7 @@ export class Engine {
     logger.roundStarted({ roomCode: room.code, roundNo: room.roundNo, situation: situation.text });
     this.setPhase('SITUATION', { situation });
     this.sysMsg(this.line('round.intro', { roundNo: room.roundNo, situationText: situation.text }));
-    this.sysMsg(this.line('round.question', { question: situation.question }));
+    // 질문 자막(round.question)은 만화 UI의 상황 카드(SituationCut)가 질문을 이미 렌더하므로 중복 — 발행하지 않는다.
     this.bus.delay(REVEAL_DELAY_SEC * 1000, () => this.beginSpeeches());
   }
 
