@@ -110,7 +110,7 @@ export class Engine {
     if (room.config.mode === 'multi' && room.players.length < 2) return { error: STRINGS.errors.needTwo! };
     room.state = 'PLAYING';
     logger.gameStarted({ roomCode: room.code, nicks: room.players.map((p) => p.nick) });
-    this.sysMsg(this.line('session.open', { intro: this.persona.intro }));
+    // 개회 자막(session.open)은 보스 카드가 인물 소개를 이미 렌더하므로 중복 — 발행하지 않는다.
     this.beginRound();
     return { ok: true };
   }
