@@ -9,6 +9,7 @@
     "build": "npm run build --workspace @eotm/web && npm run build --workspace @eotm/worker",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "deploy": "npm run build --workspace @eotm/web && npm run deploy --workspace @eotm/worker"
+    "deploy": "npm run build --workspace @eotm/web && npm run deploy --workspace @eotm/worker",
+    "smoke": "node scripts/smoke.mjs"
   }
 }
