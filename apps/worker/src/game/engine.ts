@@ -126,8 +126,7 @@ export class Engine {
     room.round = { situation, speeches: [], queue: [], turnIdx: 0, skipped: [], usedApproaches: [], verdict: null };
     logger.roundStarted({ roomCode: room.code, roundNo: room.roundNo, situation: situation.text });
     this.setPhase('SITUATION', { situation });
-    this.sysMsg(this.line('round.intro', { roundNo: room.roundNo, situationText: situation.text }));
-    // 질문 자막(round.question)은 만화 UI의 상황 카드(SituationCut)가 질문을 이미 렌더하므로 중복 — 발행하지 않는다.
+    // 라운드 자막(round.intro·round.question)은 만화 UI의 상황 카드(SituationCut)가 본문·질문을 이미 렌더하므로 중복 — 발행하지 않는다.
     this.bus.delay(REVEAL_DELAY_SEC * 1000, () => this.beginSpeeches());
   }
 

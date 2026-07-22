@@ -46,7 +46,7 @@ test('싱글 1라운드: 시작→조언자 발언→내 발언→판정→RESUL
   expect(room.round!.verdict).not.toBeNull();
 });
 
-test('라운드 시작 시 질문 자막(round.question)은 중복이라 발행하지 않는다', async () => {
+test('라운드 시작 시 자막(round.intro·round.question)은 중복이라 발행하지 않는다', async () => {
   const { room, playerId } = createRoomState('T1Q', '나', { mode: 'single', personaId: 'liubei' });
   const { bus, events } = fakeBus();
   const eng = new Engine(room, bus, deps);
@@ -54,10 +54,9 @@ test('라운드 시작 시 질문 자막(round.question)은 중복이라 발행�
 
   const situation = room.round!.situation;
   const systemTexts = findFeed(events, 'system').map((e) => (e as { item: { text: string } }).item.text);
-  // 상황 카드가 질문을 렌더하므로 질문을 담은 자막은 없어야 한다.
+  // 상황 카드(SituationCut)가 본문·질문을 모두 렌더하므로 라운드 자막은 없어야 한다.
   expect(systemTexts.some((t) => t.includes(situation.question))).toBe(false);
-  // 라운드 안내(round.intro)는 유지된다.
-  expect(systemTexts.some((t) => t.includes(situation.text))).toBe(true);
+  expect(systemTexts.some((t) => t.includes(situation.text))).toBe(false);
 });
 
 test('멀티: 순번 아닌 발언 거부, 타임아웃 알람 예약·발동', async () => {
