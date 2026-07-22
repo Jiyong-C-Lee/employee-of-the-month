@@ -88,11 +88,11 @@ employee-of-the-month/
 │  │     └─ constants.ts       # MAX_SPEECH_CHARS(140), 발언 시간 옵션(30/45/60) 등
 │  └─ content/                 # @eotm/content — 게임데이터
 │     ├─ src/
-│     │  ├─ schema.ts          # persona·situation zod 스키마
-│     │  └─ loader.ts          # 전 팩 로드 + 검증 (위반 시 팩·필드 지목하며 실패)
-│     └─ packs/
-│        ├─ caocao/            # persona.json + situations.json
-│        └─ kimceo/
+│     │  ├─ schema.ts          # persona·situation·prompts·strings zod 스키마
+│     │  └─ loader.ts          # 전 팩 + 전역 데이터 로드·검증 (위반 시 팩·필드 지목하며 실패)
+│     ├─ global/               # prompts.json(프롬프트 템플릿·난이도·해법 축), strings.json(시스템 대사·mock)
+│     └─ packs/                # 6종: caocao, liubei, sunquan, yuanshao, dongzhuo, kimceo
+│        └─ <id>/              # persona.json + situations.json
 ├─ docs/superpowers/specs/     # 이 문서
 ├─ package.json                # npm workspaces 루트
 └─ README.md
@@ -100,8 +100,9 @@ employee-of-the-month/
 
 ### 4.1 소스/데이터 경계 규칙
 
-- **팩에 들어가는 것**: 페르소나 메타(이름·이모지·소개), 채점 축, 계급 사다리, 조언자(이름·성향·성향 프롬프트), 인물 프롬프트, 상황 목록. — 새 페르소나 추가 시 코드 수정 없이 `packs/` 폴더 하나 추가가 전부.
-- **코드에 남는 것**: 프롬프트 템플릿 골격(조언자/판정/에필로그 시스템 프롬프트), 게임 규칙(순번·채택·승진), mock 생성 로직.
+- **팩에 들어가는 것**: 페르소나 메타(이름·이모지·소개·listenerBrief·judgeAddress), 채점 축, 계급 사다리, 조언자(이름·성향·성향 프롬프트), 인물 프롬프트, 상황 목록. — 새 페르소나 추가 시 코드 수정 없이 `packs/` 폴더 하나 추가가 전부.
+- **전역 게임데이터**(`packages/content/global/`): 프롬프트 템플릿(조언자 배치/판정/에필로그 시스템 프롬프트, 난이도 문구, 해법 축)과 시스템 대사(라운드 안내·폴백 문구·mock 대사) — 원본의 `sycophant-prompts.json`·`sycophant-strings.json`을 승계. 문구 수정은 데이터 수정.
+- **코드에 남는 것**: 프롬프트 조립 로직(`fmt` 토큰 치환)·responseSchema, 게임 규칙(순번·채택·승진), mock 생성 로직.
 - 콘텐츠는 빌드 시 번들에 포함(Workers는 파일시스템이 없으므로 import로 정적 포함). loader가 모듈 로드 시점에 zod 검증 — 스키마 위반 팩이 있으면 배포 전에 실패한다.
 
 ## 5. 통신 계약
@@ -135,10 +136,11 @@ employee-of-the-month/
 
 ## 6. 게임 도메인 (기존 규칙 그대로 이식)
 
-- 상태머신: `SITUATION → ADVISORS → PLAYER_TURNS → JUDGING → RESULT → (다음|END)`.
-- 순번: 1라운드 입장순, 이후 총애 내림차순(낮을수록 뒤 = 유리). 채택: 축 합산 최고점, 동점은 늦게 말한 쪽. 승진: 채택 수 = 계급 인덱스, 최고 계급(채택 4회) 도달 시 우승. 상황 소진 시 종료.
-- AI 3종 호출(조언자 발언·판정·에필로그)과 `finalizeVerdict` 검증 규칙(0~10 클램프, 서버 채택 재계산, 불일치 시 사유 대체)은 기존 그대로.
-- 발언 140자 제한, 발언 시간 30/45/60초(기본 45) 유지.
+- 상태머신: `SITUATION → PLAYER_TURNS(통합 발언 큐) → JUDGING → RESULT → (다음|END)`.
+- 발언 큐: AI 조언자 블록 먼저, 사람 블록 나중(앞 의견을 보고 반박할 수 있는 유리한 자리). 블록 내에서는 총애 높은 순(1라운드는 정의순/입장순). 채택: 축 합산 최고점, 동점은 늦게 말한 쪽. 승진: 채택 수 = 계급 인덱스, 최고 계급(채택 4회) 도달 시 우승. 상황 소진 시 종료(멀티=총애 최다 우승, 싱글=실패 엔딩).
+- AI 3종 호출(조언자 배치 1콜·판정·에필로그)과 `finalizeVerdict` 검증 규칙(0~10 클램프, 서버 채택 재계산, key/이름 관용 매칭, 불일치 시 사유 대체), 판정 시 익명 라벨 마스킹(이름값 편향 방지)은 기존 그대로.
+- 발언 160자 제한(문장 끝에서 자르는 `trimSpeech`), 발언 시간 싱글 무제한 / 멀티 60·120·180초(기본 60), 난이도(조언자 완성도) easy/normal/hard 유지.
+- 페르소나 6종(caocao·liubei·sunquan·yuanshao·dongzhuo·kimceo) 이식.
 
 ## 7. 운영·안전장치
 
@@ -168,7 +170,8 @@ employee-of-the-month/
 | `server/llm.js` | `apps/worker/src/ai/providers/gemini.ts` | fetch 기반이라 Workers에서 그대로 동작. NVIDIA 공급자(providers/nvidia.ts)를 신설하고 chain.ts 공통 인터페이스로 묶음 |
 | `server/sycophant/engine.js` | `apps/worker/src/game/engine.ts` | 소켓 브로드캐스트→SSE 발행, setTimeout→Alarm. **가장 손 많이 가는 부분** |
 | `server/rooms.js` (간신배 경로) | `apps/worker/src/game/state.ts` | debate 분기 제거, DO storage 직렬화 추가 |
-| `server/data/personas.json` | `packages/content/packs/*/` | 팩 구조로 분해 |
+| `server/data/personas.json` | `packages/content/packs/*/` | 페르소나 6종을 팩 구조로 분해 |
+| `server/data/sycophant-{prompts,strings}.json` | `packages/content/global/` | 전역 게임데이터로 승계, `content.js`의 fmt/로더는 loader.ts로 |
 | `client/src/{SycoGame,Syco*,Comic*,Feed}` 등 | `apps/web/src/` | store를 소켓 구독→SSE 리듀서로 교체 |
 | `server/game.js`, `judge/`, debate 화면 | **미이식** | 토론 게임은 원본 저장소에 남김 |
 
