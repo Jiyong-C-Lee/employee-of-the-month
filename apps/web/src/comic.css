@@ -103,6 +103,11 @@
 
 .sp-figure { position: relative; width: 100%; margin-top: auto; }
 .sp-figure img { display: block; width: 100%; height: auto; }
+/* 홀수 인원 마지막 컷(span2, 가로 두 칸)은 폭만 넓어지고 캐릭터는 1칸 폭 그대로 가운데 정렬 —
+   그림이 %폭 기준이라 그대로 두면 span2에서 2배 커지며 컷 높이도 덩달아 늘어나던 문제.
+   50% - 15px = (그리드 gap 14px + 패널 좌우 padding 16px) / 2 를 뺀 값으로, 1칸 컷의 sp-figure와
+   정확히 같은 픽셀 폭이 나온다(양쪽 다 box-sizing: border-box 기준 계산). */
+.speak-panel.span2 .sp-figure { width: calc(50% - 15px); margin-left: auto; margin-right: auto; }
 .speak-panel.waiting .sp-figure { filter: grayscale(.6) opacity(.55); }
 .speak-panel.waiting .face-slot { opacity: .5; }
 .sp-label { position: absolute; right: -2px; bottom: -2px; background: var(--ink); color: #fff; font-weight: 800; font-size: 11px; padding: 3px 9px; z-index: 10; max-width: 96%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -124,11 +129,13 @@
 .judge-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .judge-row.solo { display: flex; justify-content: center; }
 .judge-row.solo .award-cut { width: 60%; }
-.gauge-strip { overflow: hidden; height: 58px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 7px; }
+.gauge-strip { overflow: hidden; height: 78px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 7px; }
 .gs-fill { position: absolute; inset: 0; background: linear-gradient(90deg, #d5473a, #a92622); transform-origin: left; animation: gaugeFillX 3.8s ease-in-out forwards; z-index: 1; }
 .gauge-strip.done .gs-fill { animation: none; transform: none; }
 @keyframes gaugeFillX { 0% { transform: scaleX(.06); } 70% { transform: scaleX(.78); } 100% { transform: scaleX(1); } }
-.gs-boss { position: relative; z-index: 2; }
+/* 보스 응시 포즈(pose7) — SituationCut의 sc-boss와 같은 이미지+얼굴 슬롯 패턴, 스트립 높이에 맞춰 축소 */
+.gs-figure { position: relative; z-index: 2; width: 84px; flex: none; }
+.gs-figure img { display: block; width: 100%; height: auto; }
 .gs-title { position: relative; z-index: 2; font-weight: 800; font-size: 11px; color: #fff; text-shadow: 1px 1px 0 #7a1c1a; white-space: nowrap; }
 .gs-rage { position: relative; z-index: 2; font-size: 19px; line-height: 1; animation: ragePulse 1.05s ease-in-out infinite; filter: grayscale(1) brightness(0) invert(1); }
 .gs-rage.r2 { font-size: 14px; animation-duration: 1.35s; }

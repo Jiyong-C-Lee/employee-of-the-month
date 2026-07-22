@@ -2,7 +2,7 @@
 // 모든 컷은 상태(room.round.queue/speeches, phase, verdict)로만 그린다. 피드는 자막·에필로그에만 쓴다.
 import { useEffect, useState } from 'react';
 import {
-  BOSS_FRONT, USER_POSE, SEAT_POSES, poseUrl, hashColor,
+  BOSS_FRONT, BOSS_GAZE, USER_POSE, SEAT_POSES, poseUrl, hashColor,
   getPoses, getFaceAlpha, hexToRgba,
 } from '../comic-assets.js';
 
@@ -164,8 +164,10 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
             <div className="sp-figure">
               <img src={poseUrl(poseMap[entry.key])} alt="" />
               <FaceSlot pose={poseMap[entry.key]} entry={entry} mine={mine} avatar={avatarByKey[entry.key]} />
+              {/* 라벨을 sp-figure 하위로 옮겨 캐릭터 박스 기준 우하단에 고정 —
+                  span2에서 캐릭터가 가운데 정렬돼도(1칸 폭 유지) 라벨이 캐릭터를 계속 따라간다. */}
+              <span className="sp-label">{label}</span>
             </div>
-            <span className="sp-label">{label}</span>
           </div>
         );
       })}
@@ -178,7 +180,10 @@ export function GaugeStrip({ persona, done }) {
   return (
     <div className={`cut gauge-strip ${done ? 'done' : ''}`}>
       <div className="gs-fill" />
-      <div className="gs-boss emoji-circle sm"><span>{persona.emoji}</span></div>
+      <div className="gs-figure">
+        <img src={poseUrl(BOSS_GAZE)} alt="" />
+        <FaceSlot pose={BOSS_GAZE} entry={{ kind: 'ai', emoji: persona.emoji }} />
+      </div>
       <span className="gs-title">분노 게이지</span>
       <span className="gs-rage">💢</span>
       <span className="gs-rage r2">💢</span>
