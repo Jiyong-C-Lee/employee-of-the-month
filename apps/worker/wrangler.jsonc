@@ -1,0 +1,25 @@
+{
+  "name": "employee-of-the-month",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM_DO", "class_name": "RoomDO" },
+      { "name": "QUOTA_DO", "class_name": "QuotaDO" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomDO", "QuotaDO"] }],
+  "vars": {
+    "GEMINI_MODEL": "gemini-flash-lite-latest",
+    "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
+    "LLM_DAILY_LIMIT_GEMINI": "1000",
+    "LLM_DAILY_LIMIT_NVIDIA": "5000"
+  }
+}
