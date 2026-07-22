@@ -1033,7 +1033,9 @@ export function finalizeVerdict(raw: RawVerdict, candidates: Candidate[], axes: 
 
 - [ ] **Step 6: 커밋** — `git commit -am "feat(worker): 프롬프트 조립·mock·판정 검증 이식"`
 
----### Task 7: ai/providers + chain — LLM 공급자 체인
+---
+
+### Task 7: ai/providers + chain — LLM 공급자 체인
 
 **Files:**
 - Create: `apps/worker/src/ai/providers/gemini.ts`, `src/ai/providers/nvidia.ts`, `src/ai/parse.ts`, `src/ai/chain.ts`
