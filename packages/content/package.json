@@ -1,0 +1,15 @@
+{
+  "name": "@eotm/content",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "gen": "node scripts/gen-index.mjs",
+    "pretest": "npm run gen",
+    "test": "vitest run",
+    "pretypecheck": "npm run gen",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "typescript": "^5.5.0", "vitest": "^2.0.0" }
+}

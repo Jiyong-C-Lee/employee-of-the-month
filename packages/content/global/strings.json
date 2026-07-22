@@ -1,0 +1,63 @@
+{
+  "_readme": "「이달의 우수사원」 시스템 대사·연출 문구. {토큰}은 코드가 치환한다. 인물별 오버라이드는 personas.json의 lines 필드(timeout, noAdopt)가 우선한다.",
+
+  "session": {
+    "open": "{emoji} {personaName}의 회의가 소집되었습니다 — \"{intro}\"",
+    "end": "🏁 세션 종료 — {reason}",
+    "championReason": "{nick} {topRank} 등극!",
+    "exhaustMultiWin": "{personaName}의 고민이 모두 끝났습니다. 최다 채택 — {winners}!",
+    "exhaustMultiNone": "{personaName}의 고민이 모두 끝났지만, 아무도 눈에 들지 못했습니다.",
+    "exhaustSingle": "{personaName}의 고민이 모두 끝났습니다. 당신은 끝내 {topRank}이 되지 못했습니다. (최종 직급: {finalRank})"
+  },
+
+  "round": {
+    "intro": "📋 라운드 {roundNo} — {situationText}",
+    "question": "{emoji} {personaName}: \"{question}\"",
+    "speechStart": "🎤 발언 시작! 직급 높은 순서대로 말합니다 — 뒤 순번일수록 앞 의견을 밟고 넘어설 기회. {timeNote} 한 마디 ({maxChars}자 이내).",
+    "timeNoteTimed": "{speakTime}초 안에",
+    "timeNoteFree": "제한시간 없이",
+    "timeout": "{emoji} {personaName}: \"{nick} 씨는… 의견 없는 걸로 회의록에 남길게요.\" (기권)",
+    "judging": "{emoji} {personaName}이(가) 의견들을 곰곰이 저울질합니다…",
+    "adopted": "🏆 채택 — {adoptedName}! {adoptReason}",
+    "champion": "🎉 {nick} 님이 {topRank}에 올랐습니다!",
+    "noAdopt": "{emoji} {personaName}: \"오늘 회의는 없던 걸로 하죠.\" (채택 없음)"
+  },
+
+  "fallback": {
+    "advisorSpeechFail": "(말을 잇지 못했다)",
+    "adoptReason": "{adoptedName}의 제안대로 가기로 했다.",
+    "judgeComment": "(별다른 말이 없다)"
+  },
+
+  "mock": {
+    "advisorTemplates": {
+      "원칙파": "아니 될 말씀입니다. 원칙을 저버리면 신뢰가 무너집니다. {question} 규정대로 가야 합니다.",
+      "실리파": "득실만 따지면 답은 하나입니다. {question} 실리를 취하시고, 명분은 나중에 만들면 됩니다.",
+      "강경파": "머뭇거릴 일이 아닙니다. 화근은 오늘 뿌리 뽑아야 내일이 편합니다.",
+      "신중파": "숫자부터 봐야 합니다. 리스크 검토 없이 움직이면 뒷감당이 안 됩니다.",
+      "추진파": "일단 지르시죠! 완벽한 때는 오지 않습니다. 실행이 전략입니다.",
+      "아첨파": "역시 보는 눈이 남다르십니다. 저는 마음 가시는 쪽이 곧 정답이라고 봅니다."
+    },
+    "advisorRebutPrefix": "{lastName}의 말은 반만 맞습니다. ",
+    "judgeComment": "그 말에는 나름의 일리가 있네. (Mock)",
+    "judgeReason": "그 제안이 가장 그럴듯했다. (Mock)",
+    "epilogue": "{personaName}은(는) {adoptedName}의 제안대로 했다. 처음엔 모두가 탄복했으나, 일이 묘하게 흘러 아무도 예상 못 한 방향으로 굴러갔다. — 그러나 이것은 다음 분기의 이야기. (Mock)"
+  },
+
+  "errors": {
+    "notHost": "방장만 시작할 수 있습니다.",
+    "notHostNext": "방장만 진행할 수 있습니다.",
+    "alreadyStarted": "이미 시작되었습니다.",
+    "needTwo": "2명 이상 모여야 시작할 수 있습니다.",
+    "notYourTurn": "아직 당신의 순번이 아닙니다.",
+    "noRoom": "존재하지 않는 방 코드입니다.",
+    "roomStarted": "이미 시작된 방입니다.",
+    "roomFull": "정원이 가득 찼습니다.",
+    "noPersona": "존재하지 않는 인물입니다.",
+    "notNow": "지금은 다음으로 갈 수 없습니다.",
+    "badAuth": "인증에 실패했습니다.",
+    "rateLimited": "방 생성이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+    "codeAllocFail": "방 코드 할당 실패. 다시 시도해 주세요.",
+    "connectFail": "서버에 연결할 수 없습니다."
+  }
+}
