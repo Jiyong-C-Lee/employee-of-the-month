@@ -26,7 +26,10 @@
   "fallback": {
     "advisorSpeechFail": "(말을 잇지 못했다)",
     "adoptReason": "{adoptedName}의 제안대로 가기로 했다.",
-    "judgeComment": "(별다른 말이 없다)"
+    "judgeComment": "(별다른 말이 없다)",
+    "debugSpeech": "(디버그 발언)",
+    "debugComment": "(디버그 판정)",
+    "debugReason": "(디버그) 묻지도 따지지도 않고 채택한다."
   },
 
   "mock": {
@@ -55,6 +58,11 @@
     "roomFull": "정원이 가득 찼습니다.",
     "noPersona": "존재하지 않는 인물입니다.",
     "notNow": "지금은 다음으로 갈 수 없습니다.",
+    "debugNotPlaying": "게임 진행 중이 아닙니다.",
+    "debugRoundOnly": "라운드 진행 중에만 쓸 수 있습니다.",
+    "debugNoPlayer": "플레이어 없음",
+    "debugResultOnly": "RESULT 단계에서만 쓸 수 있습니다.",
+    "debugUnknown": "알 수 없는 디버그 액션",
     "badAuth": "인증에 실패했습니다.",
     "rateLimited": "방 생성이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
     "codeAllocFail": "방 코드 할당 실패. 다시 시도해 주세요.",
