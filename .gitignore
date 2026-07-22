@@ -1,0 +1,14 @@
+# 시크릿 — 절대 커밋 금지
+.env
+.env.*
+.dev.vars
+
+# 의존성·빌드 산출물
+node_modules/
+dist/
+.wrangler/
+
+# 편집기·OS
+.vscode/
+.DS_Store
+Thumbs.db
