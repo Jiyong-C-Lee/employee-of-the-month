@@ -66,3 +66,11 @@ test('방 생성 rate limit: 같은 IP 연속 생성 제한(분당 5)', async ()
 test('존재하지 않는 방 join은 404', async () => {
   expect((await api('/rooms/ZZZZ/join', { body: { nick: 'x' }, ip: 'e2e-notfound' })).status).toBe(404);
 });
+
+test('캐치올로 /create 직접 호출은 404 — rate limit 우회 차단 (I3)', async () => {
+  const r = await api('/rooms/ABCD/create', {
+    body: { code: 'ABCD', nick: 'x', config: { mode: 'single', personaId: 'caocao' } },
+    ip: 'e2e-i3',
+  });
+  expect(r.status).toBe(404);
+});

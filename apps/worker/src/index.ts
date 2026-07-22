@@ -48,10 +48,13 @@ app.post('/api/rooms', async (c) => {
 
 // /api/rooms/:code/* — RoomDO로 위임 (GET events 포함)
 app.all('/api/rooms/:code/:action', (c) => {
+  const action = c.req.param('action');
+  // /create는 정규 생성 플로우(POST /api/rooms, rate limit)로만 도달해야 한다 — 캐치올 우회 차단(I3).
+  if (action === 'create') return c.json({ error: STRINGS.errors.noRoom }, 404);
   const code = c.req.param('code').toUpperCase();
   const room = c.env.ROOM_DO.get(c.env.ROOM_DO.idFromName(code));
   const url = new URL(c.req.raw.url);
-  return room.fetch(`http://do/${c.req.param('action')}${url.search}`, c.req.raw);
+  return room.fetch(`http://do/${action}${url.search}`, c.req.raw);
 });
 
 // 그 외는 정적 SPA (Workers Assets가 처리)
