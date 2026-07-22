@@ -50,12 +50,18 @@ export interface RoomState {
   endedReason: string | null;
 }
 
-// 아바타는 문자열이고 data:image/ dataURL이며 길이 4만자 이하일 때만 허용한다. 그 외엔 조용히 무시(에러 아님) —
+// 아바타는 문자열이고 다음 두 형식 중 하나일 때만 허용한다. 그 외엔 조용히 무시(에러 아님) —
 // 잘못된 값을 보내는 클라이언트를 막을 필요는 없고, 그냥 기본 아바타(색원+이니셜)로 폴백시키면 된다.
+// - data:image/ dataURL (업로드 사진), 길이 4만자 이하
+// - emoji:😎 (프리셋 아이콘), 길이 24자 이하
 const AVATAR_MAX_LEN = 40000;
+const AVATAR_EMOJI_MAX_LEN = 24;
 
 function isValidAvatar(avatar: unknown): avatar is string {
-  return typeof avatar === 'string' && avatar.startsWith('data:image/') && avatar.length <= AVATAR_MAX_LEN;
+  if (typeof avatar !== 'string') return false;
+  if (avatar.startsWith('data:image/')) return avatar.length <= AVATAR_MAX_LEN;
+  if (avatar.startsWith('emoji:')) return avatar.length <= AVATAR_EMOJI_MAX_LEN;
+  return false;
 }
 
 function makePlayer(nick: string, joinOrder: number, rank: string, avatar?: unknown): PlayerState {

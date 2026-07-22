@@ -38,6 +38,22 @@ export function hashColor(name) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
+// 아바타 값 종류 판별 — localStorage/서버가 공유하는 avatar 문자열 포맷:
+// 미설정(null) | 이미지 dataURL(data:image/...) | 프리셋 아이콘(emoji:😎)
+export const AVATAR_EMOJI_PREFIX = 'emoji:';
+
+export function isImageAvatar(avatar) {
+  return typeof avatar === 'string' && avatar.startsWith('data:image/');
+}
+
+export function isEmojiAvatar(avatar) {
+  return typeof avatar === 'string' && avatar.startsWith(AVATAR_EMOJI_PREFIX);
+}
+
+export function avatarEmoji(avatar) {
+  return avatar.slice(AVATAR_EMOJI_PREFIX.length);
+}
+
 // #rrggbb → rgba(r, g, b, alpha). 형식이 아니면 원본을 그대로 돌려준다(방어적 폴백).
 export function hexToRgba(hex, alpha) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex || '');

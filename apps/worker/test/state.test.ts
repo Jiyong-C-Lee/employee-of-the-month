@@ -43,6 +43,21 @@ test('avatar 검증: 유효한 data URL만 저장, 형식이 아니거나 길이
   expect(tooLongRoom.players[0]!.avatar).toBeUndefined();
 });
 
+test('avatar 검증: emoji: 접두 프리셋 아이콘도 허용, 그 외 형식은 무시', () => {
+  const { room: ok } = createRoomState('AB12', '호스트', { mode: 'single', personaId: 'caocao' }, 'emoji:😎');
+  expect(ok.players[0]!.avatar).toBe('emoji:😎');
+
+  const tooLong = `emoji:${'a'.repeat(20)}`; // 'emoji:' 6자 + 20자 = 26자 > 24자 한도
+  const { room: tooLongRoom } = createRoomState('AB12', '호스트', { mode: 'single', personaId: 'caocao' }, tooLong);
+  expect(tooLongRoom.players[0]!.avatar).toBeUndefined();
+
+  const { room: weirdRoom } = createRoomState('AB12', '호스트', { mode: 'single', personaId: 'caocao' }, 'javascript:alert(1)');
+  expect(weirdRoom.players[0]!.avatar).toBeUndefined();
+
+  const { room: emptyRoom } = createRoomState('AB12', '호스트', { mode: 'single', personaId: 'caocao' }, '');
+  expect(emptyRoom.players[0]!.avatar).toBeUndefined();
+});
+
 test('addPlayer도 avatar를 같은 규칙으로 검증한다', () => {
   const { room } = createRoomState('AB12', '호스트', { mode: 'multi', personaId: 'liubei', maxPlayers: 3 });
   const validAvatar = 'data:image/png;base64,BBBB';

@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
+import { AVATAR_EMOJI_PREFIX, avatarEmoji, hashColor, isEmojiAvatar, isImageAvatar } from '../comic-assets.js';
 
 const AVATAR_KEY = 'eotm.avatar';
 const AVATAR_SIZE = 128;
+
+// 아이콘 선택 프리셋 — 직장인 테마 이모지 12종.
+const AVATAR_EMOJI_PRESETS = ['😎', '🤓', '😤', '🥸', '😏', '🫡', '🤔', '😴', '🤑', '😇', '👻', '🐱'];
 
 // 이미지 파일 → 128x128 커버 크롭 → JPEG dataURL(품질 0.8). 실패하면 reject(호출부가 토스트로 안내).
 function resizeAvatar(file) {
@@ -53,6 +57,12 @@ export default function Home({ state, actions }) {
   function resetAvatar() {
     localStorage.removeItem(AVATAR_KEY);
     setAvatar(null);
+  }
+
+  function pickEmojiAvatar(emoji) {
+    const value = AVATAR_EMOJI_PREFIX + emoji;
+    localStorage.setItem(AVATAR_KEY, value);
+    setAvatar(value);
   }
 
   // 초대 링크(?code=XXXX)로 들어오면 참가 모드로 자동 전환
@@ -157,16 +167,32 @@ export default function Home({ state, actions }) {
         <p className="tagline">AI 보스가 가장 듣고 싶어할 말로 채택을 노리고, 사원에서 사장까지 승진하는 눈치 게임</p>
 
         <div className="avatar-setting">
-          <span className="avatar-preview" style={avatar ? { backgroundImage: `url(${avatar})` } : undefined}>
-            {!avatar && '🙂'}
+          <span
+            className="avatar-preview"
+            style={isImageAvatar(avatar) ? { backgroundImage: `url(${avatar})` } : { background: isEmojiAvatar(avatar) ? undefined : hashColor(nick.trim() || '?') }}
+          >
+            {isImageAvatar(avatar) ? null : isEmojiAvatar(avatar) ? avatarEmoji(avatar) : (nick.trim().slice(0, 1) || '?')}
           </span>
           <div className="avatar-actions">
+            <button type="button" className={`btn small ${!avatar ? 'sel' : ''}`} onClick={resetAvatar}>기본</button>
             <label className="btn small">
-              프로필 사진 선택
+              사진 업로드
               <input type="file" accept="image/*" onChange={onAvatarPick} style={{ display: 'none' }} />
             </label>
-            {avatar && <button type="button" className="btn small ghost" onClick={resetAvatar}>기본으로 되돌리기</button>}
           </div>
+        </div>
+        <div className="avatar-emoji-list">
+          {AVATAR_EMOJI_PRESETS.map((e) => (
+            <button
+              key={e}
+              type="button"
+              className={`avatar-emoji-btn ${avatar === AVATAR_EMOJI_PREFIX + e ? 'sel' : ''}`}
+              onClick={() => pickEmojiAvatar(e)}
+              aria-label={`아이콘 ${e} 선택`}
+            >
+              {e}
+            </button>
+          ))}
         </div>
 
         {mode === 'menu' && (

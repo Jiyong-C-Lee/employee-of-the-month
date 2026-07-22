@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   BOSS_FRONT, BOSS_GAZE, USER_POSE, SEAT_POSES, poseUrl, hashColor,
-  getPoses, getFaceAlpha, hexToRgba,
+  getPoses, getFaceAlpha, hexToRgba, isImageAvatar, isEmojiAvatar, avatarEmoji,
 } from '../comic-assets.js';
 
 // 타이핑 연출: 마운트/텍스트 변경 시 한 글자씩 출력.
@@ -72,10 +72,17 @@ function FaceSlot({ pose, entry, mine, avatar }) {
       </div>
     );
   }
-  if (avatar) {
+  if (isImageAvatar(avatar)) {
     return (
       <div className="face-slot user avatar" style={style}>
         <img src={avatar} alt="" style={{ opacity: alpha }} />
+      </div>
+    );
+  }
+  if (isEmojiAvatar(avatar)) {
+    return (
+      <div className="face-slot user emoji" style={{ ...style, background: `rgba(255, 255, 255, ${alpha})` }}>
+        <span>{avatarEmoji(avatar)}</span>
       </div>
     );
   }
