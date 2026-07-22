@@ -164,10 +164,9 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
             <div className="sp-figure">
               <img src={poseUrl(poseMap[entry.key])} alt="" />
               <FaceSlot pose={poseMap[entry.key]} entry={entry} mine={mine} avatar={avatarByKey[entry.key]} />
-              {/* 라벨을 sp-figure 하위로 옮겨 캐릭터 박스 기준 우하단에 고정 —
-                  span2에서 캐릭터가 가운데 정렬돼도(1칸 폭 유지) 라벨이 캐릭터를 계속 따라간다. */}
-              <span className="sp-label">{label}</span>
             </div>
+            {/* 이름표는 컷(패널) 기준 우하단 고정 — span2에서 캐릭터가 가운데 정렬돼도 모든 컷과 같은 구석 위치를 유지한다. */}
+            <span className="sp-label">{label}</span>
           </div>
         );
       })}
