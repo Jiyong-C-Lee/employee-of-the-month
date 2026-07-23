@@ -6,7 +6,7 @@ import type {
   AdoptedInfo, FeedItem, ServerEvent, Situation, Standing, Verdict,
 } from '@eotm/shared';
 import { computeStandings, publicRoom, roomPersona, type RoomState } from './state';
-import { ADVISORS_PER_ROUND, MAX_ROUNDS, buildSpeakQueue, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, MAX_SPEECH_CHARS } from './logic';
+import { ADVISORS_PER_ROUND, MAX_ROUNDS, buildSpeakQueue, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, MAX_SPEECH_CHARS, shuffledIndices } from './logic';
 import { APPROACHES } from '../ai/prompts';
 import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, type Deps } from '../ai/orchestrate';
 import { logger } from '../log';
@@ -111,6 +111,37 @@ export class Engine {
     logger.gameStarted({ roomCode: room.code, nicks: room.players.map((p) => p.nick) });
     // 개회 자막(session.open)은 보스 카드가 인물 소개를 이미 렌더하므로 중복 — 발행하지 않는다.
     this.beginRound();
+    return { ok: true };
+  }
+
+  // 한 판 더 — 종료된 방을 같은 멤버 그대로 로비로 리셋한다. 싱글은 즉시 재시작.
+  rematch(byPlayerId: string): { ok: true } | { error: string } {
+    const room = this.room;
+    if (byPlayerId !== room.hostId) return { error: STRINGS.errors.notHost! };
+    if (room.state !== 'ENDED') return { error: STRINGS.errors.notEnded! };
+    this.clearTimer();
+    room.state = 'LOBBY';
+    room.phase = null;
+    room.roundNo = 0;
+    room.round = null;
+    room.hall = [];
+    room.advisorFavor = {};
+    room.advisorLastQuirk = {};
+    room.situationOrder = shuffledIndices(this.persona.situations.length); // 상황 덱 재셔플
+    room.pendingChampion = null;
+    room.endedReason = null;
+    room.feed = []; // 지난 판 피드는 비운다 (seq는 계속 증가 — 클라 순서 보장)
+    for (const p of room.players) {
+      p.favor = 0;
+      p.rank = this.persona.ranks[0]!;
+    }
+    this.aiBatch = null;
+    this.aiBatchRound = 0;
+    logger.rematch({ roomCode: room.code, players: room.players.length });
+    this.emitRoomState();
+    this.persist();
+    // 싱글은 로비 없이 바로 재시작 (방 생성과 동일 동작)
+    if (room.config.mode === 'single') return this.start(byPlayerId);
     return { ok: true };
   }
 

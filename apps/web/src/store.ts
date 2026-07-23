@@ -66,6 +66,10 @@ function applyServerEvent(state: State, ev: ServerEvent): State {
         lastSeq: ev.seq,
       };
     case 'room':
+      // 한 판 더: 종료된 방이 로비로 리셋되면 지난 판의 잔상(피드·판정·종료 화면)을 함께 비운다.
+      if (ev.room.state === 'LOBBY' && state.ended) {
+        return { ...state, room: ev.room, phase: null, feed: [], ended: null, speakTurn: null, deadline: null, lastSeq: ev.seq };
+      }
       return { ...state, room: ev.room, phase: ev.room.phase ?? state.phase, lastSeq: ev.seq };
     case 'phase':
       // 단계 전환 시 타이머 잔상 제거 + 간신배 순번 초기화(원본 store.js 44행 동작 재현)
@@ -163,6 +167,7 @@ export interface GameActions {
   start(): Promise<unknown>;
   speak(text: string): Promise<unknown>;
   nextRound(): Promise<unknown>;
+  rematch(): Promise<unknown>;
   debugAction(action: string): Promise<unknown>;
   leave(): Promise<void>;
   toast(msg: string): void;
@@ -250,6 +255,9 @@ export function useGame(): { state: PublicState; actions: GameActions } {
     },
     nextRound() {
       return withSession((s) => post(`/rooms/${s.code}/next`, { playerId: s.playerId, token: s.token }));
+    },
+    rematch() {
+      return withSession((s) => post(`/rooms/${s.code}/rematch`, { playerId: s.playerId, token: s.token }));
     },
     debugAction(action) {
       return withSession((s) => post(`/rooms/${s.code}/debug`, { playerId: s.playerId, token: s.token, action }));

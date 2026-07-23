@@ -15,6 +15,8 @@ export const logger = {
   playerJoined: (f: { roomCode: string; playerId: string; nick: string; playerCount: number }) => write('info', 'player_joined', f),
   gameStarted: (f: { roomCode: string; nicks: string[] }) => write('info', 'game_started', f),
   gameEnded: (f: { roomCode: string; rounds: number; winnerNick?: string; reason?: string }) => write('info', 'game_ended', f),
+  // 한 판 더 — 리텐션 지표 (같은 방 재경기 횟수).
+  rematch: (f: { roomCode: string; players: number }) => write('info', 'rematch', f),
   roundStarted: (f: { roomCode: string; roundNo: number; situation: string }) => write('info', 'round_started', f),
   speechSubmitted: (f: { roomCode: string; roundNo: number; nick: string; text: string }) => write('info', 'speech_submitted', f),
   // 참모 대사 배치 — 품질 검수·모범답안 수집용. source로 실 LLM인지 mock 폴백인지 구분한다.

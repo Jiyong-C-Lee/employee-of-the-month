@@ -64,6 +64,8 @@ export default function Game({ state, actions }) {
 
   // 세션 최종 결과 공유 — 올해의 사원·명예의 전당 스냅샷 링크.
   const [sharingEnd, setSharingEnd] = useState(false);
+  // 한 판 더 (방장 전용) — 같은 멤버로 방을 로비로 리셋.
+  const [rematching, setRematching] = useState(false);
   async function onShareEnded() {
     if (sharingEnd || !ended) return;
     setSharingEnd(true);
@@ -187,7 +189,24 @@ export default function Game({ state, actions }) {
           <button className="btn share-btn" disabled={sharingEnd} onClick={onShareEnded}>
             {sharingEnd ? '링크 만드는 중…' : '🔗 최종 결과 공유'}
           </button>
-          <a className="btn primary big next-btn" href="/">🏠 메인으로</a>
+          {room.hostId === playerId ? (
+            <>
+              <button
+                className="btn primary big next-btn" disabled={rematching}
+                onClick={async () => {
+                  setRematching(true);
+                  const r = await actions.rematch();
+                  setRematching(false);
+                  if (r?.error) actions.toast(r.error);
+                }}
+              >
+                {rematching ? '준비 중…' : '🔄 한 판 더'}
+              </button>
+              <a className="btn big" href="/">🏠 메인으로</a>
+            </>
+          ) : (
+            <a className="btn primary big next-btn" href="/">🏠 메인으로</a>
+          )}
         </div>
       )}
 

@@ -155,6 +155,7 @@ export class RoomDO implements DurableObject {
     switch (path) {
       case '/start': return this.handleEngineAction(() => this.engine!.start(playerId));
       case '/next': return this.handleEngineAction(() => this.engine!.nextRound(playerId));
+      case '/rematch': return this.handleEngineAction(() => this.engine!.rematch(playerId));
       case '/debug':
         // 디버그 액션은 DEBUG_ACTIONS='true'일 때만 — 프로덕션에서 adoptMe 등 부정승리 차단(I4).
         if (this.env.DEBUG_ACTIONS !== 'true') return jsonRes({ error: STRINGS.errors.noRoom }, 404);

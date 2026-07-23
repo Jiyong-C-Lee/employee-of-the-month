@@ -169,3 +169,43 @@ test('재기동 재개: 발언 종료 후 심판 대기 창에서 beginJudging �
   await waitUntil(() => room.phase === 'RESULT');
   expect(room.round!.verdict).not.toBeNull();
 });
+
+test('한 판 더: 방장이 종료된 멀티 방을 로비로 리셋 — 총애·직급·피드 초기화', () => {
+  const { room, playerId } = createRoomState('RM1', '호스트', { mode: 'multi', personaId: 'caocao', maxPlayers: 2 });
+  const j = addPlayer(room, '게스트');
+  const guestId = 'playerId' in j ? j.playerId : '';
+  const { bus } = fakeBus();
+  const eng = new Engine(room, bus, deps);
+  // 종료 상태를 직접 구성 (세션 완주는 다른 테스트가 커버)
+  room.state = 'ENDED';
+  room.phase = 'END';
+  room.roundNo = 5;
+  room.hall = [{ roundNo: 1, key: playerId, name: '호스트', kind: 'user' }];
+  room.feed = [{ type: 'system', text: '끝', ts: 0 }];
+  room.players[0]!.favor = 3;
+  room.players[0]!.rank = '과장';
+
+  expect(eng.rematch(guestId)).toEqual({ error: STRINGS.errors.notHost });
+  expect(eng.rematch(playerId)).toEqual({ ok: true });
+  expect(room.state).toBe('LOBBY');
+  expect(room.roundNo).toBe(0);
+  expect(room.hall).toEqual([]);
+  expect(room.feed).toEqual([]);
+  expect(room.players.map((p) => p.favor)).toEqual([0, 0]);
+  expect(room.players[0]!.rank).toBe('사원');
+  // 종료 전에는 거부
+  expect(eng.rematch(playerId)).toEqual({ error: STRINGS.errors.notEnded });
+});
+
+test('한 판 더: 싱글은 로비 없이 즉시 재시작', async () => {
+  const { room, playerId } = createRoomState('RM2', '나', { mode: 'single', personaId: 'caocao' });
+  const { bus } = fakeBus();
+  const eng = new Engine(room, bus, deps);
+  room.state = 'ENDED';
+  room.phase = 'END';
+  room.roundNo = 7;
+  expect(eng.rematch(playerId)).toEqual({ ok: true });
+  expect(room.state).toBe('PLAYING');
+  expect(room.roundNo).toBe(1);
+  await waitUntil(() => room.phase === 'PLAYER_TURNS');
+});
