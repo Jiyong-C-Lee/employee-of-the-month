@@ -55,6 +55,78 @@ app.post('/api/personas/generate', async (c) => {
   }
 });
 
+// ---- 라운드 공유 링크 (KV, TTL 30일) ----
+
+const SHARE_TTL_SECONDS = 30 * 24 * 60 * 60;
+const SHARE_MAX_CHARS = 256_000; // 아바타 dataURL 포함 여유
+const SHARE_CREATE_LIMIT = 30; // IP당 일 30회
+const SHARE_CREATE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function shareId(): string {
+  return crypto.randomUUID().replace(/-/g, '').slice(0, 8);
+}
+
+// 최소 구조 검증 — 렌더에 필요한 핵심 필드만 확인하고 나머지는 통과시킨다.
+function isShareable(p: Record<string, unknown> | null): boolean {
+  if (!p || typeof p !== 'object') return false;
+  const persona = p.persona as Record<string, unknown> | undefined;
+  return Boolean(
+    typeof p.roundNo === 'number' &&
+    persona && typeof persona.name === 'string' && Array.isArray(persona.axes) &&
+    p.situation && Array.isArray(p.speeches) && Array.isArray(p.queue) &&
+    p.verdict && Array.isArray((p.verdict as Record<string, unknown>).perSpeaker),
+  );
+}
+
+app.post('/api/share', async (c) => {
+  const ip = c.req.header('cf-connecting-ip');
+  if (ip) {
+    const quota = c.env.QUOTA_DO.get(c.env.QUOTA_DO.idFromName('global'));
+    const rl = await quota
+      .fetch('http://do/incr', {
+        method: 'POST',
+        body: JSON.stringify({ key: `share-create:${ip}`, limit: SHARE_CREATE_LIMIT, ttlMs: SHARE_CREATE_TTL_MS }),
+      })
+      .then((r) => r.json() as Promise<{ ok: boolean }>);
+    if (!rl.ok) return c.json({ error: STRINGS.errors.rateLimited }, 429);
+  }
+  const raw = await c.req.text();
+  if (raw.length > SHARE_MAX_CHARS) return c.json({ error: STRINGS.errors.shareTooBig }, 400);
+  let payload: Record<string, unknown> | null = null;
+  try { payload = JSON.parse(raw); } catch { /* isShareable이 거른다 */ }
+  if (!isShareable(payload)) return c.json({ error: STRINGS.errors.shareInvalid }, 400);
+  const id = shareId();
+  await c.env.SHARE_KV.put(`s:${id}`, raw, { expirationTtl: SHARE_TTL_SECONDS });
+  const url = new URL(c.req.url);
+  return c.json({ ok: true, id, url: `${url.origin}/s/${id}` });
+});
+
+app.get('/api/share/:id', async (c) => {
+  const raw = await c.env.SHARE_KV.get(`s:${c.req.param('id')}`);
+  if (!raw) return c.json({ error: STRINGS.errors.shareNotFound }, 404);
+  return c.body(raw, 200, { 'Content-Type': 'application/json' });
+});
+
+// GET /s/:id — SPA 셸에 공유 라운드의 OG 메타를 주입해 서빙 (카톡·트위터 미리보기 카드).
+app.get('/s/:id', async (c) => {
+  const url = new URL(c.req.url);
+  const shell = await c.env.ASSETS.fetch(new Request(`${url.origin}/index.html`));
+  let html = await shell.text();
+  if (!html) return c.redirect('/'); // 셸 확보 실패 — OG 없이라도 게임으로
+  const data = await c.env.SHARE_KV.get<{ persona?: { name?: string }; roundNo?: number; adopted?: { name?: string } | null }>(
+    `s:${c.req.param('id')}`, 'json',
+  ).catch(() => null);
+  if (data?.persona?.name) {
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const title = esc(`${data.persona.name}의 회의실 R.${data.roundNo} — 이달의 우수사원`);
+    const desc = esc(data.adopted?.name ? `이번 라운드 채택: ${data.adopted.name}. 당신의 아부 실력도 시험해 보세요.` : '당신의 아부 실력도 시험해 보세요.');
+    html = html
+      .replace(/(property="og:title" content=")[^"]*(")/, `$1${title}$2`)
+      .replace(/(property="og:description" content=")[^"]*(")/, `$1${desc}$2`);
+  }
+  return c.html(html);
+});
+
 // POST /api/rooms — 방 생성. IP당 분당 5회 rate limit (QuotaDO).
 app.post('/api/rooms', async (c) => {
   const ip = c.req.header('cf-connecting-ip') ?? 'local';

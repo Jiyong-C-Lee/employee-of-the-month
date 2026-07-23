@@ -2,6 +2,7 @@ export interface Env {
   ROOM_DO: DurableObjectNamespace;
   QUOTA_DO: DurableObjectNamespace;
   ASSETS: Fetcher;
+  SHARE_KV: KVNamespace; // 라운드 공유 링크 페이로드 (TTL 30일)
   GOOGLE_AI_STUDIO_API_KEY?: string;
   NVIDIA_API_KEY?: string;
   GEMINI_MODEL: string;

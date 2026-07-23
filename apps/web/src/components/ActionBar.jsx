@@ -48,7 +48,7 @@ export default function ActionBar({ state, actions, share }) {
       <div className="actionbar result">
         {share && (
           <button className="btn share-btn" disabled={share.sharing} onClick={share.onShare}>
-            {share.sharing ? '캡처 중…' : '📸 라운드 결과 공유'}
+            {share.sharing ? '링크 만드는 중…' : '🔗 라운드 결과 공유'}
           </button>
         )}
         {isHost ? (

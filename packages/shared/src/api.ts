@@ -15,6 +15,21 @@ export interface AuthedReq { playerId: string; token: string }
 export interface SpeakReq extends AuthedReq { text: string }
 export interface DebugReq extends AuthedReq { action: 'adoptMe' | 'noAdopt' | 'next' }
 export interface OkRes { ok: true }
+// 라운드 공유 링크 — 게임 화면과 동일하게 렌더할 라운드 스냅샷 (KV, TTL 30일)
+export interface SharedRoundPayload {
+  roundNo: number;
+  persona: import('./events').PublicPersona;
+  situation: import('./events').Situation;
+  queue: import('./events').QueueEntry[];
+  speeches: import('./events').Speech[];
+  verdict: import('./events').Verdict;
+  adopted: import('./events').AdoptedInfo | null;
+  standings: import('./events').Standing[];
+  epilogue?: string;
+  players: import('./events').PublicPlayer[];
+}
+export interface CreateShareRes { ok: true; id: string; url: string }
+
 export interface HealthRes {
   ok: true;
   providers: { gemini: boolean; nvidia: boolean };

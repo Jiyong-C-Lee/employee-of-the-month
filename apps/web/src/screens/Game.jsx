@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ActionBar from '../components/ActionBar.jsx';
 import MenuPanel from '../components/MenuPanel.jsx';
-import { shareRoundImage } from '../share.js';
+import { createShareLink } from '../share.js';
 import { HallOfFame } from '../components/EmployeeFrame.jsx';
 import {
   BossCard, SituationCut, SpeakGrid, GaugeStrip, AwardCut, AwardFrame, WindowCut, ScoreCut, BossCommentCut,
@@ -35,32 +35,29 @@ export default function Game({ state, actions }) {
   // 캐릭터별 고정 포즈 (순번·뷰어가 바뀌어도 몸이 안 바뀐다). 큐를 넘겨 이번 라운드 출전 참모끼리만 충돌을 푼다.
   const poseMap = buildPoseMap({ persona, players: room.players, queue: room.round?.queue });
 
-  // 라운드 공유 — 만화 페이지(comic-page)를 오프스크린에 복제해 전체 높이로 펼친 뒤 PNG로 찍는다.
-  // (스크롤 컨테이너를 직접 찍으면 보이는 영역만 나오거나 빈 이미지가 나온다.)
+  // 라운드 공유 — 라운드 스냅샷을 서버(KV)에 올려 공유 링크를 만든다.
+  // 링크를 연 손님은 이 화면과 동일한 읽기 전용 라운드 뷰(/s/:id)를 본다.
   const [sharing, setSharing] = useState(false);
   async function onShare() {
-    const node = pageRef.current;
-    if (!node || sharing) return;
+    if (sharing || !verdictItem) return;
     setSharing(true);
-    const holder = document.createElement('div');
-    holder.className = 'comic-app share-capture-holder'; // comic-app: CSS 변수 상속용
-    holder.style.width = `${node.clientWidth}px`;
-    const clone = node.cloneNode(true);
-    clone.style.height = 'auto';
-    clone.style.maxHeight = 'none';
-    clone.style.overflow = 'visible';
-    const mark = document.createElement('div');
-    mark.className = 'share-watermark';
-    mark.textContent = `🏆 이달의 사원 — ${location.origin}`;
-    clone.appendChild(mark);
-    holder.appendChild(clone);
-    document.body.appendChild(holder);
     try {
-      await shareRoundImage(clone, { title: `이달의 사원 R.${room.roundNo}`, url: location.origin });
-    } catch {
-      actions.toast('이미지 생성에 실패했습니다.');
+      const payload = {
+        roundNo: verdictItem.roundNo,
+        persona,
+        situation: verdictItem.situation,
+        queue,
+        speeches,
+        verdict: verdictItem.verdict,
+        adopted: verdictItem.adopted,
+        standings: verdictItem.standings || [],
+        epilogue: epilogueItem?.story,
+        players: room.players,
+      };
+      const r = await createShareLink(payload, `${persona.name}의 회의실 R.${verdictItem.roundNo} — 이달의 사원`);
+      if (r === 'copied') actions.toast('공유 링크를 복사했습니다!');
+      else if (r === 'error') actions.toast('공유 링크 생성에 실패했습니다.');
     } finally {
-      holder.remove();
       setSharing(false);
     }
   }
