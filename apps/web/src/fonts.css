@@ -1,0 +1,20 @@
+/* 나눔스퀘어 — 제목·굵은 글씨 전용 (본문은 Nanum Gothic).
+   네이버 나눔글꼴(OFL, 재배포 허용) woff2를 로컬 번들. 출처: moonspam/NanumSquare */
+@font-face {
+  font-family: 'NanumSquare';
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/NanumSquareR.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'NanumSquare';
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/NanumSquareB.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'NanumSquare';
+  font-weight: 800;
+  font-display: swap;
+  src: url('./assets/fonts/NanumSquareEB.woff2') format('woff2');
+}

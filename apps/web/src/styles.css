@@ -357,3 +357,13 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); b
 .wizard-detail { display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; background: rgba(0, 0, 0, 0.15); border-radius: 10px; padding: 10px 12px; max-height: 260px; overflow-y: auto; }
 .wd-sec b { display: block; margin-bottom: 3px; }
 .wd-sec p { margin: 2px 0; line-height: 1.45; }
+
+/* ---- 타이포: 제목·굵은 글씨는 나눔스퀘어 (본문은 나눔고딕/시스템 유지) ---- */
+h1, h2, h3, b, strong,
+.logo, .btn, .tagline,
+.ca-title, .ca-round, .ca-phase,
+.cap-head, .ce-title, .ss-item,
+.pc-name, .field > span,
+.svc-banner, .svc-total {
+  font-family: 'NanumSquare', 'Nanum Gothic', 'Malgun Gothic', system-ui, sans-serif;
+}
