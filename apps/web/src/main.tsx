@@ -8,8 +8,11 @@ import '@fontsource/nanum-gothic/800.css';
 import './fonts.css';
 import './styles.css';
 
-// Cloudflare Web Analytics — 토큰이 설정된 빌드에서만 로드 (쿠키 없음, 동의 배너 불필요).
-const cfToken = import.meta.env.VITE_CF_BEACON_TOKEN as string | undefined;
+// Cloudflare Web Analytics (쿠키 없음, 동의 배너 불필요). 토큰은 HTML에 공개되는 값이라 코드에 둬도 안전.
+// 로컬 개발(localhost)에서는 로드하지 않는다 — 대시보드 오염 방지. VITE_CF_BEACON_TOKEN으로 교체 가능.
+const CF_BEACON_TOKEN = '54e91246baa84280b127fc73526ed737';
+const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+const cfToken = (import.meta.env.VITE_CF_BEACON_TOKEN as string | undefined) || (isLocal ? undefined : CF_BEACON_TOKEN);
 if (cfToken) {
   const s = document.createElement('script');
   s.defer = true;
