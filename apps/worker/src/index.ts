@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { listPersonas, STRINGS } from '@eotm/content';
 import { generatePersona, personaGenInputSchema } from './ai/persona-gen';
+import { logger } from './log';
 import { genCode } from './game/state';
 import type { Env } from './env';
 import type { HealthRes } from '@eotm/shared';
@@ -29,21 +30,26 @@ const PERSONA_GEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 // POST /api/personas/generate — 커스텀 페르소나 AI 생성. IP당 일 5회.
 app.post('/api/personas/generate', async (c) => {
-  const ip = c.req.header('cf-connecting-ip') ?? 'local';
-  const quota = c.env.QUOTA_DO.get(c.env.QUOTA_DO.idFromName('global'));
-  const rl = await quota
-    .fetch('http://do/incr', {
-      method: 'POST',
-      body: JSON.stringify({ key: `persona-gen:${ip}`, limit: PERSONA_GEN_LIMIT, ttlMs: PERSONA_GEN_TTL_MS }),
-    })
-    .then((r) => r.json() as Promise<{ ok: boolean }>);
-  if (!rl.ok) return c.json({ error: STRINGS.errors.personaGenQuota }, 429);
+  const ip = c.req.header('cf-connecting-ip');
+  // 프로덕션은 Cloudflare가 cf-connecting-ip를 항상 채운다 — 헤더가 없으면 로컬 dev이므로 쿼터 면제.
+  if (ip) {
+    const quota = c.env.QUOTA_DO.get(c.env.QUOTA_DO.idFromName('global'));
+    const rl = await quota
+      .fetch('http://do/incr', {
+        method: 'POST',
+        body: JSON.stringify({ key: `persona-gen:${ip}`, limit: PERSONA_GEN_LIMIT, ttlMs: PERSONA_GEN_TTL_MS }),
+      })
+      .then((r) => r.json() as Promise<{ ok: boolean }>);
+    if (!rl.ok) return c.json({ error: STRINGS.errors.personaGenQuota }, 429);
+  }
 
   const parsed = personaGenInputSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: STRINGS.errors.personaBadInput }, 400);
   try {
     const persona = await generatePersona(c.env, parsed.data);
-    return c.json({ ok: true, persona: { id: `custom-${crypto.randomUUID().slice(0, 8)}`, ...persona } });
+    const id = `custom-${crypto.randomUUID().slice(0, 8)}`;
+    logger.personaGenerated({ id, input: parsed.data, persona });
+    return c.json({ ok: true, persona: { id, ...persona } });
   } catch {
     return c.json({ error: STRINGS.errors.personaGenFail }, 502);
   }

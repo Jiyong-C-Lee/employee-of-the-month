@@ -12,7 +12,8 @@ const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
 </svg>`;
 const iconSvg = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
   <rect width="${size}" height="${size}" rx="${size * 0.18}" fill="${BG}"/>
-  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Malgun Gothic, sans-serif" font-size="${size * 0.55}" font-weight="800" fill="${ACCENT}">사</text>
+  <text x="50%" y="36%" dominant-baseline="middle" text-anchor="middle" font-family="Malgun Gothic, sans-serif" font-size="${size * 0.26}" font-weight="800" fill="${FG}">이달의</text>
+  <text x="50%" y="66%" dominant-baseline="middle" text-anchor="middle" font-family="Malgun Gothic, sans-serif" font-size="${size * 0.23}" font-weight="800" fill="${ACCENT}">우수사원</text>
 </svg>`;
 
 await sharp(Buffer.from(ogSvg)).png().toFile('apps/web/public/og.png');

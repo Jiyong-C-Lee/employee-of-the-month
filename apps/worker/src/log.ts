@@ -20,6 +20,8 @@ export const logger = {
   epilogue: (f: { roomCode: string; roundNo: number; source: string; adoptedName: string; story: string }) => write('info', 'epilogue', f),
   verdictIssued: (f: { roomCode: string; roundNo: number; provider: string; adoptedNick: string | null; totals: Record<string, number>; comments: string[] }) => write('info', 'verdict_issued', f),
   llmCall: (f: { kind: string; provider: string; ok: boolean; latencyMs: number; failedOver?: boolean; error?: string }) => write(f.ok ? 'info' : 'warn', 'llm_call', f),
+  // 커스텀 페르소나 생성 결과 — 품질 검수용 전문 로그 (wrangler tail로 확인).
+  personaGenerated: (f: { id: string; input: Record<string, unknown>; persona: Record<string, unknown> }) => write('info', 'persona_generated', f),
   quotaExceeded: (f: { provider: string }) => write('warn', 'quota_exceeded', f),
   sseConnect: (f: { roomCode: string; playerId: string }) => write('info', 'sse_connect', f),
   sseDisconnect: (f: { roomCode: string; playerId: string }) => write('info', 'sse_disconnect', f),

@@ -43,7 +43,7 @@ function personaGenSchema(): object {
         type: 'array', minItems: 4, maxItems: 4,
         items: {
           type: 'object',
-          properties: { name: str, emoji: str, style: str, core: str, voice: str, quirks: { type: 'array', items: str, minItems: 4, maxItems: 6 } },
+          properties: { name: str, emoji: str, style: str, core: str, voice: str, quirks: { type: 'array', items: str, minItems: 5, maxItems: 6 } },
           required: ['name', 'emoji', 'style', 'core', 'voice', 'quirks'],
         },
       },
