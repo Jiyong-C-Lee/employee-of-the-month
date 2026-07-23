@@ -1,8 +1,10 @@
 // 원본 tests/sycoAi.test.js에서 순수 부분(mock·trimSpeech·finalizeVerdict) 이식.
 import { test, expect } from 'vitest';
 import { getPersona } from '@eotm/content';
+import { ADVISOR_SPEECH_MAX_CHARS } from '@eotm/shared';
 import { mockAdvisorTurnsBatch, mockJudgeSpeeches, mockEpilogue } from '../src/ai/mock';
 import { trimSpeech, finalizeVerdict } from '../src/ai/verdict';
+import { advisorBatchOut } from '../src/ai/schemas';
 import type { Candidate } from '../src/ai/prompts';
 
 const persona = getPersona('caocao')!;
@@ -46,6 +48,26 @@ test('trimSpeech: 초과 시 문장 끝에서 끊는다', () => {
   const cut = trimSpeech(t, 160);
   expect(cut.length).toBeLessThanOrEqual(170);
   expect(cut.endsWith('.')).toBe(true);
+});
+
+const LONG_OK = '회장님, 지금 필요한 건 사과문이 아니라 개업식입니다. 본사 1층을 헐어 무료 시식장을 열면 불만 고객이 단골로 바뀝니다.'; // 40자 이상
+
+test('advisorBatchOut: 40자 미만 단답은 거부한다 (체인 페일오버 유도)', () => {
+  const raw = { speeches: [{ name: 'A', text: '태워버리시죠.', approach: '고치기' }] };
+  expect(() => advisorBatchOut.parse(raw)).toThrow();
+});
+
+test('advisorBatchOut: 40자 이상 대사는 통과한다', () => {
+  const raw = { speeches: [{ name: 'A', text: LONG_OK, approach: '고치기' }] };
+  expect(() => advisorBatchOut.parse(raw)).not.toThrow();
+});
+
+test('trimSpeech: 참모 상한 120자에서 문장 경계로 자른다', () => {
+  const t = `${LONG_OK} 추가로 현수막은 제가 이미 주문해 두었습니다. 이건 잘려야 하는 문장입니다만 아직도 안 끝났습니다 정말로요.`;
+  const out = trimSpeech(t, ADVISOR_SPEECH_MAX_CHARS);
+  // 문장 경계 절단은 max+10까지 허용하는 것이 trimSpeech 계약 (기존 160→≤170 테스트와 동일)
+  expect(out.length).toBeLessThanOrEqual(ADVISOR_SPEECH_MAX_CHARS + 10);
+  expect(/[.!?…]$/.test(out)).toBe(true);
 });
 
 test('finalizeVerdict: 클램프 + 서버 채택 재계산 + 불일치 시 사유 대체', () => {

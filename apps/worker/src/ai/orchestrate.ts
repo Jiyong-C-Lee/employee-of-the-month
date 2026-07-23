@@ -2,7 +2,7 @@
 // 원본 server/sycophant/ai.js 이식 — withFallback·advisorTurnsBatch(재시도·approach 재배정)·
 // judgeSpeeches(익명 마스킹·복원)·makeEpilogue 로직 동일. LLM 호출부만 callJsonChain으로 교체.
 import type { Env } from '../env';
-import type { Difficulty, Situation, Verdict } from '@eotm/shared';
+import { ADVISOR_SPEECH_MAX_CHARS, type Difficulty, type Situation, type Verdict } from '@eotm/shared';
 import type { FullPersona } from '@eotm/content';
 import { callJsonChain } from './chain';
 import { gemini } from './providers/gemini';
@@ -72,7 +72,7 @@ export async function advisorTurnsBatch(
         // 이름 관용 매칭 → 실패 시 순서 기준 복구
         const speeches = advisors.map((a, i) => {
           const s = list.find((x) => x.name === a.name) ?? list[i];
-          return s?.text ? { name: a.name, text: trimSpeech(s.text), approach: s.approach } : null;
+          return s?.text ? { name: a.name, text: trimSpeech(s.text, ADVISOR_SPEECH_MAX_CHARS), approach: s.approach } : null;
         });
         if (speeches.every((s): s is AdvisorSpeech => Boolean(s))) {
           if (approaches) {
