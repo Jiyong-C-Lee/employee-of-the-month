@@ -287,6 +287,15 @@ export default function Home({ state, actions }) {
           />
         )}
 
+        {mode === 'menu' && (
+          <a
+            className="feedback-link"
+            href="mailto:liramus214@gmail.com?subject=%5B%EC%9D%B4%EB%8B%AC%EC%9D%98%20%EC%82%AC%EC%9B%90%5D%20%ED%94%BC%EB%93%9C%EB%B0%B1"
+          >
+            💬 버그 제보·의견 보내기
+          </a>
+        )}
+
         {mode === 'create' && (
           <div className="stack">
             {nickField}

@@ -367,3 +367,7 @@ h1, h2, h3, b, strong,
 .svc-banner, .svc-total {
   font-family: 'NanumSquare', 'Nanum Gothic', 'Malgun Gothic', system-ui, sans-serif;
 }
+
+/* 홈 하단 피드백 링크 */
+.feedback-link { display: block; margin-top: 14px; text-align: center; font-size: 0.82rem; color: var(--muted, #888); text-decoration: none; }
+.feedback-link:hover { text-decoration: underline; color: inherit; }
