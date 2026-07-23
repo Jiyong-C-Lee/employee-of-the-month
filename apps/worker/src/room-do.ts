@@ -56,7 +56,8 @@ export class RoomDO implements DurableObject {
     return async (provider: string): Promise<boolean> => {
       const day = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
       const key = `llm:${provider}:${day}`;
-      const limitStr = provider === 'gemini' ? this.env.LLM_DAILY_LIMIT_GEMINI : this.env.LLM_DAILY_LIMIT_NVIDIA;
+      // gemini-free·gemini(유료)는 같은 한도값을 쓰되 카운터는 공급자별로 분리된다 — 유료 키 비용 상한 역할.
+      const limitStr = provider.startsWith('gemini') ? this.env.LLM_DAILY_LIMIT_GEMINI : this.env.LLM_DAILY_LIMIT_NVIDIA;
       const limit = parseInt(limitStr, 10);
       const dostub = this.env.QUOTA_DO.get(this.env.QUOTA_DO.idFromName('global'));
       const res = await dostub.fetch('http://quota/incr', {

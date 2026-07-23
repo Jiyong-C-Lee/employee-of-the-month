@@ -20,8 +20,7 @@ function toGeminiSchema(node: unknown): unknown {
   return node;
 }
 
-async function callJson(env: Env, { system, user, schema, temperature = 0.9, timeoutMs = 30000 }: LlmArgs): Promise<unknown> {
-  const key = env.GOOGLE_AI_STUDIO_API_KEY;
+async function callJson(env: Env, { system, user, schema, temperature = 0.9, timeoutMs = 30000 }: LlmArgs, key?: string): Promise<unknown> {
   if (!key) throw new Error('GOOGLE_AI_STUDIO_API_KEY missing');
   const model = env.GEMINI_MODEL || 'gemini-flash-lite-latest';
   const body = {
@@ -58,8 +57,14 @@ async function callJson(env: Env, { system, user, schema, temperature = 0.9, tim
   return parseLenientJson(jsonText);
 }
 
-export const gemini: Provider = {
-  name: 'gemini',
-  hasKey: (env) => Boolean(env.GOOGLE_AI_STUDIO_API_KEY),
-  callJson,
-};
+function makeGemini(name: string, pickKey: (env: Env) => string | undefined): Provider {
+  return {
+    name,
+    hasKey: (env) => Boolean(pickKey(env)),
+    callJson: (env, args) => callJson(env, args, pickKey(env)),
+  };
+}
+
+// 체인 순서는 chain.ts가 정한다: 무료 → 유료 → nvidia.
+export const geminiFree = makeGemini('gemini-free', (env) => env.GOOGLE_AI_STUDIO_FREE_API_KEY);
+export const gemini = makeGemini('gemini', (env) => env.GOOGLE_AI_STUDIO_API_KEY);

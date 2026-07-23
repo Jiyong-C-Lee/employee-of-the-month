@@ -17,7 +17,11 @@ const app = new Hono<{ Bindings: Env }>();
 app.get('/api/health', (c) => {
   const res: HealthRes = {
     ok: true,
-    providers: { gemini: Boolean(c.env.GOOGLE_AI_STUDIO_API_KEY), nvidia: Boolean(c.env.NVIDIA_API_KEY) },
+    providers: {
+      geminiFree: Boolean(c.env.GOOGLE_AI_STUDIO_FREE_API_KEY),
+      gemini: Boolean(c.env.GOOGLE_AI_STUDIO_API_KEY),
+      nvidia: Boolean(c.env.NVIDIA_API_KEY),
+    },
     models: { gemini: c.env.GEMINI_MODEL, nvidia: c.env.NVIDIA_MODEL },
   };
   return c.json(res);

@@ -42,10 +42,13 @@ npm run smoke      # 헤드리스 스모크 E2E (아래 참고)
 ## 배포
 
 ```bash
-npx wrangler secret put GOOGLE_AI_STUDIO_API_KEY --config apps/worker/wrangler.jsonc
+npx wrangler secret put GOOGLE_AI_STUDIO_FREE_API_KEY --config apps/worker/wrangler.jsonc  # 무료 티어 키 (체인 1순위)
+npx wrangler secret put GOOGLE_AI_STUDIO_API_KEY --config apps/worker/wrangler.jsonc       # 유료 키 (무료 소진 시 폴백)
 npx wrangler secret put NVIDIA_API_KEY --config apps/worker/wrangler.jsonc
 npm run deploy
 ```
+
+LLM 체인은 **gemini-free(무료) → gemini(유료) → nvidia** 순으로 페일오버한다. 로컬 개발(`.dev.vars`)에는 `GOOGLE_AI_STUDIO_FREE_API_KEY`만 두면 유료 키가 자동 스킵돼 개발 중 크레딧이 소모되지 않는다.
 
 `npm run deploy`는 `apps/web`을 빌드한 뒤 `apps/worker`를 배포한다(Workers Assets가 `apps/web/dist`를 함께 서빙). 배포 후 `https://employee-of-the-month.<account>.workers.dev` 형태의 URL이 출력된다.
 

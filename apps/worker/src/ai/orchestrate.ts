@@ -5,7 +5,7 @@ import type { Env } from '../env';
 import { ADVISOR_SPEECH_MAX_CHARS, type Difficulty, type Situation, type Verdict } from '@eotm/shared';
 import type { FullPersona } from '@eotm/content';
 import { callJsonChain } from './chain';
-import { gemini } from './providers/gemini';
+import { gemini, geminiFree } from './providers/gemini';
 import { nvidia } from './providers/nvidia';
 import * as P from './prompts';
 import type { Candidate } from './prompts';
@@ -21,16 +21,16 @@ export interface Deps {
   roomCode?: string; // 로그용 — llm_call을 세션에 귀속
 }
 
-type Source = 'gemini' | 'nvidia' | 'mock' | 'mock(fallback)';
+type Source = string; // 공급자 이름(gemini-free|gemini|nvidia) 또는 mock|mock(fallback)
 
 function hasAnyKey(env: Env): boolean {
-  return gemini.hasKey(env) || nvidia.hasKey(env);
+  return geminiFree.hasKey(env) || gemini.hasKey(env) || nvidia.hasKey(env);
 }
 
 // 체인(가능한 공급자 전부) 시도 → 실패 시 mock. 키 자체가 없으면 체인을 건너뛰고 바로 mock.
 async function withFallback<T>(
   deps: Deps,
-  chainFn: () => Promise<{ value: T; provider: 'gemini' | 'nvidia' }>,
+  chainFn: () => Promise<{ value: T; provider: string }>,
   mockFn: () => T,
 ): Promise<T & { source: Source }> {
   if (hasAnyKey(deps.env)) {

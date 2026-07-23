@@ -3,6 +3,9 @@ export interface Env {
   QUOTA_DO: DurableObjectNamespace;
   ASSETS: Fetcher;
   SHARE_KV: KVNamespace; // 라운드 공유 링크 페이로드 (TTL 30일)
+  // Gemini 키 2단: FREE(무료 티어, 체인 1순위) → 기본(유료, 무료가 막혔을 때 폴백).
+  // dev(.dev.vars)에는 FREE만 두면 유료 키는 자동 스킵된다.
+  GOOGLE_AI_STUDIO_FREE_API_KEY?: string;
   GOOGLE_AI_STUDIO_API_KEY?: string;
   NVIDIA_API_KEY?: string;
   GEMINI_MODEL: string;

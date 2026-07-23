@@ -1,12 +1,13 @@
-// LLM 공급자 체인: gemini → nvidia. 429·타임아웃·스키마 위반 시 다음 공급자로 (스펙 §7).
+// LLM 공급자 체인: gemini-free(무료) → gemini(유료 폴백) → nvidia.
+// 429·타임아웃·스키마 위반 시 다음 공급자로 (스펙 §7). dev는 무료 키만 설정해 유료를 스킵한다.
 import { logger } from '../log';
 import type { Env } from '../env';
-import { gemini } from './providers/gemini';
+import { gemini, geminiFree } from './providers/gemini';
 import { nvidia } from './providers/nvidia';
 
 export interface LlmArgs { system: string; user: string; schema: object; temperature?: number; timeoutMs?: number }
 export interface Provider {
-  name: 'gemini' | 'nvidia';
+  name: string;
   hasKey(env: Env): boolean;
   callJson(env: Env, args: LlmArgs): Promise<unknown>;
 }
@@ -14,7 +15,7 @@ export class ChainExhaustedError extends Error {
   constructor() { super('모든 LLM 공급자 실패'); }
 }
 
-const CHAIN: Provider[] = [gemini, nvidia];
+const CHAIN: Provider[] = [geminiFree, gemini, nvidia];
 
 export interface ChainOpts {
   kind?: string;                                      // 로그용 호출 종류 (advisors|judge|epilogue)
@@ -23,7 +24,7 @@ export interface ChainOpts {
   validate?: (raw: unknown) => void;                  // zod 출력 검증 — throw 시 페일오버
 }
 
-export async function callJsonChain(env: Env, args: LlmArgs, opts: ChainOpts = {}): Promise<{ raw: unknown; provider: 'gemini' | 'nvidia' }> {
+export async function callJsonChain(env: Env, args: LlmArgs, opts: ChainOpts = {}): Promise<{ raw: unknown; provider: string }> {
   let failedOver = false;
   const kind = opts.kind ?? 'unknown';
   for (const p of CHAIN) {
