@@ -22,6 +22,14 @@ export interface PublicPersona {
   axes: string[]; ranks: string[];
   advisors: { name: string; emoji: string; style: string }[];
 }
+// 커스텀 페르소나 팩 (클라 localStorage 보관 → 방 생성 시 서버로 전달; 서버는 content zod로 재검증)
+export interface CustomPersona {
+  id: string; name: string; emoji: string; intro: string;
+  axes: string[]; ranks: string[];
+  personaPrompt: string; judgeAddress?: string; listenerBrief?: string;
+  advisors: { name: string; emoji: string; style: string; core: string; voice?: string; quirks: string[] }[];
+  situations: { text: string; question: string }[];
+}
 export interface QueueEntry { kind: 'ai' | 'user'; key: string; name: string }
 export interface Speech { key: string; name: string; kind: 'ai' | 'user'; text: string }
 export interface PublicRoom {

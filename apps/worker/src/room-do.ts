@@ -3,11 +3,12 @@
 import { Engine, type EngineBus, type EngineEvent, type AiDeps } from './game/engine';
 import { createRoomState, addPlayer, authPlayer, computeStandings, publicRoom, type RoomState } from './game/state';
 import { ROOM_TTL_MS, type ServerEvent, type SpeakTurn, type TimerInfo, type EndedPayload } from '@eotm/shared';
-import { STRINGS } from '@eotm/content';
+import { STRINGS, personaSchema, type FullPersona } from '@eotm/content';
 import { logger } from './log';
 import type { Env } from './env';
 
 const HEARTBEAT_MS = 20_000;
+const CUSTOM_PERSONA_MAX_CHARS = 20_000; // 커스텀 페르소나 직렬화 상한 — storage 남용 차단
 const FEED_CAP = 300; // 최근 피드만 유지 (스냅샷 크기 억제)
 const QUOTA_TTL_MS = 24 * 60 * 60 * 1000;
 const enc = new TextEncoder();
@@ -166,9 +167,24 @@ export class RoomDO implements DurableObject {
   private async handleCreate(req: Request): Promise<Response> {
     if (await this.ctx.storage.get('room')) return jsonRes({ error: STRINGS.errors.roomStarted }, 409);
     const { code, nick, config, avatar } = (await req.json()) as {
-      code: string; nick: string; config: Parameters<typeof createRoomState>[2]; avatar?: unknown;
+      code: string; nick: string;
+      config: Parameters<typeof createRoomState>[2] & { customPersona?: unknown };
+      avatar?: unknown;
     };
-    const { room, playerId, token } = createRoomState(code, nick, config, avatar);
+    // 커스텀 페르소나 — 클라이언트가 보낸 팩 JSON을 content zod로 재검증 후에만 수용.
+    let customPersona: FullPersona | undefined;
+    if (config?.customPersona) {
+      if (JSON.stringify(config.customPersona).length > CUSTOM_PERSONA_MAX_CHARS) {
+        return jsonRes({ error: STRINGS.errors.personaTooBig }, 400);
+      }
+      const v = personaSchema.safeParse(config.customPersona);
+      if (!v.success || !v.data.id.startsWith('custom-')) {
+        return jsonRes({ error: STRINGS.errors.personaInvalid }, 400);
+      }
+      customPersona = v.data;
+      delete config.customPersona; // RoomConfig에는 싣지 않는다 — room.customPersona로만 영속
+    }
+    const { room, playerId, token } = createRoomState(code, nick, config, avatar, customPersona);
     this.room = room;
     this.engine = this.makeEngine(room);
     await this.ctx.storage.put('room', room);

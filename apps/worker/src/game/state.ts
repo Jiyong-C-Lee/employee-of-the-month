@@ -1,5 +1,5 @@
 // 방 상태 모델 — 원본 server/rooms.js의 sycophant 경로 이식(debate 분기 제거, DO storage 저장용 순수 상태).
-import { getPersona, STRINGS } from '@eotm/content';
+import { getPersona, STRINGS, type FullPersona } from '@eotm/content';
 import { shuffledIndices } from './logic';
 import type {
   FeedItem, HallEntry, PublicPlayer, PublicRoom, QueueEntry, RoomConfig, Situation, Speech, Standing, Verdict,
@@ -49,6 +49,8 @@ export interface RoomState {
   // 상황 덱 — 세션 시작 시 섞어둔 situations 인덱스 순열. 라운드 n은 situationOrder[n-1]을 쓴다.
   // 구버전 스냅샷엔 없을 수 있다(그 경우 엔진이 정의 순서로 폴백).
   situationOrder?: number[];
+  // 커스텀 페르소나 팩 전체 — 있으면 내장 팩 대신 이것을 쓴다(roomPersona). storage에 그대로 영속.
+  customPersona?: FullPersona;
   hall: HallEntry[];
   round: RoundState | null;
   feed: FeedItem[];
@@ -92,8 +94,9 @@ export function createRoomState(
   hostNick: string,
   config: Partial<RoomConfig> & { personaId: string },
   avatar?: unknown,
+  customPersona?: FullPersona,
 ): { room: RoomState; playerId: string; token: string } {
-  const persona = getPersona(config.personaId);
+  const persona = customPersona ?? getPersona(config.personaId);
   if (!persona) throw new Error(STRINGS.errors.noPersona);
 
   const mode = config.mode === 'multi' ? 'multi' : 'single';
@@ -110,6 +113,8 @@ export function createRoomState(
     // 라운드 상한 — 허용값 외엔 기본 10. 상황 덱(20개)을 넘지 않는 선택지만 노출한다.
     maxRounds: [5, 10, 15, 20].includes(Number(config.maxRounds)) ? Number(config.maxRounds) : 10,
   };
+  // 상황 덱보다 많은 라운드는 불가 — 커스텀 팩(상황 10개)에서 20라운드를 고르는 경우 클램프.
+  normalized.maxRounds = Math.min(normalized.maxRounds, persona.situations.length);
 
   const host = makePlayer(hostNick, 0, persona.ranks[0]!, avatar);
   const token = newToken();
@@ -125,6 +130,7 @@ export function createRoomState(
     config: normalized,
     advisorFavor: {}, // 조언자 이름 -> 채택 수 (연출·현황용)
     advisorLastQuirk: {},
+    ...(customPersona ? { customPersona } : {}),
     situationOrder: shuffledIndices(persona.situations.length), // 상황 덱 셔플 — 판마다 등장 순서가 다르다
 
     hall: [], // 라운드별 채택자 — 명예의 전당
@@ -140,12 +146,18 @@ export function createRoomState(
   return { room, playerId: host.id, token };
 }
 
+// 방의 페르소나 단일 조회 경로 — 커스텀이 있으면 커스텀, 없으면 내장 팩.
+export function roomPersona(room: RoomState): FullPersona {
+  const p = room.customPersona ?? getPersona(room.config.personaId);
+  if (!p) throw new Error(STRINGS.errors.noPersona);
+  return p;
+}
+
 export function addPlayer(room: RoomState, nick: string, avatar?: unknown): { playerId: string; token: string } | { error: string } {
   if (room.state !== 'LOBBY') return { error: STRINGS.errors.roomStarted! };
   if (room.players.length >= room.config.maxPlayers) return { error: STRINGS.errors.roomFull! };
 
-  const persona = getPersona(room.config.personaId);
-  if (!persona) throw new Error(STRINGS.errors.noPersona);
+  const persona = roomPersona(room);
 
   const player = makePlayer(nick, room.players.length, persona.ranks[0]!, avatar);
   const token = newToken();
@@ -171,8 +183,7 @@ export function computeStandings(room: RoomState): Standing[] {
 
 // 화면 전송용 방 스냅샷 (tokens 등 내부 필드 제외).
 export function publicRoom(room: RoomState): PublicRoom {
-  const persona = getPersona(room.config.personaId);
-  if (!persona) throw new Error(STRINGS.errors.noPersona);
+  const persona = roomPersona(room);
 
   return {
     code: room.code,

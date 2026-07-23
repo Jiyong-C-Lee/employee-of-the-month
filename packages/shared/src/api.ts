@@ -1,4 +1,4 @@
-import type { PublicRoom, RoomConfig } from './events';
+import type { CustomPersona, PublicRoom, RoomConfig } from './events';
 
 export interface ApiErr { error: string }
 export interface PersonaSummary {
@@ -7,7 +7,7 @@ export interface PersonaSummary {
   advisors: { name: string; emoji: string; style: string }[];
   situationCount: number;
 }
-export interface CreateRoomReq { nick: string; avatar?: string; config: Partial<RoomConfig> & { personaId: string } }
+export interface CreateRoomReq { nick: string; avatar?: string; config: Partial<RoomConfig> & { personaId: string; customPersona?: CustomPersona } }
 export interface CreateRoomRes { ok: true; code: string; playerId: string; token: string; room: PublicRoom }
 export interface JoinRoomReq { nick: string; avatar?: string }
 export interface JoinRoomRes { ok: true; code: string; playerId: string; token: string; room: PublicRoom }

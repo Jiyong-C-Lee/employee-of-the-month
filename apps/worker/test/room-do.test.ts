@@ -119,3 +119,38 @@ test('debug 액션은 DEBUG_ACTIONS 설정 시에만 허용된다 (I4)', async (
   });
   expect(status).toBe(200);
 });
+
+// ---- 커스텀 페르소나 방 생성 ----
+import { CUSTOM_PERSONA } from './fixtures';
+
+test('customPersona 정상: 방 페르소나가 커스텀으로 선다', async () => {
+  const s = stub('CP01');
+  const r = await post(s, '/create', {
+    code: 'CP01', nick: '나', config: { mode: 'single', personaId: CUSTOM_PERSONA.id, customPersona: CUSTOM_PERSONA },
+  });
+  expect(r.status).toBe(200);
+  const room = r.body.room as { persona: { name: string; id: string } };
+  expect(room.persona.name).toBe('건물주 할머니');
+  expect(room.persona.id).toBe('custom-test1234');
+});
+
+test('customPersona 스키마 위반(참모 1명)은 400', async () => {
+  const s = stub('CP02');
+  const bad = { ...CUSTOM_PERSONA, advisors: CUSTOM_PERSONA.advisors.slice(0, 1) };
+  const r = await post(s, '/create', {
+    code: 'CP02', nick: '나', config: { mode: 'single', personaId: bad.id, customPersona: bad },
+  });
+  expect(r.status).toBe(400);
+});
+
+test('customPersona 20KB 초과는 400', async () => {
+  const s = stub('CP03');
+  const fat = {
+    ...CUSTOM_PERSONA,
+    situations: CUSTOM_PERSONA.situations.map((x) => ({ ...x, text: x.text + '가'.repeat(3000) })),
+  };
+  const r = await post(s, '/create', {
+    code: 'CP03', nick: '나', config: { mode: 'single', personaId: fat.id, customPersona: fat },
+  });
+  expect(r.status).toBe(400);
+});

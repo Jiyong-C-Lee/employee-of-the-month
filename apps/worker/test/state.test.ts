@@ -75,3 +75,21 @@ test('RoomState는 JSON 왕복이 된다', () => {
   const { room } = createRoomState('AB12', 'h', { mode: 'single', personaId: 'caocao' });
   expect(JSON.parse(JSON.stringify(room))).toEqual(room);
 });
+
+// ---- 커스텀 페르소나 ----
+import { CUSTOM_PERSONA } from './fixtures';
+import { personaSchema } from '@eotm/content';
+
+test('customPersona로 방을 만들면 그 페르소나로 방이 선다', () => {
+  const custom = personaSchema.parse(CUSTOM_PERSONA);
+  const { room } = createRoomState('AB12', '호스트', { personaId: custom.id, mode: 'single' }, undefined, custom);
+  expect(room.customPersona?.name).toBe('건물주 할머니');
+  expect(publicRoom(room).persona.name).toBe('건물주 할머니');
+  expect(room.players[0]!.rank).toBe(custom.ranks[0]);
+});
+
+test('customPersona의 maxRounds는 상황 수를 넘지 않는다', () => {
+  const custom = personaSchema.parse(CUSTOM_PERSONA);
+  const { room } = createRoomState('AB12', '호스트', { personaId: custom.id, mode: 'single', maxRounds: 20 }, undefined, custom);
+  expect(room.config.maxRounds).toBe(custom.situations.length); // 10
+});
