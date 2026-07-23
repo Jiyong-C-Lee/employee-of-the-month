@@ -15,6 +15,9 @@ export const logger = {
   gameEnded: (f: { roomCode: string; rounds: number; winnerNick?: string }) => write('info', 'game_ended', f),
   roundStarted: (f: { roomCode: string; roundNo: number; situation: string }) => write('info', 'round_started', f),
   speechSubmitted: (f: { roomCode: string; roundNo: number; nick: string; text: string }) => write('info', 'speech_submitted', f),
+  // 참모 대사 배치 — 품질 검수·모범답안 수집용. source로 실 LLM인지 mock 폴백인지 구분한다.
+  advisorSpeeches: (f: { roomCode: string; roundNo: number; source: string; speeches: { name: string; approach: string; text: string }[] }) => write('info', 'advisor_speeches', f),
+  epilogue: (f: { roomCode: string; roundNo: number; source: string; adoptedName: string; story: string }) => write('info', 'epilogue', f),
   verdictIssued: (f: { roomCode: string; roundNo: number; provider: string; adoptedNick: string | null; totals: Record<string, number>; comments: string[] }) => write('info', 'verdict_issued', f),
   llmCall: (f: { kind: string; provider: string; ok: boolean; latencyMs: number; failedOver?: boolean; error?: string }) => write(f.ok ? 'info' : 'warn', 'llm_call', f),
   quotaExceeded: (f: { provider: string }) => write('warn', 'quota_exceeded', f),

@@ -29,6 +29,10 @@ export interface RoundState {
   skipped: string[];
   usedApproaches: string[];
   verdict: Verdict | null;
+  // 멀티 동시 입력: playerId -> 제출 본문 (공개 전까지 클라이언트에 안 나간다). 구버전 스냅샷엔 없을 수 있다.
+  submissions?: Record<string, string>;
+  // 순차 공개 진행 중 플래그 — 재기동 시 공개 루프 재개 판단용.
+  revealing?: boolean;
 }
 
 export interface RoomState {
@@ -197,7 +201,12 @@ export function publicRoom(room: RoomState): PublicRoom {
     },
     situation: room.round?.situation ?? null,
     round: room.round
-      ? { queue: room.round.queue, speeches: room.round.speeches.map((s) => ({ key: s.key, name: s.name, kind: s.kind, text: s.text })) }
+      ? {
+        queue: room.round.queue,
+        speeches: room.round.speeches.map((s) => ({ key: s.key, name: s.name, kind: s.kind, text: s.text })),
+        submitted: Object.keys(room.round.submissions ?? {}), // 제출 여부만 공개 — 본문은 공개 시점까지 비밀
+        revealing: room.round.revealing ?? false,
+      }
       : null,
     advisorFavor: room.advisorFavor,
     capacity: room.config.maxPlayers,

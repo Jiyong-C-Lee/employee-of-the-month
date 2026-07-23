@@ -60,30 +60,28 @@ test('스냅샷은 캐시가 아니라 room 상태에서 speakTurn을 재구성�
   await r2.cancel();
 }, 40000);
 
-test('발언→다음 사람 턴 전환에서 턴 마감 알람이 유실되지 않는다 (멀티, I1)', async () => {
+test('멀티 입력 창: 일부만 제출해도 공용 마감 알람이 유지된다 (I1)', async () => {
   const s = stub('TESTI1');
   const create = await post(s, '/create', {
     code: 'TESTI1', nick: '호스트', config: { mode: 'multi', personaId: 'caocao', maxPlayers: 2, speakTime: 60 },
   });
   const { playerId: hostId, token: hostTok } = create.body as { playerId: string; token: string };
-  const join = await post(s, '/join', { nick: '게스트' });
-  const { playerId: guestId } = join.body as { playerId: string };
+  await post(s, '/join', { nick: '게스트' });
   expect((await post(s, '/start', { playerId: hostId, token: hostTok })).status).toBe(200);
 
   const res = await s.fetch(`http://do/events?playerId=${hostId}&token=${hostTok}`);
   const reader = res.body!.getReader();
-  await readUntil(reader, (ev) => ev.kind === 'turn' && ev.turn?.current === hostId);
-  expect((await post(s, '/speak', { playerId: hostId, token: hostTok, text: '호스트 의견' })).status).toBe(200);
-
-  // 다음 사람(게스트) 턴 + 타이머까지 — clearTimer→startTimer 경합이 발생하는 전환.
-  await readUntil(reader, (ev) => ev.kind === 'turn' && ev.turn?.current === guestId);
+  // 입력 창이 열리면 전원 공용 타이머(입력 마감)가 흐른다.
   await readUntil(reader, (ev) => ev.kind === 'timer' && ev.timer !== null);
+  expect((await post(s, '/speak', { playerId: hostId, token: hostTok, text: '호스트 의견' })).status).toBe(200);
+  // 제출 인원 갱신이 방 상태로 흐른다 (본문은 공개 전 비밀).
+  await readUntil(reader, (ev) => ev.kind === 'room' && Boolean(ev.room?.round?.submitted?.includes(hostId)));
   await reader.cancel();
 
-  // 게스트 턴의 마감 알람이 살아있어야 한다(경합으로 삭제되면 턴 타임아웃 미집행).
+  // 게스트가 아직 미제출 — 입력 창 마감 알람은 그대로 살아 있어야 한다.
   await runInDurableObject(s, async (_instance, state) => {
     const tag = await state.storage.get<string>('alarmTag');
-    expect(tag?.startsWith('turnTimeout:')).toBe(true);
+    expect(tag?.startsWith('inputWindow:')).toBe(true);
     expect(await state.storage.getAlarm()).toBeTruthy();
   });
 }, 40000);

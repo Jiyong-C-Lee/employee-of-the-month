@@ -78,62 +78,76 @@ test('라운드 시작 시 자막(round.intro·round.question)은 중복이라 �
   expect(systemTexts.some((t) => t.includes(situation.text))).toBe(false);
 });
 
-test('멀티: 순번 아닌 발언 거부, 타임아웃 알람 예약·발동', async () => {
+test('멀티: 동시 입력 — 제출 수집·중복 거부, 전원 제출 시 순차 공개→판정', async () => {
   const { room, playerId: hostId } = createRoomState('T2', '호스트', {
     mode: 'multi', personaId: 'caocao', maxPlayers: 2, speakTime: 60,
   });
-  const added = addPlayer(room, '게스트');
-  const guestId = (added as { playerId: string }).playerId;
+  const guestId = (addPlayer(room, '게스트') as { playerId: string }).playerId;
 
   const { bus, events, scheduled } = fakeBus();
   const eng = new Engine(room, bus, deps);
   expect(eng.start(hostId)).toEqual({ ok: true });
+  await waitUntil(() => room.phase === 'PLAYER_TURNS');
 
-  // 조언자 발언이 끝나고 사람(호스트) 순번에 멈출 때까지 대기.
-  await waitUntil(
-    () => room.phase === 'PLAYER_TURNS' && room.round!.queue[room.round!.turnIdx]?.kind === 'user',
-  );
-  const cur = room.round!.queue[room.round!.turnIdx]!;
-  expect(cur.key).toBe(hostId); // 사람 블록은 입장순 — 호스트가 먼저
+  // 라운드당 하나의 공용 마감 알람이 예약된다.
+  expect(scheduled).toContain(`inputWindow:${room.roundNo}`);
 
-  // 순번이 아닌 게스트의 발언은 거부.
-  expect(eng.handleSpeak(guestId, '제가 먼저요')).toEqual({ error: STRINGS.errors.notYourTurn });
+  // 순번 없이 아무나 제출할 수 있고, 중복 제출은 거부된다.
+  expect(eng.handleSpeak(guestId, '게스트 의견')).toBeUndefined();
+  expect(eng.handleSpeak(guestId, '두 번째')).toEqual({ error: STRINGS.errors.alreadySubmitted });
+  // 공개 전에는 발언 피드가 없다(본문 비밀 유지).
+  expect(findFeed(events, 'speech').length).toBe(0);
 
-  // 제한시간(멀티)이 있으므로 턴 마감 알람이 예약된다.
-  const tag = scheduled.find((t) => t.startsWith(`turnTimeout:${room.roundNo}:`));
-  expect(tag).toBeTruthy();
+  // 마지막 사람이 제출하면 순차 공개가 시작돼 판정까지 진행된다.
+  expect(eng.handleSpeak(hostId, '호스트 의견')).toBeUndefined();
+  await waitUntil(() => room.phase === 'RESULT');
+  expect(room.round!.speeches.filter((s) => s.kind === 'user').length).toBe(2);
+});
 
-  // 알람 발동 → 호스트 기권 처리 후 다음 순번(게스트)으로 진행.
-  const idxBefore = room.round!.turnIdx;
-  eng.onAlarm(tag!);
-  expect(room.round!.turnIdx).toBeGreaterThan(idxBefore);
+test('멀티: 입력 마감 알람 — 미제출자 기권 처리 후 제출분만 공개', async () => {
+  const { room, playerId: hostId } = createRoomState('T2T', '호스트', {
+    mode: 'multi', personaId: 'caocao', maxPlayers: 2, speakTime: 60,
+  });
+  const guestId = (addPlayer(room, '게스트') as { playerId: string }).playerId;
+  const { bus, events } = fakeBus();
+  const eng = new Engine(room, bus, deps);
+  expect(eng.start(hostId)).toEqual({ ok: true });
+  await waitUntil(() => room.phase === 'PLAYER_TURNS');
+
+  expect(eng.handleSpeak(hostId, '호스트 의견')).toBeUndefined();
+  eng.onAlarm(`inputWindow:${room.roundNo}`);
+  await waitUntil(() => room.phase === 'RESULT');
+  expect(room.round!.skipped).toContain(guestId);
+  expect(room.round!.speeches.filter((s) => s.kind === 'user').length).toBe(1);
   expect(
     findFeed(events, 'system').some((e) => (e as { item: { tag?: string } }).item.tag === 'timeout'),
   ).toBe(true);
 });
 
-test('재기동 재개: 사람 턴에서 turn 이벤트 재발행 + 턴 알람 재무장 (C1)', async () => {
+test('재기동 재개(멀티): 입력 창 유지, 이후 제출·공개가 정상 진행 (C1)', async () => {
   const { room, playerId: hostId } = createRoomState('T3', '호스트', {
     mode: 'multi', personaId: 'caocao', maxPlayers: 2, speakTime: 60,
   });
-  addPlayer(room, '게스트');
+  const guestId = (addPlayer(room, '게스트') as { playerId: string }).playerId;
   const b1 = fakeBus();
   const eng1 = new Engine(room, b1.bus, deps);
   expect(eng1.start(hostId)).toEqual({ ok: true });
-  await waitUntil(
-    () => room.phase === 'PLAYER_TURNS' && room.round!.queue[room.round!.turnIdx]?.kind === 'user',
-  );
+  await waitUntil(() => room.phase === 'PLAYER_TURNS');
+  expect(eng1.handleSpeak(hostId, '호스트 의견')).toBeUndefined();
 
   // 재기동 시뮬레이션: 같은 room 상태로 새 엔진을 만들고 resumeAfterRestore.
   const b2 = fakeBus();
   const eng2 = new Engine(room, b2.bus, deps);
   eng2.resumeAfterRestore();
 
-  // 사람 턴이 turn 이벤트로 재발행되고(입력창 복구), 멀티라 턴 마감 알람도 재무장된다.
-  const turnEv = b2.events.find((e) => e.kind === 'turn');
-  expect(turnEv).toBeTruthy();
-  expect((turnEv as { turn: { current: string } }).turn.current).toBe(room.round!.queue[room.round!.turnIdx]!.key);
-  expect(b2.scheduled.some((t) => t.startsWith('turnTimeout:'))).toBe(true);
+  // 아직 게스트 미제출 — 입력 창이 유지되고 공개가 시작되지 않는다 (마감 알람은 DO storage에 살아 있음).
+  expect(room.phase).toBe('PLAYER_TURNS');
+  expect(room.round!.revealing).toBe(false);
+
+  // 재기동 후 제출도 정상 동작 → 전원 제출로 공개·판정까지 진행.
+  expect(eng2.handleSpeak(guestId, '게스트 의견')).toBeUndefined();
+  await waitUntil(() => room.phase === 'RESULT');
+  expect(room.round!.speeches.filter((s) => s.kind === 'user').length).toBe(2);
 });
 
 test('재기동 재개: 발언 종료 후 심판 대기 창에서 beginJudging 재킥 (I5)', async () => {

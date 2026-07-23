@@ -12,6 +12,23 @@ export default function ActionBar({ state, actions }) {
   }
 
   if (phase === 'PLAYER_TURNS') {
+    // 멀티: 전원 동시 작성 → 순차 공개. speakTurn(순번) 대신 제출 여부로 입력창을 판단한다.
+    if (room.config.mode === 'multi') {
+      const revealing = room.round?.revealing;
+      const submitted = room.round?.submitted || [];
+      if (revealing) {
+        return <div className="actionbar idle"><span className="ab-label waiting">📣 의견을 순서대로 공개하는 중…</span></div>;
+      }
+      if (!submitted.includes(playerId)) {
+        return <SpeakBar onSend={actions.speak} hint="시간 안에 제출하세요. 전원 제출되면 순서대로 공개됩니다." />;
+      }
+      const humans = room.players.filter((p) => p.connected).length;
+      return (
+        <div className="actionbar idle">
+          <span className="ab-label waiting">✅ 제출 완료 — 다른 참가자 대기 중… ({submitted.length}/{humans})</span>
+        </div>
+      );
+    }
     if (speakTurn?.current === playerId) {
       return <SpeakBar onSend={actions.speak} />;
     }
@@ -43,7 +60,7 @@ export default function ActionBar({ state, actions }) {
   return <div className="actionbar idle"><span className="ab-label">다음 단계를 준비 중…</span></div>;
 }
 
-function SpeakBar({ onSend }) {
+function SpeakBar({ onSend, hint }) {
   const [text, setText] = useState('');
   const send = () => {
     if (text.trim()) { onSend(text); setText(''); }
@@ -53,7 +70,7 @@ function SpeakBar({ onSend }) {
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, MAX_SPEECH_CHARS))}
-        placeholder="당신의 차례! 윗분이 가장 듣고 싶어할 한 마디를… (Ctrl+Enter 전송)"
+        placeholder={hint || '당신의 차례! 윗분이 가장 듣고 싶어할 한 마디를… (Ctrl+Enter 전송)'}
         rows={3}
         autoFocus
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); }}

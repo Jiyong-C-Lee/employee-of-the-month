@@ -267,14 +267,20 @@ export class RoomDO implements DurableObject {
     let ended: EndedPayload | null = null;
 
     if (room.state === 'PLAYING' && room.phase === 'PLAYER_TURNS' && room.round) {
-      const entry = room.round.queue[room.round.turnIdx];
-      if (entry?.kind === 'user') {
-        const p = room.players.find((x) => x.id === entry.key);
-        speakTurn = { current: entry.key, nick: p?.nick ?? entry.name, speakTime: room.config.speakTime };
-        const tag = await this.ctx.storage.get<string>('alarmTag');
-        if (tag?.startsWith('turnTimeout:')) {
-          const at = await this.ctx.storage.getAlarm();
-          if (at) timer = { phase: 'PLAYER_TURNS', deadline: at, total: room.config.speakTime };
+      const tag = await this.ctx.storage.get<string>('alarmTag');
+      if (tag?.startsWith('inputWindow:')) {
+        // 멀티 동시 입력 창 — 전원 공용 타이머만 복구 (입력창 노출은 publicRoom의 submitted/revealing으로 판단).
+        const at = await this.ctx.storage.getAlarm();
+        if (at) timer = { phase: 'PLAYER_TURNS', deadline: at, total: room.config.speakTime };
+      } else {
+        const entry = room.round.queue[room.round.turnIdx];
+        if (entry?.kind === 'user' && room.config.mode === 'single') {
+          const p = room.players.find((x) => x.id === entry.key);
+          speakTurn = { current: entry.key, nick: p?.nick ?? entry.name, speakTime: room.config.speakTime };
+          if (tag?.startsWith('turnTimeout:')) {
+            const at = await this.ctx.storage.getAlarm();
+            if (at) timer = { phase: 'PLAYER_TURNS', deadline: at, total: room.config.speakTime };
+          }
         }
       }
     } else if (room.state === 'ENDED') {
@@ -295,7 +301,7 @@ export class RoomDO implements DurableObject {
       await this.ctx.storage.deleteAll(); // 방 소멸 — TTL 만료
       return;
     }
-    if (tag?.startsWith('turnTimeout:')) this.engine?.onAlarm(tag);
+    if (tag?.startsWith('turnTimeout:') || tag?.startsWith('inputWindow:')) this.engine?.onAlarm(tag);
     // 턴 알람 처리 후 다시 TTL 알람을 건다 (엔진이 새 턴 알람을 걸었으면 건드리지 않는다).
     await this.armTtlIfIdle();
   }
@@ -305,7 +311,8 @@ export class RoomDO implements DurableObject {
     return this.runAlarmOp(async () => {
       if (!this.room) return;
       const tag = await this.ctx.storage.get<string>('alarmTag');
-      if (tag?.startsWith('turnTimeout:')) return; // 턴 알람 활성 — 유지
+      // 게임 진행용 알람(턴 마감·입력 창 마감) 활성 중이면 유지 — TTL로 덮어쓰면 마감이 유실된다.
+      if (tag?.startsWith('turnTimeout:') || tag?.startsWith('inputWindow:')) return;
       await this.setCleanupAlarm();
     });
   }

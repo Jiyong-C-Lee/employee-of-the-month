@@ -126,7 +126,7 @@ export class Engine {
       this.endByExhaustion();
       return;
     }
-    room.round = { situation, speeches: [], queue: [], turnIdx: 0, skipped: [], usedApproaches: [], verdict: null };
+    room.round = { situation, speeches: [], queue: [], turnIdx: 0, skipped: [], usedApproaches: [], verdict: null, submissions: {}, revealing: false };
     logger.roundStarted({ roomCode: room.code, roundNo: room.roundNo, situation: situation.text });
     this.setPhase('SITUATION', { situation });
     // 라운드 자막(round.intro·round.question)은 만화 UI의 상황 카드(SituationCut)가 본문·질문을 이미 렌더하므로 중복 — 발행하지 않는다.
@@ -156,6 +156,15 @@ export class Engine {
         difficulty: room.config.difficulty,
         quirks,
         approaches,
+      }).then((batch) => {
+        // 참모 대사도 로그에 남긴다 — 품질 검수·모범답안 수집용 (source로 mock 폴백 여부 구분).
+        logger.advisorSpeeches({
+          roomCode: room.code,
+          roundNo: room.roundNo,
+          source: batch.source,
+          speeches: batch.speeches.map((s) => ({ name: s.name, approach: s.approach, text: s.text })),
+        });
+        return batch;
       }).catch((e) => {
         logger.error({ where: 'engine.advisorBatch', error: e instanceof Error ? e.message : String(e) });
         return null;
@@ -186,6 +195,26 @@ export class Engine {
 
     this.setPhase('PLAYER_TURNS');
     // "발언 시작" 안내 자막은 만화 UI에서 불필요 — 규칙(160자·제한시간)은 입력창·타이머가 보여준다.
+    if (room.config.mode === 'multi') {
+      // 멀티: 전원이 동시에 작성하는 입력 창을 연다. 한 명씩 기다리는 릴레이 방식은 대기 시간이 지루해서 폐기.
+      // 제한시간은 라운드당 한 번, 전원 제출(또는 마감) 후 순번대로 공개한다.
+      if (room.config.speakTime > 0) {
+        this.startTimer(room.config.speakTime, `inputWindow:${room.roundNo}`);
+      }
+      this.persist();
+      return;
+    }
+    void this.nextTurn();
+  }
+
+  // 멀티: 전원 제출·마감 후 순차 공개 시작. 공개 루프는 nextTurn이 담당한다(유저 발언은 submissions에서 꺼냄).
+  private startReveal(): void {
+    const room = this.room;
+    if (room.state !== 'PLAYING' || room.phase !== 'PLAYER_TURNS' || room.round!.revealing) return;
+    this.clearTimer();
+    room.round!.revealing = true;
+    this.emitRoomState();
+    this.persist();
     void this.nextTurn();
   }
 
@@ -199,6 +228,13 @@ export class Engine {
       return;
     }
     const entry = queue[room.round!.turnIdx]!;
+
+    // 재기동 직후 같은 순번이 두 번 공개되는 것 방지 — 이미 발언이 기록된 순번은 건너뛴다.
+    if (room.round!.speeches.some((s) => s.key === entry.key)) {
+      room.round!.turnIdx += 1;
+      void this.nextTurn();
+      return;
+    }
 
     // AI 조언자 차례: 미리 배치 생성해 둔 대사를 순번대로 공개.
     if (entry.kind === 'ai') {
@@ -228,7 +264,31 @@ export class Engine {
       return;
     }
 
-    // 사람 차례.
+    // 사람 차례 (멀티 공개 루프): 미리 제출된 본문을 순번대로 공개한다.
+    if (room.config.mode === 'multi') {
+      const text = room.round!.submissions?.[entry.key];
+      if (!text) {
+        if (!room.round!.skipped.includes(entry.key)) room.round!.skipped.push(entry.key);
+        room.round!.turnIdx += 1;
+        void this.nextTurn();
+        return;
+      }
+      const p = room.players.find((x) => x.id === entry.key);
+      room.round!.speeches.push({ key: entry.key, name: entry.name, kind: 'user', text });
+      this.bus.emit({
+        kind: 'feed',
+        item: { type: 'speech', speakerType: 'user', playerId: entry.key, name: entry.name, rank: p?.rank, text, ts: Date.now() },
+      });
+      this.emitRoomState();
+      this.persist();
+      this.bus.delay(speechGapMs(text), () => {
+        room.round!.turnIdx += 1;
+        void this.nextTurn();
+      });
+      return;
+    }
+
+    // 사람 차례 (싱글 릴레이): 입력을 기다린다.
     const cur = room.players.find((p) => p.id === entry.key);
     if (!cur?.connected) {
       room.round!.skipped.push(entry.key);
@@ -248,6 +308,19 @@ export class Engine {
   // 턴 마감 alarm. 태그의 라운드·턴이 현재와 일치할 때만 기권 처리 (지연 알람·경합 방지).
   onAlarm(tag: string): void {
     const room = this.room;
+
+    // 멀티 입력 창 마감 — 미제출자는 기권 처리하고 제출분만 순차 공개.
+    const w = /^inputWindow:(\d+)$/.exec(tag);
+    if (w) {
+      if (room.state !== 'PLAYING' || room.phase !== 'PLAYER_TURNS') return;
+      if (room.roundNo !== Number(w[1]) || room.round!.revealing) return;
+      const missed = room.players.filter((p) => !room.round!.submissions?.[p.id]);
+      for (const p of missed) room.round!.skipped.push(p.id);
+      if (missed.length > 0) this.sysMsg(this.line('round.inputTimeout', { count: missed.length }), 'timeout');
+      this.startReveal();
+      return;
+    }
+
     const m = /^turnTimeout:(\d+):(\d+)$/.exec(tag);
     if (!m) return;
     const roundNo = Number(m[1]);
@@ -268,6 +341,25 @@ export class Engine {
   handleSpeak(playerId: string, text: string): { error: string } | undefined {
     const room = this.room;
     if (room.phase !== 'PLAYER_TURNS') return;
+
+    // 멀티: 동시 입력 창 — 순번 없이 제출을 받고, 전원 제출되면 순차 공개를 시작한다.
+    if (room.config.mode === 'multi') {
+      if (room.round!.revealing) return { error: STRINGS.errors.notYourTurn! };
+      const p = room.players.find((x) => x.id === playerId);
+      if (!p) return { error: STRINGS.errors.notYourTurn! };
+      if (room.round!.submissions?.[playerId]) return { error: STRINGS.errors.alreadySubmitted ?? STRINGS.errors.notYourTurn! };
+      const cleanMulti = String(text || '').trim().slice(0, MAX_SPEECH_CHARS);
+      if (!cleanMulti) return;
+      room.round!.submissions = { ...(room.round!.submissions ?? {}), [playerId]: cleanMulti };
+      logger.speechSubmitted({ roomCode: room.code, roundNo: room.roundNo, nick: p.nick, text: cleanMulti });
+      this.emitRoomState(); // 제출 인원 표시 갱신 (본문은 비공개)
+      this.persist();
+      // 전원 제출(끊긴 사람은 제외) 시 마감 전이라도 바로 공개 시작.
+      const waiting = room.players.some((x) => x.connected && !room.round!.submissions?.[x.id]);
+      if (!waiting) this.startReveal();
+      return;
+    }
+
     const entry = room.round!.queue[room.round!.turnIdx];
     if (!entry || entry.kind !== 'user' || entry.key !== playerId) {
       // 개인 채널 없음 — {error} 반환 → RoomDO가 HTTP 400으로 응답.
@@ -321,21 +413,38 @@ export class Engine {
 
     let adoptedName: string | null = null;
     let adoptedInfo: AdoptedInfo | null = null; // 액자(이달의 우수사원) 연출용
+    // 멀티는 1위(채택) +2, 2위 +1 — 라운드 상한 안에 승부가 나도록 보상을 가파르게 준다. 싱글은 채택 +1.
+    const topGain = room.config.mode === 'multi' ? 2 : 1;
+    const grantFavor = (key: string, name: string, kind: 'ai' | 'user', gain: number): void => {
+      if (kind === 'user') {
+        const p = room.players.find((x) => x.id === key);
+        if (!p) return;
+        p.favor += gain;
+        p.rank = this.persona.ranks[rankIdxFor(p.favor, this.persona.ranks)]!;
+        if (isChampion(p.favor, this.persona.ranks)) room.pendingChampion = room.pendingChampion ?? p.id;
+      } else {
+        room.advisorFavor[name] = (room.advisorFavor[name] || 0) + gain;
+      }
+    };
     if (verdict.adoptedKey) {
       const adopted = candidates.find((c) => c.key === verdict.adoptedKey);
       adoptedName = adopted?.name ?? null;
-      if (adopted?.kind === 'user') {
-        const p = room.players.find((x) => x.id === adopted.key);
-        if (p) {
-          p.favor += 1;
-          p.rank = this.persona.ranks[rankIdxFor(p.favor, this.persona.ranks)]!;
-          if (isChampion(p.favor, this.persona.ranks)) room.pendingChampion = p.id;
+      if (adopted) {
+        grantFavor(adopted.key, adopted.name, adopted.kind, topGain);
+        if (adopted.kind === 'user') {
+          const p = room.players.find((x) => x.id === adopted.key)!;
           adoptedInfo = { key: p.id, name: p.nick, kind: 'user', rank: p.rank };
+        } else {
+          const adv = this.persona.advisors.find((a) => a.name === adopted.name);
+          adoptedInfo = { key: adopted.key, name: adopted.name, kind: 'ai', emoji: adv?.emoji };
         }
-      } else if (adopted) {
-        room.advisorFavor[adopted.name] = (room.advisorFavor[adopted.name] || 0) + 1;
-        const adv = this.persona.advisors.find((a) => a.name === adopted.name);
-        adoptedInfo = { key: adopted.key, name: adopted.name, kind: 'ai', emoji: adv?.emoji };
+      }
+      // 멀티 2위: 총점 차순위(채택자 제외, 0점 초과)에게 +1.
+      if (room.config.mode === 'multi') {
+        const runnerUp = candidates
+          .filter((c) => c.key !== verdict.adoptedKey && (verdict.totals[c.key] ?? 0) > 0)
+          .sort((a, b) => (verdict.totals[b.key] ?? 0) - (verdict.totals[a.key] ?? 0))[0];
+        if (runnerUp) grantFavor(runnerUp.key, runnerUp.name, runnerUp.kind, 1);
       }
       if (adoptedInfo) room.hall.push({ roundNo: room.roundNo, ...adoptedInfo });
     }
@@ -374,6 +483,8 @@ export class Engine {
       if (judged.source !== 'debug' && adopted) {
         makeEpilogue(this.deps, { persona: this.persona, situation: room.round!.situation, adopted: { name: adopted.name, text: adopted.text } })
           .then((r) => {
+            // 에필로그 본문도 로그에 남긴다 — 시점 이탈 같은 품질 문제 추적용.
+            logger.epilogue({ roomCode: room.code, roundNo: room.roundNo, source: r.source, adoptedName: adopted.name, story: r.story });
             if (this.room.state !== 'PLAYING' || this.room.roundNo !== room.roundNo) return;
             this.bus.emit({ kind: 'feed', item: { type: 'epilogue', roundNo: room.roundNo, story: r.story, source: r.source, ts: Date.now() } });
           })
@@ -499,11 +610,16 @@ export class Engine {
     if (room.phase === 'SITUATION') {
       this.beginSpeeches();
     } else if (room.phase === 'PLAYER_TURNS') {
-      if (room.round.turnIdx >= room.round.queue.length) {
+      if (room.config.mode === 'multi' && !room.round.revealing) {
+        // 멀티 입력 창 중 재기동 — inputWindow 알람은 DO storage에 살아 있으므로 대기만 하면 된다.
+        // 다만 알람 발동 직전/유실 시에도 전원 제출 상태면 즉시 공개로 넘어간다.
+        const waiting = room.players.some((x) => x.connected && !room.round!.submissions?.[x.id]);
+        if (!waiting) this.startReveal();
+      } else if (room.round.turnIdx >= room.round.queue.length) {
         // 발언 종료 후 심판 대기 창에서 재기동 — beginJudging 재킥으로 정지 방지(I5).
         void this.beginJudging();
       } else {
-        // AI·사람 턴 모두 nextTurn으로 재발행 — turn 이벤트 재발행과 (멀티)turnTimeout·(싱글)TTL 알람을 되살린다(C1).
+        // 공개 루프·(싱글)사람 턴 모두 nextTurn으로 재개 — 이미 공개된 순번은 중복 가드가 건너뛴다(C1).
         void this.nextTurn();
       }
     } else if (room.phase === 'JUDGING') {

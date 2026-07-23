@@ -30,7 +30,9 @@ export interface PublicRoom {
   phase: Phase | null; roundNo: number;
   config: RoomConfig; players: PublicPlayer[];
   persona: PublicPersona; situation: Situation | null;
-  round: { queue: QueueEntry[]; speeches: Speech[] } | null;
+  // submitted: 멀티 동시 입력 창에서 제출을 마친 플레이어 id 목록(본문은 공개 전까지 비밀).
+  // revealing: 전원 제출(또는 마감) 후 순차 공개가 진행 중인지.
+  round: { queue: QueueEntry[]; speeches: Speech[]; submitted: string[]; revealing: boolean } | null;
   advisorFavor: Record<string, number>;
   capacity: number;
 }
