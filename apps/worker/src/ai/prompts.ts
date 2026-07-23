@@ -12,9 +12,23 @@ type Advisor = FullPersona['advisors'][number];
 
 // ---- 조언자 발언 배치 생성 (라운드당 1콜 — 레이트리밋 대응, 뒤 참모가 앞 참모를 반박하는 릴레이는 프롬프트가 유지) ----
 
-export function advisorBatchSystem(persona: FullPersona, advisors: Advisor[], difficulty: Difficulty = 'normal'): string {
+// quirks: 참모 이름 → 이번 라운드에 쓸 버릇 (null이면 버릇 없이 안건에만 집중).
+// approaches: 참모 이름 → 이번 라운드 해법 축. 모두 라운드마다 코드가 샘플링해 넘긴다 —
+// 무상태 LLM 호출이라도 라운드 간 다양성을 코드가 보장한다(모델 자율에 맡기면 같은 축·같은 개그로 쏠린다).
+export function advisorBatchSystem(
+  persona: FullPersona,
+  advisors: Advisor[],
+  difficulty: Difficulty = 'normal',
+  quirks: Record<string, string | null> = {},
+  approaches: Record<string, string> = {},
+): string {
   const advisorRoster = advisors
-    .map((a, i) => `${i + 1}. ${a.name} (${a.style}) — ${a.stylePrompt}`)
+    .map((a, i) => {
+      const quirk = quirks[a.name];
+      const voice = a.voice ? ` / 말투: ${a.voice}` : '';
+      const axis = approaches[a.name] ? ` / 이번 해법 축: ${approaches[a.name]}` : '';
+      return `${i + 1}. ${a.name} (${a.style}) — 성향: ${a.core}${voice}${axis} / 이번 버릇: ${quirk ?? '없음 — 안건에만 집중한다'}`;
+    })
     .join('\n');
   return fmt(PROMPTS.advisorBatchSystem, {
     personaName: persona.name,
@@ -29,8 +43,6 @@ export function advisorBatchUser(persona: FullPersona, situation: Situation): st
     `# 상황`,
     situation.text,
     `# ${persona.name}의 물음: ${situation.question}`,
-    '',
-    `# 해법 축 (approach — 참모마다 서로 다른 축 하나): ${APPROACHES.join(', ')}`,
   ].join('\n');
 }
 

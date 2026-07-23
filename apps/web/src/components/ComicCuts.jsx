@@ -47,10 +47,22 @@ export function josa(word, withFinal, noFinal) {
 // 뷰어와 무관하게 배정한다 → 같은 유저는 모든 클라이언트에서·라운드가 바뀌어도 같은 몸. (뷰어 본인 강조는
 // FaceSlot의 mine으로만 처리한다.) 이전엔 뷰어 본인만 USER_POSE로 빼면서 seat 인덱스가 어긋나
 // 같은 유저가 클라이언트마다 다른 포즈로 보였다.
-export function buildPoseMap({ persona, players }) {
+// queue(선택): 이번 라운드 발언 큐. 참모 풀(최대 8명)이 포즈 수(5)보다 커서, 라운드 출전 참모끼리
+// 선호 포즈(명단 인덱스 기준)가 겹칠 수 있다 → 출전 참모 안에서만 빈 포즈로 밀어내 충돌을 푼다.
+// 큐는 서버 상태라 모든 클라이언트가 동일 → 배정도 뷰어와 무관하게 동일하다.
+export function buildPoseMap({ persona, players, queue }) {
   const map = {};
-  persona.advisors.forEach((a, i) => {
-    map[`ai:${a.name}`] = SEAT_POSES[i % SEAT_POSES.length];
+  const inRound = new Set((queue || []).filter((e) => e.kind === 'ai').map((e) => e.name));
+  const active = inRound.size > 0 ? persona.advisors.filter((a) => inRound.has(a.name)) : persona.advisors;
+  const taken = new Set();
+  active.forEach((a) => {
+    const idx = persona.advisors.findIndex((x) => x.name === a.name);
+    const prefer = idx % SEAT_POSES.length;
+    let k = prefer;
+    while (taken.has(SEAT_POSES[k % SEAT_POSES.length]) && k < prefer + SEAT_POSES.length) k += 1;
+    const pose = SEAT_POSES[k % SEAT_POSES.length];
+    taken.add(pose);
+    map[`ai:${a.name}`] = pose;
   });
   const seats = [USER_POSE, ...SEAT_POSES]; // 사람 자리 풀 (지정석 포함)
   [...(players || [])]
@@ -190,7 +202,6 @@ export function GaugeStrip({ persona, done }) {
         <img src={poseUrl(BOSS_GAZE)} alt="" />
         <FaceSlot pose={BOSS_GAZE} entry={{ kind: 'ai', emoji: persona.emoji }} />
       </div>
-      <span className="gs-title">분노 게이지</span>
       <span className="gs-rage">💢</span>
       <span className="gs-rage r2">💢</span>
       <div className="gs-status">{done ? '판정 완료' : '검토 중…'}</div>

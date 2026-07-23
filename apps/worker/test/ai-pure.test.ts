@@ -7,10 +7,12 @@ import type { Candidate } from '../src/ai/prompts';
 
 const persona = getPersona('caocao')!;
 const situation = persona.situations[0]!;
+// 실전은 풀에서 라운드당 ADVISORS_PER_ROUND명만 출전 — mock의 approach 유일성도 그 크기에서만 보장된다.
+const roundAdvisors = persona.advisors.slice(0, 3);
 
 test('mock 조언자 배치: 조언자 수만큼, 160자 이내, approach 부여', () => {
-  const r = mockAdvisorTurnsBatch({ persona, advisors: persona.advisors, situation });
-  expect(r.speeches.length).toBe(persona.advisors.length);
+  const r = mockAdvisorTurnsBatch({ persona, advisors: roundAdvisors, situation });
+  expect(r.speeches.length).toBe(roundAdvisors.length);
   for (const s of r.speeches) {
     expect(s.name && s.text).toBeTruthy();
     expect(s.text.length).toBeLessThanOrEqual(160);
@@ -18,7 +20,7 @@ test('mock 조언자 배치: 조언자 수만큼, 160자 이내, approach 부여
 });
 
 test('mock 조언자 배치: 둘째부터 앞사람을 받아치고, approach가 겹치지 않는다', () => {
-  const r = mockAdvisorTurnsBatch({ persona, advisors: persona.advisors, situation });
+  const r = mockAdvisorTurnsBatch({ persona, advisors: roundAdvisors, situation });
   expect(r.speeches[1]!.text).toContain(r.speeches[0]!.name);
   const approaches = r.speeches.map((s) => s.approach);
   expect(new Set(approaches).size).toBe(approaches.length);

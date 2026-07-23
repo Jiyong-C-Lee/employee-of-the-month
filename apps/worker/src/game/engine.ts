@@ -6,7 +6,8 @@ import type {
   AdoptedInfo, FeedItem, ServerEvent, Situation, Standing, Verdict,
 } from '@eotm/shared';
 import { computeStandings, publicRoom, type RoomState } from './state';
-import { buildSpeakQueue, rankIdxFor, isChampion, MAX_SPEECH_CHARS } from './logic';
+import { buildSpeakQueue, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, MAX_SPEECH_CHARS } from './logic';
+import { APPROACHES } from '../ai/prompts';
 import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, type Deps } from '../ai/orchestrate';
 import { logger } from '../log';
 import type { Candidate } from '../ai/prompts';
@@ -137,12 +138,22 @@ export class Engine {
       .filter((e) => e.kind === 'ai')
       .map((e) => this.persona.advisors.find((a) => a.name === e.name))
       .filter((a): a is FullPersona['advisors'][number] => Boolean(a));
+    // 라운드별 버릇 샘플링 — 뽑힌 버릇은 다음 라운드 제외 목록에 기록한다.
+    const quirks = pickQuirks(aiAdvisors, room.advisorLastQuirk ?? {});
+    room.advisorLastQuirk = room.advisorLastQuirk ?? {};
+    for (const [name, q] of Object.entries(quirks)) {
+      if (q) room.advisorLastQuirk[name] = q;
+    }
+    // 해법 축도 코드가 배정 — 모델 자율에 맡기면 같은 축으로 쏠려 대사가 반복된다.
+    const approaches = pickApproaches(aiAdvisors.map((a) => a.name), APPROACHES);
     this.aiBatch = aiAdvisors.length > 0
       ? advisorTurnsBatch(this.deps, {
         persona: this.persona,
         advisors: aiAdvisors,
         situation: room.round!.situation,
         difficulty: room.config.difficulty,
+        quirks,
+        approaches,
       }).catch((e) => {
         logger.error({ where: 'engine.advisorBatch', error: e instanceof Error ? e.message : String(e) });
         return null;
@@ -155,8 +166,9 @@ export class Engine {
   private beginSpeeches(): void {
     if (this.room.state !== 'PLAYING' || this.room.phase !== 'SITUATION') return;
     const room = this.room;
+    // 참모 풀에서 이번 라운드 출전 인원만 무작위 발탁 — 큐에 오른 참모만 발언·채택 경쟁한다.
     room.round!.queue = buildSpeakQueue({
-      advisors: this.persona.advisors,
+      advisors: pickRoundAdvisors(this.persona.advisors),
       advisorFavor: room.advisorFavor,
       players: room.players,
       roundNo: room.roundNo,

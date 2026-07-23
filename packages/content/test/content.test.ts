@@ -19,7 +19,7 @@ test('getPersona는 전체 데이터(상황·프롬프트 포함)를 준다', ()
   expect(p.name).toContain('조조');
   expect(p.personaPrompt.length).toBeGreaterThan(20);
   expect(p.situations.every((s) => s.text && s.question)).toBe(true);
-  expect(p.advisors.every((a) => a.name && a.style && a.stylePrompt)).toBe(true);
+  expect(p.advisors.every((a) => a.name && a.style && a.core && a.quirks.length >= 2)).toBe(true);
   expect(getPersona('nope')).toBeNull();
 });
 

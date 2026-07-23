@@ -1,7 +1,8 @@
 import { test, expect, vi } from 'vitest';
 import { Engine, type EngineBus, type EngineEvent } from '../src/game/engine';
+import { ADVISORS_PER_ROUND } from '../src/game/logic';
 import { createRoomState, addPlayer } from '../src/game/state';
-import { STRINGS } from '@eotm/content';
+import { STRINGS, getPersona } from '@eotm/content';
 import type { Env } from '../src/env';
 
 // FakeBus: 이벤트를 배열에 모으고, delay는 즉시 실행(연출 지연 생략), schedule은 태그만 기록.
@@ -37,8 +38,9 @@ test('싱글 1라운드: 시작→조언자 발언→내 발언→판정→RESUL
   await waitUntil(
     () => room.phase === 'PLAYER_TURNS' && room.round!.queue[room.round!.turnIdx]?.kind === 'user',
   );
-  // caocao 조언자 3명이 먼저 발언한다.
-  expect(findFeed(events, 'speech').length).toBe(3);
+  // 이번 라운드 출전 조언자(풀에서 발탁된 인원)가 먼저 발언한다.
+  const expected = Math.min(getPersona('caocao')!.advisors.length, ADVISORS_PER_ROUND);
+  expect(findFeed(events, 'speech').length).toBe(expected);
 
   eng.handleSpeak(playerId, '제 생각은 이렇습니다.');
   await waitUntil(() => room.phase === 'RESULT');

@@ -39,6 +39,8 @@ export interface RoomState {
   players: PlayerState[];
   config: RoomConfig;
   advisorFavor: Record<string, number>;
+  // 참모 이름 -> 직전 라운드에 쓴 버릇 (다음 라운드 샘플링에서 제외용). 구버전 스냅샷엔 없을 수 있다.
+  advisorLastQuirk?: Record<string, string>;
   hall: HallEntry[];
   round: RoundState | null;
   feed: FeedItem[];
@@ -112,6 +114,7 @@ export function createRoomState(
     players: [host],
     config: normalized,
     advisorFavor: {}, // 조언자 이름 -> 채택 수 (연출·현황용)
+    advisorLastQuirk: {},
     hall: [], // 라운드별 채택자 — 명예의 전당
     round: null,
     feed: [],

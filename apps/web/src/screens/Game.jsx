@@ -31,8 +31,8 @@ export default function Game({ state, actions }) {
   const showTimer = timer && phase === 'PLAYER_TURNS' && timer.phase === 'PLAYER_TURNS' && timer.total > 0;
   const judging = phase === 'JUDGING';
   const resulted = (phase === 'RESULT' || phase === 'END') && verdictItem;
-  // 캐릭터별 고정 포즈 (라운드·순번·뷰어가 바뀌어도 몸이 안 바뀐다)
-  const poseMap = buildPoseMap({ persona, players: room.players });
+  // 캐릭터별 고정 포즈 (순번·뷰어가 바뀌어도 몸이 안 바뀐다). 큐를 넘겨 이번 라운드 출전 참모끼리만 충돌을 푼다.
+  const poseMap = buildPoseMap({ persona, players: room.players, queue: room.round?.queue });
 
   let resultBlock = null;
   if (resulted) {

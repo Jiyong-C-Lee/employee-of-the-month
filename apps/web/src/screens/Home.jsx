@@ -164,7 +164,7 @@ export default function Home({ state, actions }) {
     <div className="home">
       <div className="home-card">
         <h1 className="logo">🏆 이달의 사원</h1>
-        <p className="tagline">AI 보스가 가장 듣고 싶어할 말로 채택을 노리고, 사원에서 사장까지 승진하는 눈치 게임</p>
+        <p className="tagline">보스의 마음을 움직이는 간언으로 사원에서 사장까지 승진해 보세요</p>
 
         <div className="avatar-setting">
           <span
@@ -246,7 +246,7 @@ export default function Home({ state, actions }) {
               </select>
             </label>
             <label className="field check">
-              <span>AI 조언자도 채택 경쟁 참전</span>
+              <span>AI 참모도 채택 경쟁 참전</span>
               <input type="checkbox" checked={aiCompete} onChange={(e) => setAiCompete(e.target.checked)} />
             </label>
             <div className="row">

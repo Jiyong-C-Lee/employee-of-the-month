@@ -21,6 +21,51 @@ export function buildSpeakQueue({ advisors, advisorFavor = {}, players, roundNo 
   return [...byFavor(ai), ...byFavor(us)].map(({ kind, key, name }) => ({ kind, key, name }));
 }
 
+// 라운드 출전 참모: 풀(최대 8명)에서 무작위 n명. 정의 순서를 유지해 로스터·발언 순서가 안정적이다.
+// 풀이 n 이하면 전원 출전. 순수 함수 — rng 주입으로 테스트한다.
+export const ADVISORS_PER_ROUND = 3;
+
+export function pickRoundAdvisors<T>(advisors: T[], n = ADVISORS_PER_ROUND, rng: () => number = Math.random): T[] {
+  if (advisors.length <= n) return [...advisors];
+  const chosen = new Set<number>();
+  while (chosen.size < n) chosen.add(Math.floor(rng() * advisors.length) % advisors.length);
+  return advisors.filter((_, i) => chosen.has(i));
+}
+
+// 라운드별 버릇 샘플링: 참모마다 30%는 "없음"(안건 집중), 나머지는 풀에서 균등 추첨.
+// 직전 라운드에 쓴 버릇은 제외해 같은 개그의 연속 반복을 막는다. 순수 함수 — rng 주입으로 테스트한다.
+export const QUIRK_NONE_P = 0.3;
+
+export function pickQuirks(
+  advisors: { name: string; quirks: string[] }[],
+  lastQuirk: Record<string, string> = {},
+  rng: () => number = Math.random,
+): Record<string, string | null> {
+  const out: Record<string, string | null> = {};
+  for (const a of advisors) {
+    const pool = a.quirks.filter((q) => q !== lastQuirk[a.name]);
+    out[a.name] = pool.length === 0 || rng() < QUIRK_NONE_P
+      ? null
+      : pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))]!;
+  }
+  return out;
+}
+
+// 라운드별 해법 축 배정: 축 풀을 섞어 참모마다 서로 다른 축을 코드가 강제한다.
+// 모델에게 맡기면 같은 상황에서 늘 같은 축으로 쏠려 대사가 반복된다 — 프롬프트 엔트로피의 핵심 장치.
+export function pickApproaches(
+  names: string[],
+  approaches: string[],
+  rng: () => number = Math.random,
+): Record<string, string> {
+  const pool = [...approaches];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1)) % (i + 1);
+    [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+  }
+  return Object.fromEntries(names.map((name, i) => [name, pool[i % pool.length]!]));
+}
+
 // perSpeaker: [{key, axisScores}], candidates: [{key, order}]
 // 합산 최고점 채택. 동점이면 order 큰(늦게 말한) 쪽 우선.
 export function computeAdoption(

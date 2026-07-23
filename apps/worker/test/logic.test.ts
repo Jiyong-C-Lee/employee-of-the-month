@@ -1,10 +1,10 @@
 // 원본 tests/sycoLogic.test.js를 vitest로 이식 (전 케이스).
 import { test, expect } from 'vitest';
-import { buildSpeakQueue, computeAdoption, rankIdxFor, isChampion } from '../src/game/logic';
+import { buildSpeakQueue, computeAdoption, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion } from '../src/game/logic';
 
 const P = (id: string, joinOrder: number, favor: number) =>
   ({ id, nick: id, joinOrder, favor }) as { id: string; nick: string; joinOrder: number; favor: number };
-const A = (name: string) => ({ name, emoji: '🎓', style: 's', stylePrompt: 'p' });
+const A = (name: string) => ({ name, emoji: '🎓', style: 's', core: 'p', quirks: ['q1', 'q2'] });
 
 test('발언 큐: AI 블록 먼저, 사람 블록 나중. 1라운드는 정의순/입장순', () => {
   const q = buildSpeakQueue({ advisors: [A('갑'), A('을')], advisorFavor: {}, players: [P('u2', 1, 0), P('u1', 0, 0)], roundNo: 1 });
@@ -54,6 +54,56 @@ test('채택 = 합산 최고점 (동점 없는 단순 케이스)', () => {
 
 test('발언자 없으면 채택 없음', () => {
   expect(computeAdoption([], []).adoptedKey).toBeNull();
+});
+
+test('라운드 출전 발탁: 풀에서 n명, 중복 없이 정의 순서 유지', () => {
+  const pool = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const picked = pickRoundAdvisors(pool, 3);
+  expect(picked.length).toBe(3);
+  expect(new Set(picked).size).toBe(3);
+  // 정의 순서 유지 확인
+  const idx = picked.map((x) => pool.indexOf(x));
+  expect([...idx].sort((a, b) => a - b)).toEqual(idx);
+});
+
+test('라운드 출전 발탁: 풀이 n 이하면 전원 출전', () => {
+  expect(pickRoundAdvisors(['a', 'b'], 3)).toEqual(['a', 'b']);
+  expect(pickRoundAdvisors(['a', 'b', 'c'], 3)).toEqual(['a', 'b', 'c']);
+});
+
+test('해법 축 배정: 참모 전원에게 유효한 축을 겹치지 않게 배정', () => {
+  const names = ['갑', '을', '병'];
+  const axes = ['a', 'b', 'c', 'd', 'e'];
+  const m = pickApproaches(names, axes, () => 0.42);
+  expect(Object.keys(m)).toEqual(names);
+  const vals = Object.values(m);
+  expect(new Set(vals).size).toBe(names.length);
+  for (const v of vals) expect(axes).toContain(v);
+});
+
+test('해법 축 배정: 참모가 축보다 많으면 순환 배정', () => {
+  const m = pickApproaches(['갑', '을', '병'], ['a', 'b'], () => 0.99);
+  expect(Object.values(m).every((v) => ['a', 'b'].includes(v))).toBe(true);
+});
+
+test('버릇 샘플링: 30% 미만 난수면 없음, 아니면 풀에서 추첨', () => {
+  const advisors = [{ name: '갑', quirks: ['a', 'b', 'c'] }];
+  // rng 1콜: 0.1 < 0.3 → 없음
+  expect(pickQuirks(advisors, {}, () => 0.1)).toEqual({ 갑: null });
+  // rng 2콜: 0.9(발동), 0.0(첫 항목)
+  const seq = [0.9, 0];
+  expect(pickQuirks(advisors, {}, () => seq.shift()!)).toEqual({ 갑: 'a' });
+});
+
+test('버릇 샘플링: 직전 라운드 버릇은 풀에서 제외된다', () => {
+  const advisors = [{ name: '갑', quirks: ['a', 'b'] }];
+  const seq = [0.9, 0]; // 발동 + 첫 항목 → 'a'가 제외됐으니 'b'
+  expect(pickQuirks(advisors, { 갑: 'a' }, () => seq.shift()!)).toEqual({ 갑: 'b' });
+});
+
+test('버릇 샘플링: 풀이 비면(전부 직전 제외) 없음', () => {
+  const advisors = [{ name: '갑', quirks: ['a'] }];
+  expect(pickQuirks(advisors, { 갑: 'a' }, () => 0.99)).toEqual({ 갑: null });
 });
 
 test('승진: 채택 수 = 계급 인덱스, 최고 계급이 우승', () => {

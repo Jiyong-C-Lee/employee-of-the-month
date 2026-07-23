@@ -51,7 +51,7 @@ interface AdvisorSpeech { name: string; text: string; approach: string }
 // advisors는 발언 순서대로 — 프롬프트가 "뒤 참모는 앞 참모를 반박" 릴레이를 유지한다.
 export async function advisorTurnsBatch(
   deps: Deps,
-  { persona, advisors, situation, difficulty }: { persona: FullPersona; advisors: Advisor[]; situation: Situation; difficulty: Difficulty },
+  { persona, advisors, situation, difficulty, quirks, approaches }: { persona: FullPersona; advisors: Advisor[]; situation: Situation; difficulty: Difficulty; quirks?: Record<string, string | null>; approaches?: Record<string, string> },
 ): Promise<{ speeches: AdvisorSpeech[]; source: Source }> {
   return withFallback(
     deps,
@@ -61,7 +61,7 @@ export async function advisorTurnsBatch(
         const { raw, provider } = await callJsonChain(
           deps.env,
           {
-            system: P.advisorBatchSystem(persona, advisors, difficulty),
+            system: P.advisorBatchSystem(persona, advisors, difficulty, quirks, approaches),
             user: P.advisorBatchUser(persona, situation),
             schema: P.advisorBatchSchema(),
             temperature: 1.0,
@@ -75,13 +75,18 @@ export async function advisorTurnsBatch(
           return s?.text ? { name: a.name, text: trimSpeech(s.text), approach: s.approach } : null;
         });
         if (speeches.every((s): s is AdvisorSpeech => Boolean(s))) {
-          // approach 중복·무효는 남은 축으로 재배정 (같은 개그 릴레이 방지 장부 유지)
-          const used = new Set<string>();
-          for (const s of speeches) {
-            if (!P.APPROACHES.includes(s.approach) || used.has(s.approach)) {
-              s.approach = P.APPROACHES.find((x) => !used.has(x)) ?? P.APPROACHES[0]!;
+          if (approaches) {
+            // 코드가 배정한 축이 정답 — 모델이 딴 축을 적어 와도 배정값으로 덮어쓴다.
+            for (const s of speeches) s.approach = approaches[s.name] ?? s.approach;
+          } else {
+            // (배정 미지정 폴백) approach 중복·무효는 남은 축으로 재배정
+            const used = new Set<string>();
+            for (const s of speeches) {
+              if (!P.APPROACHES.includes(s.approach) || used.has(s.approach)) {
+                s.approach = P.APPROACHES.find((x) => !used.has(x)) ?? P.APPROACHES[0]!;
+              }
+              used.add(s.approach);
             }
-            used.add(s.approach);
           }
           return { value: { speeches }, provider };
         }

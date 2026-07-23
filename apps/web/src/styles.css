@@ -63,9 +63,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); b
 }
 .toast {
   position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 60;
-  background: #2b2f3a; color: #fff; border: 1px solid var(--line);
-  padding: 10px 18px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.4);
-  animation: pop .2s ease;
+  background: #fff; color: #2a2330; border: 2px solid #2a2330;
+  padding: 10px 18px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.25);
+  animation: pop .2s ease; font-weight: 700;
 }
 @keyframes pop { from { transform: translate(-50%, -8px); opacity: 0; } }
 
@@ -263,6 +263,73 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); b
 .ef-plate { display: flex; flex-direction: column; gap: 2px; background: #b98f4f; border-radius: 3px; padding: 4px 6px; color: #241a0c; }
 .ef-plate b { font-size: .88rem; }
 .ef-sub { font-size: .68rem; opacity: .85; }
+
+/* ══════════ 온보딩(Home)·대기실(Lobby) — 코믹 페이퍼 테마 ══════════
+   게임 화면(comic.css)과 톤 통일: 잉크 #2a2330 · 크림 종이 #f6f1e9 · 레드 #b3312f · 골드 #f2b01e.
+   전역 다크 토큰(:root)은 그대로 두고 .home/.lobby 스코프에서 변수 재정의 + 컨트롤만 덮어쓴다. */
+.home, .lobby {
+  --ink: #2a2330;
+  --paper: #f6f1e9;
+  --paper-2: #fbf9f4;
+  --red: #b3312f;
+  --gold: #f2b01e; /* 하위의 var(--gold) 사용처(선택 강조)도 이 값으로 함께 바뀐다 */
+  --tan: #f0e4cc;
+  --tan-text: #8a6b42;
+  --comic-muted: #6e6878;
+  background: #e8e4da;
+  color: var(--ink);
+  font-family: 'Nanum Gothic', 'Malgun Gothic', system-ui, sans-serif;
+}
+.home-card, .lobby-card {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: 0 6px 0 rgba(42, 35, 48, .15);
+}
+.home .tagline, .home .waiting-note, .lobby .waiting-note { color: var(--comic-muted); }
+.home .field > span { color: var(--comic-muted); font-weight: 700; }
+
+.home .btn, .lobby .btn {
+  background: #fff; color: var(--ink); border: 2px solid var(--ink); border-radius: 8px;
+}
+.home .btn:hover:not(:disabled), .lobby .btn:hover:not(:disabled) { filter: none; background: var(--paper-2); }
+.home .btn.primary, .lobby .btn.primary { background: var(--red); border-color: var(--ink); color: #fff; }
+.home .btn.primary:hover:not(:disabled), .lobby .btn.primary:hover:not(:disabled) { background: var(--red); filter: brightness(1.12); }
+
+.home input, .home select, .home textarea, .lobby input {
+  background: #fff; color: var(--ink); border: 2px solid var(--ink); border-radius: 8px;
+}
+.home input::placeholder { color: #b3ab9e; }
+.home input:focus, .home select:focus, .lobby input:focus { outline: 3px solid var(--gold); border-color: var(--ink); }
+.home .field.check input { accent-color: var(--red); }
+
+/* 아바타 설정 */
+.home .avatar-preview { border: 2px solid var(--ink); background-color: var(--tan); }
+.home .avatar-emoji-btn { background: #fff; border: 2px solid var(--ink); }
+.home .avatar-emoji-btn:hover { filter: none; background: var(--paper-2); }
+.home .avatar-emoji-btn.sel { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+
+/* 인물 선택 카드 */
+.home .persona-card { background: #fff; border: 2px solid var(--ink); }
+.home .persona-card:hover { border-color: var(--ink); background: var(--paper-2); }
+.home .persona-card.sel { border-color: var(--gold); background: #fff8e6; box-shadow: 0 0 0 2px var(--gold); }
+.home .pc-intro { color: var(--comic-muted); }
+.home .pc-axes { color: var(--tan-text); }
+.home .pc-goal { color: var(--comic-muted); }
+
+/* 대기실 */
+.lobby .code-box { background: var(--paper-2); border: 2px solid var(--ink); }
+.lobby .code-label { color: var(--comic-muted); }
+.lobby .config-summary span { background: var(--tan); border: none; color: var(--tan-text); font-weight: 700; }
+.lobby .lobby-players { border: 2px solid var(--ink); background: #fff; }
+.lobby .lp-head { background: var(--tan); color: var(--tan-text); font-weight: 700; }
+.lobby .lp-row { border-top: 1px solid #e2dbcb; }
+.lobby .lp-row.empty { color: var(--comic-muted); }
+.lobby .lp-nick em { color: var(--comic-muted); }
+.lobby .dot { background: #c9beac; }
+.lobby .dot[data-on="true"] { background: #5cb87a; }
+.lobby .badge.host { background: var(--gold); color: var(--ink); }
+.lobby .badge.me { background: var(--ink); color: #fff; }
 
 /* 명예의 전당 */
 .hall-of-fame { margin: 8px 0; }

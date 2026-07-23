@@ -34,3 +34,16 @@ test('AI 참모도 이름 키로 결정적 배정', () => {
   expect(map['ai:실리파']).toBeTypeOf('number');
   expect(map['ai:원칙파']).not.toBe(map['ai:실리파']);
 });
+
+test('큰 풀 + 라운드 큐: 출전 참모끼리 포즈가 겹치지 않는다', () => {
+  // 풀 8명은 포즈 5종보다 많아 선호 포즈가 겹칠 수 있다(0↔5, 1↔6, 2↔7).
+  const bigPersona = { advisors: Array.from({ length: 8 }, (_, i) => ({ name: `참모${i}` })) };
+  const queue = [
+    { kind: 'ai', key: 'ai:참모0', name: '참모0' },
+    { kind: 'ai', key: 'ai:참모5', name: '참모5' }, // 참모0과 선호 포즈 동일
+    { kind: 'ai', key: 'ai:참모2', name: '참모2' },
+  ];
+  const map = (buildPoseMap as (arg: object) => Record<string, number>)({ persona: bigPersona, players: [], queue });
+  const poses = [map['ai:참모0'], map['ai:참모5'], map['ai:참모2']];
+  expect(new Set(poses).size).toBe(3);
+});

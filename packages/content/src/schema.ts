@@ -4,7 +4,9 @@ export const advisorSchema = z.object({
   name: z.string().min(1),
   emoji: z.string().min(1),
   style: z.string().min(1),
-  stylePrompt: z.string().min(1),
+  core: z.string().min(1), // 항상 유지되는 성향·논리 축
+  voice: z.string().optional(), // 말투·어조
+  quirks: z.array(z.string().min(1)).min(2), // 말버릇·러닝개그 풀 — 라운드마다 하나 또는 없음이 샘플링된다
 });
 
 export const personaMetaSchema = z.object({
@@ -18,7 +20,7 @@ export const personaMetaSchema = z.object({
   judgeAddress: z.string().optional(),
   listenerBrief: z.string().optional(),
   lines: z.record(z.union([z.string(), z.array(z.string())])).optional(),
-  advisors: z.array(advisorSchema).min(2).max(3),
+  advisors: z.array(advisorSchema).min(2).max(12), // 풀 — 라운드 출전은 ADVISORS_PER_ROUND명
 });
 
 export const situationSchema = z.object({ text: z.string().min(1), question: z.string().min(1) });
