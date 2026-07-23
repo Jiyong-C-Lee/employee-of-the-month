@@ -75,6 +75,7 @@
     "shareTooBig": "공유할 라운드 데이터가 너무 큽니다.",
     "shareInvalid": "공유할 라운드 데이터가 올바르지 않습니다.",
     "shareNotFound": "공유가 만료되었거나 존재하지 않습니다.",
+    "feedbackEmpty": "의견 내용을 입력해 주세요.",
     "notNow": "지금은 다음으로 갈 수 없습니다.",
     "notEnded": "게임이 끝난 뒤에만 할 수 있습니다.",
     "debugNotPlaying": "게임 진행 중이 아닙니다.",

@@ -165,6 +165,38 @@ app.get('/s/:id', async (c) => {
   return c.html(html);
 });
 
+// ---- 익명 피드백 (KV 저장, 90일 보관) ----
+// 확인: npx wrangler kv key list --namespace-id <SHARE_KV id> --prefix fb: / get으로 본문 조회.
+// 로그(feedback 이벤트)로도 남아 Workers Logs에서 바로 보인다.
+
+const FEEDBACK_TTL_SECONDS = 90 * 24 * 60 * 60;
+const FEEDBACK_LIMIT = 5; // IP당 일 5건
+const FEEDBACK_TTL_MS = 24 * 60 * 60 * 1000;
+
+app.post('/api/feedback', async (c) => {
+  const ip = c.req.header('cf-connecting-ip');
+  if (ip) {
+    const quota = c.env.QUOTA_DO.get(c.env.QUOTA_DO.idFromName('global'));
+    const rl = await quota
+      .fetch('http://do/incr', {
+        method: 'POST',
+        body: JSON.stringify({ key: `feedback:${ip}`, limit: FEEDBACK_LIMIT, ttlMs: FEEDBACK_TTL_MS }),
+      })
+      .then((r) => r.json() as Promise<{ ok: boolean }>);
+    if (!rl.ok) return c.json({ error: STRINGS.errors.rateLimited }, 429);
+  }
+  const body = (await c.req.json().catch(() => null)) as { text?: unknown; contact?: unknown } | null;
+  const text = String(body?.text ?? '').trim().slice(0, 1000);
+  const contact = String(body?.contact ?? '').trim().slice(0, 100);
+  if (text.length < 2) return c.json({ error: STRINGS.errors.feedbackEmpty }, 400);
+  const entry = { text, contact, ts: Date.now(), ua: c.req.header('user-agent') ?? '' };
+  await c.env.SHARE_KV.put(`fb:${new Date().toISOString()}-${crypto.randomUUID().slice(0, 6)}`, JSON.stringify(entry), {
+    expirationTtl: FEEDBACK_TTL_SECONDS,
+  });
+  logger.feedback({ text, contact });
+  return c.json({ ok: true });
+});
+
 // POST /api/rooms — 방 생성. IP당 분당 5회 rate limit (QuotaDO).
 app.post('/api/rooms', async (c) => {
   const ip = c.req.header('cf-connecting-ip') ?? 'local';

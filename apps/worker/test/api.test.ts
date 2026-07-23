@@ -75,3 +75,10 @@ test('세션 결과 공유 + OG 이미지 업로드·서빙', async () => {
   const missing = await SELF.fetch('http://x/og/zzzzzzzz.png', { redirect: 'manual' });
   expect([301, 302].includes(missing.status)).toBe(true);
 });
+
+test('익명 피드백: 저장 200, 빈 내용 400', async () => {
+  const ok = await SELF.fetch('http://x/api/feedback', { method: 'POST', body: JSON.stringify({ text: '참모가 너무 웃겨요' }) });
+  expect(ok.status).toBe(200);
+  const empty = await SELF.fetch('http://x/api/feedback', { method: 'POST', body: JSON.stringify({ text: ' ' }) });
+  expect(empty.status).toBe(400);
+});

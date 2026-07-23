@@ -368,6 +368,9 @@ h1, h2, h3, b, strong,
   font-family: 'NanumSquare', 'Nanum Gothic', 'Malgun Gothic', system-ui, sans-serif;
 }
 
-/* 홈 하단 피드백 링크 */
-.feedback-link { display: block; margin-top: 14px; text-align: center; font-size: 0.82rem; color: var(--muted, #888); text-decoration: none; }
-.feedback-link:hover { text-decoration: underline; color: inherit; }
+/* 홈 하단 피드백 — 접이식 익명 폼 */
+.feedback-link { display: block; width: 100%; margin-top: 14px; text-align: center; font-size: 0.82rem; color: var(--muted, #888); background: none; border: none; cursor: pointer; }
+.feedback-link:hover { text-decoration: underline; }
+.feedback-box { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.feedback-box textarea, .feedback-box input { font: inherit; font-size: 0.88rem; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line, #ccc); background: inherit; color: inherit; resize: vertical; }
+.feedback-box .row { justify-content: flex-end; }

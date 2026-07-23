@@ -35,6 +35,56 @@ function resizeAvatar(file) {
   });
 }
 
+// 익명 피드백 — 접이식 폼, 즉석 전송 (서버 KV 저장). 메일 앱 불필요.
+function FeedbackBox({ toast }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [contact, setContact] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function send() {
+    if (text.trim().length < 2) return toast('의견 내용을 입력해 주세요.');
+    setBusy(true);
+    const res = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text.trim(), ...(contact.trim() && { contact: contact.trim() }) }),
+    }).then((r) => r.json()).catch(() => ({ error: '서버에 연결할 수 없습니다.' }));
+    setBusy(false);
+    if (res.error) return toast(res.error);
+    setText('');
+    setContact('');
+    setOpen(false);
+    toast('전달됐습니다. 감사합니다! 🙏');
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="feedback-link" onClick={() => setOpen(true)}>
+        💬 버그 제보·의견 보내기
+      </button>
+    );
+  }
+  return (
+    <div className="feedback-box">
+      <textarea
+        value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} rows={3}
+        placeholder="버그, 아이디어, 아무 의견이나 익명으로 남겨주세요" autoFocus
+      />
+      <input
+        value={contact} onChange={(e) => setContact(e.target.value)} maxLength={100}
+        placeholder="답장 받을 연락처 (선택)"
+      />
+      <div className="row">
+        <button type="button" className="btn small" onClick={() => setOpen(false)}>닫기</button>
+        <button type="button" className="btn small primary" disabled={busy} onClick={send}>
+          {busy ? '보내는 중…' : '보내기'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // eslint-disable-next-line no-unused-vars -- App.tsx가 항상 state를 함께 넘겨 호출부 타입과 맞춘다.
 export default function Home({ state, actions }) {
   // menu | single | create | join
@@ -287,14 +337,7 @@ export default function Home({ state, actions }) {
           />
         )}
 
-        {mode === 'menu' && (
-          <a
-            className="feedback-link"
-            href="mailto:liramus214@gmail.com?subject=%5B%EC%9D%B4%EB%8B%AC%EC%9D%98%20%EC%82%AC%EC%9B%90%5D%20%ED%94%BC%EB%93%9C%EB%B0%B1"
-          >
-            💬 버그 제보·의견 보내기
-          </a>
-        )}
+        {mode === 'menu' && <FeedbackBox toast={actions.toast} />}
 
         {mode === 'create' && (
           <div className="stack">
