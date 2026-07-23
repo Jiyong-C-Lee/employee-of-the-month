@@ -37,6 +37,7 @@ export const promptsSchema = z.object({
   judgeHumanBiasLine: z.string(),
   judgeDefaultAddress: z.string(),
   epilogueSystem: tmpl,
+  personaGenSystem: tmpl,
 }).passthrough(); // _readme 등 허용
 
 export const stringsSchema = z.object({

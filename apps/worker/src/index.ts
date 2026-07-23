@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { listPersonas, STRINGS } from '@eotm/content';
+import { generatePersona, personaGenInputSchema } from './ai/persona-gen';
 import { genCode } from './game/state';
 import type { Env } from './env';
 import type { HealthRes } from '@eotm/shared';
@@ -22,6 +23,31 @@ app.get('/api/health', (c) => {
 });
 
 app.get('/api/personas', (c) => c.json(listPersonas()));
+
+const PERSONA_GEN_LIMIT = 5;
+const PERSONA_GEN_TTL_MS = 24 * 60 * 60 * 1000;
+
+// POST /api/personas/generate — 커스텀 페르소나 AI 생성. IP당 일 5회.
+app.post('/api/personas/generate', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') ?? 'local';
+  const quota = c.env.QUOTA_DO.get(c.env.QUOTA_DO.idFromName('global'));
+  const rl = await quota
+    .fetch('http://do/incr', {
+      method: 'POST',
+      body: JSON.stringify({ key: `persona-gen:${ip}`, limit: PERSONA_GEN_LIMIT, ttlMs: PERSONA_GEN_TTL_MS }),
+    })
+    .then((r) => r.json() as Promise<{ ok: boolean }>);
+  if (!rl.ok) return c.json({ error: STRINGS.errors.personaGenQuota }, 429);
+
+  const parsed = personaGenInputSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: STRINGS.errors.personaBadInput }, 400);
+  try {
+    const persona = await generatePersona(c.env, parsed.data);
+    return c.json({ ok: true, persona: { id: `custom-${crypto.randomUUID().slice(0, 8)}`, ...persona } });
+  } catch {
+    return c.json({ error: STRINGS.errors.personaGenFail }, 502);
+  }
+});
 
 // POST /api/rooms — 방 생성. IP당 분당 5회 rate limit (QuotaDO).
 app.post('/api/rooms', async (c) => {
