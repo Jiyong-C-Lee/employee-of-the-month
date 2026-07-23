@@ -59,6 +59,13 @@ npx wrangler tail --config apps/worker/wrangler.jsonc                 # llm_call
 
 배포에는 Cloudflare 계정 인증(`wrangler login`)이 필요하다.
 
+## 베타 기능 운영 노트
+
+- **커스텀 페르소나**: 홈의 "🛠 나만의 보스 만들기"가 `POST /api/personas/generate`(IP당 일 5회, QuotaDO)로 팩 전체를 1콜 생성한다. 결과는 브라우저 localStorage(`eotm.customPersonas`, 최대 8개)에 보관되고, 방 생성 시 팩 JSON이 서버로 전달돼 zod 재검증(20KB 상한) 후 방에 영속된다.
+- **라운드 공유**: 판정 후 "📤 이 라운드 공유" 버튼이 캡처 전용 카드(`ShareCard`)를 html-to-image로 PNG화한다. 모바일은 Web Share 시트, 데스크톱은 다운로드 폴백.
+- **익명 분석**: Cloudflare Web Analytics. 대시보드에서 사이트 등록 후 빌드 시 `VITE_CF_BEACON_TOKEN=<토큰> npm run deploy`로 주입하면 비콘이 로드된다(미설정 시 완전 비활성).
+- **OG·파비콘**: `node scripts/og.mjs`로 `apps/web/public/`의 og.png·아이콘을 재생성한다. `apps/web/index.html`의 `og:image` 절대 URL은 커스텀 도메인 연결 시 갱신할 것.
+
 ## 콘텐츠 팩 추가 방법
 
 새 페르소나는 `packages/content/packs/<id>/` 폴더에 `persona.json`(회장 설정·참모·축·계급)과 `situations.json`(상황 5개 이상)을 추가하면 된다. zod 스키마(`packages/content/src/schema.ts`)가 형식을 검증한다.
