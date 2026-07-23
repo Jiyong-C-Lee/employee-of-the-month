@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AVATAR_EMOJI_PREFIX, avatarEmoji, hashColor, isEmojiAvatar, isImageAvatar } from '../comic-assets.js';
+import PersonaWizard, { loadCustomPersonas, deleteCustomPersona } from './PersonaWizard.jsx';
 
 const AVATAR_KEY = 'eotm.avatar';
 const AVATAR_SIZE = 128;
@@ -78,6 +79,9 @@ export default function Home({ state, actions }) {
   // 간신배 설정
   const [personas, setPersonas] = useState([]);
   const [personaId, setPersonaId] = useState(null);
+  // 커스텀 페르소나 (localStorage) + 위저드 진입 전 화면 기억
+  const [customs, setCustoms] = useState(loadCustomPersonas);
+  const [wizardReturn, setWizardReturn] = useState('single');
   const [speakTime, setSpeakTime] = useState(60);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [aiCompete, setAiCompete] = useState(false);
@@ -113,6 +117,9 @@ export default function Home({ state, actions }) {
     const config = modeKind === 'single'
       ? { mode: 'single', personaId, difficulty, maxRounds: Number(maxRounds) } // 싱글은 제한시간 없음
       : { mode: 'multi', personaId, speakTime: Number(speakTime), maxPlayers: Number(maxPlayers), aiCompete, difficulty, maxRounds: Number(maxRounds) };
+    // 커스텀 페르소나 선택 시 팩 전체를 동봉 — 서버가 재검증 후 방에 영속한다.
+    const custom = customs.find((p) => p.id === personaId);
+    if (custom) config.customPersona = custom;
     const res = await actions.createRoom(nick, config, avatar || undefined);
     setBusy(false);
     if (res.error) actions.toast(res.error);
@@ -128,6 +135,25 @@ export default function Home({ state, actions }) {
   const personaPicker = (
     <div className="persona-list">
       {personas.length === 0 && <div className="waiting-note">인물 목록 불러오는 중…</div>}
+      {customs.map((p) => (
+        <label key={p.id} className={`persona-card custom ${personaId === p.id ? 'sel' : ''}`}>
+          <input type="radio" name="persona" value={p.id} checked={personaId === p.id} onChange={() => setPersonaId(p.id)} />
+          <span className="pc-emoji">{p.emoji}</span>
+          <span className="pc-body">
+            <span className="pc-name">{p.name} <em className="pc-custom-badge">커스텀</em></span>
+            <span className="pc-intro">{p.intro}</span>
+            <span className="pc-axes">채점축: {p.axes.join(' · ')}</span>
+          </span>
+          <button
+            type="button" className="pc-del" aria-label={`${p.name} 삭제`}
+            onClick={(e) => {
+              e.preventDefault();
+              setCustoms(deleteCustomPersona(p.id));
+              if (personaId === p.id) setPersonaId(personas[0]?.id ?? null);
+            }}
+          >✕</button>
+        </label>
+      ))}
       {personas.map((p) => (
         <label key={p.id} className={`persona-card ${personaId === p.id ? 'sel' : ''}`}>
           <input type="radio" name="persona" value={p.id} checked={personaId === p.id} onChange={() => setPersonaId(p.id)} />
@@ -139,6 +165,9 @@ export default function Home({ state, actions }) {
           </span>
         </label>
       ))}
+      <button type="button" className="btn small wizard-open" onClick={() => { setWizardReturn(mode); setMode('wizard'); }}>
+        🛠 나만의 보스 만들기
+      </button>
     </div>
   );
 
@@ -244,6 +273,18 @@ export default function Home({ state, actions }) {
               <button className="btn primary" disabled={busy} onClick={() => start('single')}>출근하기 ▶</button>
             </div>
           </div>
+        )}
+
+        {mode === 'wizard' && (
+          <PersonaWizard
+            toast={actions.toast}
+            onCancel={() => setMode(wizardReturn)}
+            onSaved={(p) => {
+              setCustoms(loadCustomPersonas());
+              setPersonaId(p.id);
+              setMode(wizardReturn);
+            }}
+          />
         )}
 
         {mode === 'create' && (
