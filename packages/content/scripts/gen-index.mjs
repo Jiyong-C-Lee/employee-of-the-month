@@ -4,10 +4,13 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+// 노출 순서 — 삼국지 세계관(조조→유비→손권)을 앞에, 나머지는 알파벳순.
+const PREFERRED = ['caocao', 'liubei', 'sonkwon'];
+const rank = (id) => { const i = PREFERRED.indexOf(id); return i === -1 ? PREFERRED.length : i; };
 const ids = readdirSync(join(root, 'packs'), { withFileTypes: true })
   .filter((d) => d.isDirectory())
   .map((d) => d.name)
-  .sort();
+  .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 
 const lines = ['// 자동 생성 파일 — 직접 수정 금지. `npm run gen`으로 재생성.'];
 ids.forEach((id, i) => {

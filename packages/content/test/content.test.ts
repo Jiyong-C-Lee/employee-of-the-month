@@ -3,8 +3,10 @@ import { getPersona, listPersonas, PROMPTS, STRINGS, fmt, personaSchema } from '
 
 test('페르소나 전 팩이 로드된다', () => {
   const list = listPersonas();
-  expect(list.length).toBe(5);
-  expect(list.map((p) => p.id).sort()).toEqual(['caocao', 'liubei', 'maou', 'olympus', 'seonjo']);
+  expect(list.length).toBe(6);
+  expect(list.map((p) => p.id).sort()).toEqual(['caocao', 'liubei', 'maou', 'olympus', 'seonjo', 'sonkwon']);
+  // 노출 순서 — 삼국지 3인방(조조→유비→손권)이 목록 앞에 온다.
+  expect(list.map((p) => p.id).slice(0, 3)).toEqual(['caocao', 'liubei', 'sonkwon']);
   for (const p of list) {
     expect(p.id && p.name && p.intro).toBeTruthy();
     expect(p.axes.length).toBeGreaterThanOrEqual(3);
