@@ -17,6 +17,7 @@ export interface DebugReq extends AuthedReq { action: 'adoptMe' | 'noAdopt' | 'n
 export interface OkRes { ok: true }
 // 라운드 공유 링크 — 게임 화면과 동일하게 렌더할 라운드 스냅샷 (KV, TTL 30일)
 export interface SharedRoundPayload {
+  kind?: 'round';
   roundNo: number;
   persona: import('./events').PublicPersona;
   situation: import('./events').Situation;
@@ -28,6 +29,17 @@ export interface SharedRoundPayload {
   epilogue?: string;
   players: import('./events').PublicPlayer[];
 }
+// 세션 종료(최종 결과) 공유 — 올해의 사원·명예의 전당·순위표 스냅샷
+export interface SharedSessionPayload {
+  kind: 'session';
+  roundNo: number; // 진행된 라운드 수
+  persona: import('./events').PublicPersona;
+  players: import('./events').PublicPlayer[];
+  standings: import('./events').Standing[];
+  hall: import('./events').HallEntry[];
+  reason: string;
+}
+export type SharedPayload = SharedRoundPayload | SharedSessionPayload;
 export interface CreateShareRes { ok: true; id: string; url: string }
 
 export interface HealthRes {

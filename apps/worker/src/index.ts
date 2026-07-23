@@ -70,9 +70,13 @@ function shareId(): string {
 function isShareable(p: Record<string, unknown> | null): boolean {
   if (!p || typeof p !== 'object') return false;
   const persona = p.persona as Record<string, unknown> | undefined;
+  if (!persona || typeof persona.name !== 'string' || !Array.isArray(persona.axes)) return false;
+  if (typeof p.roundNo !== 'number') return false;
+  if (p.kind === 'session') {
+    // 세션 결과 공유 — 순위표·명예의 전당·종료 사유
+    return Array.isArray(p.standings) && Array.isArray(p.hall) && typeof p.reason === 'string';
+  }
   return Boolean(
-    typeof p.roundNo === 'number' &&
-    persona && typeof persona.name === 'string' && Array.isArray(persona.axes) &&
     p.situation && Array.isArray(p.speeches) && Array.isArray(p.queue) &&
     p.verdict && Array.isArray((p.verdict as Record<string, unknown>).perSpeaker),
   );
@@ -107,22 +111,52 @@ app.get('/api/share/:id', async (c) => {
   return c.body(raw, 200, { 'Content-Type': 'application/json' });
 });
 
+// 공유용 OG 카드 이미지 — 공유 생성 직후 클라이언트가 canvas로 그려 올린다 (1200×630 PNG).
+const SHARE_OG_MAX_BYTES = 400_000;
+
+app.put('/api/share/:id/og', async (c) => {
+  const id = c.req.param('id');
+  if (!(await c.env.SHARE_KV.get(`s:${id}`))) return c.json({ error: STRINGS.errors.shareNotFound }, 404);
+  const buf = await c.req.arrayBuffer();
+  if (buf.byteLength === 0 || buf.byteLength > SHARE_OG_MAX_BYTES) {
+    return c.json({ error: STRINGS.errors.shareTooBig }, 400);
+  }
+  await c.env.SHARE_KV.put(`og:${id}`, buf, { expirationTtl: SHARE_TTL_SECONDS });
+  return c.json({ ok: true });
+});
+
+// GET /og/<id>.png — 공유별 OG 이미지. 없으면 기본 og.png로 리다이렉트 (스크래퍼는 리다이렉트를 따라간다).
+app.get('/og/:file', async (c) => {
+  const id = c.req.param('file').replace(/\.png$/, '');
+  const buf = await c.env.SHARE_KV.get(`og:${id}`, 'arrayBuffer');
+  if (!buf) return c.redirect('/og.png');
+  return c.body(buf, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+});
+
 // GET /s/:id — SPA 셸에 공유 라운드의 OG 메타를 주입해 서빙 (카톡·트위터 미리보기 카드).
 app.get('/s/:id', async (c) => {
   const url = new URL(c.req.url);
   const shell = await c.env.ASSETS.fetch(new Request(`${url.origin}/index.html`));
   let html = await shell.text();
   if (!html) return c.redirect('/'); // 셸 확보 실패 — OG 없이라도 게임으로
-  const data = await c.env.SHARE_KV.get<{ persona?: { name?: string }; roundNo?: number; adopted?: { name?: string } | null }>(
-    `s:${c.req.param('id')}`, 'json',
-  ).catch(() => null);
+  const id = c.req.param('id');
+  const data = await c.env.SHARE_KV.get<{
+    kind?: string; persona?: { name?: string }; roundNo?: number;
+    adopted?: { name?: string } | null; standings?: { nick?: string; rank?: string }[];
+  }>(`s:${id}`, 'json').catch(() => null);
   if (data?.persona?.name) {
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-    const title = esc(`${data.persona.name}의 회의실 R.${data.roundNo} — 이달의 우수사원`);
-    const desc = esc(data.adopted?.name ? `이번 라운드 채택: ${data.adopted.name}. 당신의 아부 실력도 시험해 보세요.` : '당신의 아부 실력도 시험해 보세요.');
+    const top = data.standings?.[0];
+    const title = data.kind === 'session'
+      ? esc(`${data.persona.name}의 회사에서 살아남기 — 이달의 우수사원`)
+      : esc(`${data.persona.name}의 회의실 R.${data.roundNo} — 이달의 우수사원`);
+    const desc = data.kind === 'session'
+      ? esc(top?.nick ? `올해의 사원: ${top.nick} (${top.rank}). 당신도 승진에 도전해 보세요.` : '당신도 승진에 도전해 보세요.')
+      : esc(data.adopted?.name ? `이번 라운드 채택: ${data.adopted.name}. 당신의 아부 실력도 시험해 보세요.` : '당신의 아부 실력도 시험해 보세요.');
     html = html
       .replace(/(property="og:title" content=")[^"]*(")/, `$1${title}$2`)
-      .replace(/(property="og:description" content=")[^"]*(")/, `$1${desc}$2`);
+      .replace(/(property="og:description" content=")[^"]*(")/, `$1${desc}$2`)
+      .replace(/(property="og:image" content=")[^"]*(")/, `$1${url.origin}/og/${esc(id)}.png$2`);
   }
   return c.html(html);
 });

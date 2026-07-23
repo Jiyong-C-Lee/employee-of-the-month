@@ -62,6 +62,29 @@ export default function Game({ state, actions }) {
     }
   }
 
+  // 세션 최종 결과 공유 — 올해의 사원·명예의 전당 스냅샷 링크.
+  const [sharingEnd, setSharingEnd] = useState(false);
+  async function onShareEnded() {
+    if (sharingEnd || !ended) return;
+    setSharingEnd(true);
+    try {
+      const payload = {
+        kind: 'session',
+        roundNo: room.roundNo,
+        persona,
+        players: room.players,
+        standings: ended.standings,
+        hall: ended.hall,
+        reason: ended.reason,
+      };
+      const r = await createShareLink(payload, `${persona.name}의 회사에서 살아남기 — 이달의 사원`);
+      if (r === 'copied') actions.toast('공유 링크를 복사했습니다!');
+      else if (r === 'error') actions.toast('공유 링크 생성에 실패했습니다.');
+    } finally {
+      setSharingEnd(false);
+    }
+  }
+
   let resultBlock = null;
   if (resulted) {
     const verdict = verdictItem.verdict;
@@ -158,6 +181,15 @@ export default function Game({ state, actions }) {
       </div>
 
       {!ended && <ActionBar state={state} actions={actions} share={resulted ? { sharing, onShare } : null} />}
+
+      {ended && (
+        <div className="actionbar result">
+          <button className="btn share-btn" disabled={sharingEnd} onClick={onShareEnded}>
+            {sharingEnd ? '링크 만드는 중…' : '🔗 최종 결과 공유'}
+          </button>
+          <a className="btn primary big next-btn" href="/">🏠 메인으로</a>
+        </div>
+      )}
 
       {debugMode && !ended && <DebugPanel actions={actions} />}
     </div>

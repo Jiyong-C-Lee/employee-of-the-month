@@ -584,7 +584,7 @@ export class Engine {
     room.phase = 'END';
     room.endedReason = reason; // 재기동 후 스냅샷 ended 재구성용
     const standings = this.standings();
-    logger.gameEnded({ roomCode: room.code, rounds: room.roundNo, winnerNick: standings[0]?.nick });
+    logger.gameEnded({ roomCode: room.code, rounds: room.roundNo, winnerNick: standings[0]?.nick, reason });
     // hall = 라운드별 채택자 (명예의 전당 연출용)
     this.bus.emit({ kind: 'ended', payload: { reason, standings, hall: room.hall } });
     this.sysMsg(this.line('session.end', { reason }));

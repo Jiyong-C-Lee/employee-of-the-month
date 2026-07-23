@@ -47,7 +47,7 @@ export class RoomDO implements DurableObject {
   // ---- 엔진 배선 ----
 
   private makeEngine(room: RoomState): Engine {
-    const deps: AiDeps = { env: this.env, quotaTake: this.makeQuotaTake() };
+    const deps: AiDeps = { env: this.env, quotaTake: this.makeQuotaTake(), roomCode: room.code };
     return new Engine(room, this.makeBus(), deps);
   }
 
@@ -200,6 +200,8 @@ export class RoomDO implements DurableObject {
     const r = addPlayer(this.room, String(body.nick ?? ''), body.avatar);
     if ('error' in r) return jsonRes({ error: r.error }, 400);
     await this.ctx.storage.put('room', this.room);
+    const joined = this.room.players.find((p) => p.id === r.playerId);
+    logger.playerJoined({ roomCode: this.room.code, playerId: r.playerId, nick: joined?.nick ?? '', playerCount: this.room.players.length });
     this.emit({ kind: 'room', room: publicRoom(this.room) });
     await this.armTtlIfIdle();
     return jsonRes({ ok: true, code: this.room.code, playerId: r.playerId, token: r.token, room: publicRoom(this.room) });

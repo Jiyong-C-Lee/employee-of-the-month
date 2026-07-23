@@ -18,6 +18,7 @@ const CHAIN: Provider[] = [gemini, nvidia];
 
 export interface ChainOpts {
   kind?: string;                                      // 로그용 호출 종류 (advisors|judge|epilogue)
+  roomCode?: string;                                  // 로그용 — 세션별 LLM 비용·지연 추적
   quotaTake?: (provider: string) => Promise<boolean>; // false면 해당 공급자 스킵 (일일 쿼터)
   validate?: (raw: unknown) => void;                  // zod 출력 검증 — throw 시 페일오버
 }
@@ -35,10 +36,10 @@ export async function callJsonChain(env: Env, args: LlmArgs, opts: ChainOpts = {
     try {
       const raw = await p.callJson(env, args);
       opts.validate?.(raw);
-      logger.llmCall({ kind, provider: p.name, ok: true, latencyMs: Date.now() - t0, failedOver });
+      logger.llmCall({ kind, provider: p.name, ok: true, latencyMs: Date.now() - t0, failedOver, roomCode: opts.roomCode });
       return { raw, provider: p.name };
     } catch (e) {
-      logger.llmCall({ kind, provider: p.name, ok: false, latencyMs: Date.now() - t0, error: e instanceof Error ? e.message : String(e) });
+      logger.llmCall({ kind, provider: p.name, ok: false, latencyMs: Date.now() - t0, error: e instanceof Error ? e.message : String(e), roomCode: opts.roomCode });
       failedOver = true;
     }
   }

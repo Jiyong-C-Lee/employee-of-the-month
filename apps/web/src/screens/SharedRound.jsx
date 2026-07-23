@@ -3,8 +3,9 @@
 // 하단 내비는 '다음' 대신 '게임 참여하기' CTA다.
 import { useEffect, useState } from 'react';
 import {
-  BossCard, SituationCut, SpeakGrid, GaugeStrip, AwardCut, WindowCut, ScoreCut, BossCommentCut, buildPoseMap,
+  BossCard, SituationCut, SpeakGrid, GaugeStrip, AwardCut, AwardFrame, WindowCut, ScoreCut, BossCommentCut, buildPoseMap,
 } from '../components/ComicCuts.jsx';
+import { HallOfFame } from '../components/EmployeeFrame.jsx';
 import '../comic.css';
 
 export default function SharedRound() {
@@ -35,6 +36,48 @@ export default function SharedRound() {
 
   const { persona, situation, queue, speeches, verdict, adopted, standings, epilogue, roundNo, players } = data;
   const poseMap = buildPoseMap({ persona, players, queue });
+
+  // 세션 최종 결과 공유 — 게임 종료 화면(올해의 사원·명예의 전당)과 동일 구성.
+  if (data.kind === 'session') {
+    const mvp = standings?.[0];
+    const showMvp = mvp && mvp.favor > 0;
+    return (
+      <div className="comic-app">
+        <header className="comic-appbar">
+          <div className="ca-title">이달의 사원</div>
+          <span className="ca-round">R.{roundNo}</span>
+          <span className="ca-phase">최종 결과</span>
+        </header>
+        <div className="comic-page">
+          <BossCard persona={persona} roundNo={roundNo} phase="END" />
+          <div className="cut comic-ended">
+            <div className="ce-title">🏁 세션 종료</div>
+            {showMvp && (
+              <div className="mvp-award">
+                <AwardFrame
+                  title="올해의 사원"
+                  pose={poseMap?.[mvp.id]}
+                  entry={{ kind: 'user', name: mvp.nick }}
+                  avatar={(players || []).find((p) => p.id === mvp.id)?.avatar}
+                  plate={`${mvp.nick} · ${mvp.rank} · 채택 ${mvp.favor}회`}
+                />
+              </div>
+            )}
+            <div className="comic-caption" style={{ alignSelf: 'stretch' }}>{data.reason}</div>
+            <HallOfFame hall={data.hall} />
+            <div className="standing-strip" style={{ justifyContent: 'center' }}>
+              {(standings || []).map((s, i) => (
+                <span key={s.id} className="ss-item">#{i + 1} {s.nick} <em>{s.rank} · 🏆×{s.favor}</em></span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="actionbar share-cta">
+          <a className="btn primary big" href="/">🎮 나도 게임 참여하기</a>
+        </div>
+      </div>
+    );
+  }
   const rows = [...verdict.perSpeaker].sort((a, b) => b.total - a.total);
   const axes = rows[0] ? Object.keys(rows[0].axisScores) : [];
   const last = rows.length >= 2 ? rows[rows.length - 1] : null;

@@ -49,3 +49,29 @@ test('공유: 구조 위반은 400, 없는 id는 404', async () => {
   const missing = await SELF.fetch('http://x/api/share/zzzzzzzz');
   expect(missing.status).toBe(404);
 });
+
+test('세션 결과 공유 + OG 이미지 업로드·서빙', async () => {
+  const sessionPayload = {
+    kind: 'session', roundNo: 10,
+    persona: SHARE_PAYLOAD.persona,
+    players: [], standings: [{ id: 'p1', nick: '나', rank: '사장', favor: 6, connected: true }],
+    hall: [{ roundNo: 1, key: 'p1', name: '나', kind: 'user' }],
+    reason: '사장 승진으로 세션 종료',
+  };
+  const res = await SELF.fetch('http://x/api/share', { method: 'POST', body: JSON.stringify(sessionPayload) });
+  expect(res.status).toBe(200);
+  const { id } = await res.json() as { id: string };
+
+  // OG PNG 업로드 → 서빙
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+  const put = await SELF.fetch(`http://x/api/share/${id}/og`, { method: 'PUT', body: png });
+  expect(put.status).toBe(200);
+  const img = await SELF.fetch(`http://x/og/${id}.png`);
+  expect(img.status).toBe(200);
+  expect(img.headers.get('content-type')).toBe('image/png');
+  expect(new Uint8Array(await img.arrayBuffer()).length).toBe(png.length);
+
+  // 없는 OG는 기본 이미지로 리다이렉트
+  const missing = await SELF.fetch('http://x/og/zzzzzzzz.png', { redirect: 'manual' });
+  expect([301, 302].includes(missing.status)).toBe(true);
+});

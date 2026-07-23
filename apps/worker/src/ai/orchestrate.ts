@@ -18,6 +18,7 @@ type Advisor = FullPersona['advisors'][number];
 export interface Deps {
   env: Env;
   quotaTake?: (provider: string) => Promise<boolean>;
+  roomCode?: string; // 로그용 — llm_call을 세션에 귀속
 }
 
 type Source = 'gemini' | 'nvidia' | 'mock' | 'mock(fallback)';
@@ -66,7 +67,7 @@ export async function advisorTurnsBatch(
             schema: P.advisorBatchSchema(),
             temperature: 1.0,
           },
-          { kind: 'advisors', quotaTake: deps.quotaTake, validate: (r) => { advisorBatchOut.parse(r); } },
+          { kind: 'advisors', roomCode: deps.roomCode, quotaTake: deps.quotaTake, validate: (r) => { advisorBatchOut.parse(r); } },
         );
         const list = advisorBatchOut.parse(raw).speeches;
         // 이름 관용 매칭 → 실패 시 순서 기준 복구
@@ -136,7 +137,7 @@ export async function judgeSpeeches(
             schema: P.judgeSchema(persona.axes),
             temperature: 0.7,
           },
-          { kind: 'judge', quotaTake: deps.quotaTake, validate: (r2) => { judgeOut.parse(r2); } },
+          { kind: 'judge', roomCode: deps.roomCode, quotaTake: deps.quotaTake, validate: (r2) => { judgeOut.parse(r2); } },
         );
         const parsed = judgeOut.parse(raw);
         const found = new Set(parsed.perSpeaker.map((s) => String(s.key)));
@@ -176,7 +177,7 @@ export async function makeEpilogue(
           schema: P.epilogueSchema(),
           temperature: 1.0,
         },
-        { kind: 'epilogue', quotaTake: deps.quotaTake, validate: (r) => { epilogueOut.parse(r); } },
+        { kind: 'epilogue', roomCode: deps.roomCode, quotaTake: deps.quotaTake, validate: (r) => { epilogueOut.parse(r); } },
       );
       const parsed = epilogueOut.parse(raw);
       return { value: { story: parsed.story }, provider };
