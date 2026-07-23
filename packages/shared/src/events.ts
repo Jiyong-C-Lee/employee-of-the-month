@@ -11,6 +11,7 @@ export interface RoomConfig {
   aiCompete: boolean;
   difficulty: Difficulty;
   maxPlayers: number;
+  maxRounds: number;        // 라운드 상한 — 도달 시 '올해의 사원'(최고 총애) 발표로 종료
 }
 export interface PublicPlayer {
   id: string; nick: string; rank: string; joinOrder: number; favor: number; connected: boolean;

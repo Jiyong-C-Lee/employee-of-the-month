@@ -39,6 +39,7 @@ export default function Lobby({ state, actions }) {
           <span>보스 {room.persona.emoji} {room.persona.name}</span>
           <span>발언 {room.config.speakTime > 0 ? `${Math.round(room.config.speakTime / 60)}분` : '제한 없음'}</span>
           <span>정원 {room.config.maxPlayers}명</span>
+          <span>라운드 {room.config.maxRounds ?? 10}</span>
           <span>AI 참전 {room.config.aiCompete ? 'ON' : 'OFF'}</span>
           <span>난이도 {{ easy: '순한맛', normal: '보통', hard: '매운맛' }[room.config.difficulty] || '보통'}</span>
         </div>

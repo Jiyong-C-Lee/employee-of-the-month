@@ -7,7 +7,9 @@
     "championReason": "{nick} {topRank} 등극!",
     "exhaustMultiWin": "{personaName}의 고민이 모두 끝났습니다. 최다 채택 — {winners}!",
     "exhaustMultiNone": "{personaName}의 고민이 모두 끝났지만, 아무도 눈에 들지 못했습니다.",
-    "exhaustSingle": "{personaName}의 고민이 모두 끝났습니다. 당신은 끝내 {topRank}이 되지 못했습니다. (최종 직급: {finalRank})"
+    "exhaustSingle": "{personaName}의 고민이 모두 끝났습니다. 당신은 끝내 {topRank}이 되지 못했습니다. (최종 직급: {finalRank})",
+    "maxRoundsMvp": "{maxRounds}번의 회의가 모두 끝났습니다. 올해의 사원 — {nick}! (채택 {favor}회)",
+    "maxRoundsNone": "{maxRounds}번의 회의가 모두 끝났지만, 올해의 사원은 나오지 않았습니다."
   },
 
   "round": {

@@ -1,11 +1,11 @@
 // 이달의 사원 — 회의실 만화 페이지 UI.
 // 한 라운드 = 스크롤되는 만화 한 페이지: 상황 → 발언 컷 → 심판(분노 게이지) → 결과(액자·창밖) → 채점표 → 총평.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ActionBar from '../components/ActionBar.jsx';
 import MenuPanel from '../components/MenuPanel.jsx';
 import { HallOfFame } from '../components/EmployeeFrame.jsx';
 import {
-  BossCard, SituationCut, SpeakGrid, GaugeStrip, AwardCut, WindowCut, ScoreCut, BossCommentCut,
+  BossCard, SituationCut, SpeakGrid, GaugeStrip, AwardCut, AwardFrame, WindowCut, ScoreCut, BossCommentCut,
   PHASE_LABEL, fmtSec, buildPoseMap,
 } from '../components/ComicCuts.jsx';
 import '../comic.css';
@@ -46,8 +46,8 @@ export default function Game({ state, actions }) {
         <div className="comic-sec"><b>③ 결과</b><i /></div>
         <GaugeStrip persona={persona} done />
         <div className={`judge-row ${showWindow ? '' : 'solo'}`}>
-          <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} playerId={playerId} players={room.players} />
-          {showWindow && <WindowCut last={last} pose={poseMap[last.key]} />}
+          <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} players={room.players} />
+          {showWindow && <WindowCut last={last} pose={poseMap[last.key]} persona={persona} players={room.players} />}
         </div>
         {rows.length > 0 && <ScoreCut verdict={verdict} rows={rows} axes={axes} />}
         {verdict.adoptReason && <BossCommentCut persona={persona} reason={verdict.adoptReason} />}
@@ -102,6 +102,7 @@ export default function Game({ state, actions }) {
               timer={showTimer ? timer : null}
               players={room.players}
               poseMap={poseMap}
+              persona={persona}
             />
           </>
         )}
@@ -123,7 +124,7 @@ export default function Game({ state, actions }) {
           </div>
         )}
 
-        {ended && <ComicEnded ended={ended} />}
+        {ended && <ComicEnded ended={ended} poseMap={poseMap} players={room.players} />}
 
         {caption && <div className="comic-caption">{caption.text}</div>}
       </div>
@@ -135,23 +136,59 @@ export default function Game({ state, actions }) {
   );
 }
 
-// ?debug=1 로 여는 플레이테스트 패널: 승진 루프·사장 엔딩을 빠르게 확인한다.
+// ?debug=1 로 여는 플레이테스트 패널: 승진 루프·엔딩을 빠르게 확인한다.
+// (서버는 .dev.vars의 DEBUG_ACTIONS='true'일 때만 허용 — 프로덕션 비활성)
 function DebugPanel({ actions }) {
+  const [running, setRunning] = useState(false);
   const run = (action) => actions.debugAction(action).then((r) => r?.error && actions.toast(r.error));
+
+  // 엔딩까지 자동 진행: adopt=true면 매 라운드 나 채택(6채택 사장 엔딩),
+  // false면 무채택으로 10라운드 소진('올해의 사원' 상한 엔딩). 세션이 끝나 에러가 오면 멈춘다.
+  async function skipToEnd(adopt) {
+    setRunning(true);
+    try {
+      for (let i = 0; i < 12; i++) {
+        const a = await actions.debugAction(adopt ? 'adoptMe' : 'noAdopt');
+        if (a?.error) break;
+        const n = await actions.debugAction('next');
+        if (n?.error) break;
+      }
+    } finally {
+      setRunning(false);
+    }
+  }
+
   return (
     <div className="debug-panel">
       <b>DEBUG</b>
-      <button onClick={() => run('adoptMe')}>이번 R 나 채택</button>
-      <button onClick={() => run('noAdopt')}>채택 없음 처리</button>
-      <button onClick={() => run('next')}>다음 라운드 ▶</button>
+      <button disabled={running} onClick={() => run('adoptMe')}>이번 R 나 채택</button>
+      <button disabled={running} onClick={() => run('noAdopt')}>채택 없음 처리</button>
+      <button disabled={running} onClick={() => run('next')}>다음 라운드 ▶</button>
+      <button disabled={running} onClick={() => skipToEnd(true)}>⏭ 사장 엔딩까지</button>
+      <button disabled={running} onClick={() => skipToEnd(false)}>⏭ 10R 상한 엔딩까지</button>
     </div>
   );
 }
 
-function ComicEnded({ ended }) {
+function ComicEnded({ ended, poseMap, players }) {
+  // 올해의 사원(MVP) = 총애 1위. standings는 서버에서 총애순 정렬이라 첫 항목이 MVP다.
+  // 라운드 수상 컷(이달의 사원)과 같은 AwardFrame으로 그려 비주얼을 통일한다.
+  const mvp = ended.standings?.[0];
+  const showMvp = mvp && mvp.favor > 0;
   return (
     <div className="cut comic-ended">
       <div className="ce-title">🏁 세션 종료</div>
+      {showMvp && (
+        <div className="mvp-award">
+          <AwardFrame
+            title="올해의 사원"
+            pose={poseMap?.[mvp.id]}
+            entry={{ kind: 'user', name: mvp.nick }}
+            avatar={(players || []).find((p) => p.id === mvp.id)?.avatar}
+            plate={`${mvp.nick} · ${mvp.rank} · 채택 ${mvp.favor}회`}
+          />
+        </div>
+      )}
       <div className="comic-caption" style={{ alignSelf: 'stretch' }}>{ended.reason}</div>
       <HallOfFame hall={ended.hall} />
       <div className="standing-strip" style={{ justifyContent: 'center' }}>

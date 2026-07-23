@@ -1,10 +1,10 @@
 import { test, expect } from 'vitest';
 import { getPersona, listPersonas, PROMPTS, STRINGS, fmt, personaSchema } from '../src/index';
 
-test('페르소나 2종(조조·유비)이 로드된다', () => {
+test('페르소나 전 팩이 로드된다', () => {
   const list = listPersonas();
-  expect(list.length).toBe(2);
-  expect(list.map((p) => p.id).sort()).toEqual(['caocao', 'liubei']);
+  expect(list.length).toBe(5);
+  expect(list.map((p) => p.id).sort()).toEqual(['caocao', 'liubei', 'maou', 'olympus', 'seonjo']);
   for (const p of list) {
     expect(p.id && p.name && p.intro).toBeTruthy();
     expect(p.axes.length).toBeGreaterThanOrEqual(3);

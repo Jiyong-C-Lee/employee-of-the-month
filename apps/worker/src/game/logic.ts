@@ -21,8 +21,8 @@ export function buildSpeakQueue({ advisors, advisorFavor = {}, players, roundNo 
   return [...byFavor(ai), ...byFavor(us)].map(({ kind, key, name }) => ({ kind, key, name }));
 }
 
-// 라운드 출전 참모: 풀(최대 8명)에서 무작위 n명. 정의 순서를 유지해 로스터·발언 순서가 안정적이다.
-// 풀이 n 이하면 전원 출전. 순수 함수 — rng 주입으로 테스트한다.
+// 라운드 출전 참모: 풀(최대 8명)에서 라운드마다 무작위 n명 발탁 — 한 판 안에서도 여러 참모가 번갈아 등장.
+// 정의 순서를 유지해 로스터·발언 순서가 안정적이다. 풀이 n 이하면 전원 출전.
 export const ADVISORS_PER_ROUND = 3;
 
 export function pickRoundAdvisors<T>(advisors: T[], n = ADVISORS_PER_ROUND, rng: () => number = Math.random): T[] {
@@ -49,6 +49,19 @@ export function pickQuirks(
       : pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))]!;
   }
   return out;
+}
+
+// 세션 라운드 상한 — 이 라운드까지 아무도 최고 직급을 못 달면 '올해의 사원'(최고 총애) 발표로 끝낸다.
+export const MAX_ROUNDS = 10;
+
+// 0..n-1 무작위 순열 — 세션 시작 시 상황 덱을 섞는 데 쓴다(세션 안 중복 없음, 순서만 무작위).
+export function shuffledIndices(n: number, rng: () => number = Math.random): number[] {
+  const arr = Array.from({ length: n }, (_, i) => i);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1)) % (i + 1);
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  }
+  return arr;
 }
 
 // 라운드별 해법 축 배정: 축 풀을 섞어 참모마다 서로 다른 축을 코드가 강제한다.

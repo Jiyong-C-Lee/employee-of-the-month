@@ -1,5 +1,6 @@
 // 방 상태 모델 — 원본 server/rooms.js의 sycophant 경로 이식(debate 분기 제거, DO storage 저장용 순수 상태).
 import { getPersona, STRINGS } from '@eotm/content';
+import { shuffledIndices } from './logic';
 import type {
   FeedItem, HallEntry, PublicPlayer, PublicRoom, QueueEntry, RoomConfig, Situation, Speech, Standing, Verdict,
 } from '@eotm/shared';
@@ -41,6 +42,9 @@ export interface RoomState {
   advisorFavor: Record<string, number>;
   // 참모 이름 -> 직전 라운드에 쓴 버릇 (다음 라운드 샘플링에서 제외용). 구버전 스냅샷엔 없을 수 있다.
   advisorLastQuirk?: Record<string, string>;
+  // 상황 덱 — 세션 시작 시 섞어둔 situations 인덱스 순열. 라운드 n은 situationOrder[n-1]을 쓴다.
+  // 구버전 스냅샷엔 없을 수 있다(그 경우 엔진이 정의 순서로 폴백).
+  situationOrder?: number[];
   hall: HallEntry[];
   round: RoundState | null;
   feed: FeedItem[];
@@ -99,6 +103,8 @@ export function createRoomState(
     // 조언자 완성도(난이도): easy=정답의 60% / normal=75% / hard=90%
     difficulty: ['easy', 'normal', 'hard'].includes(config.difficulty as string) ? (config.difficulty as RoomConfig['difficulty']) : 'normal',
     maxPlayers: mode === 'single' ? 1 : Math.min(6, Math.max(2, Number(config.maxPlayers) || 4)),
+    // 라운드 상한 — 허용값 외엔 기본 10. 상황 덱(20개)을 넘지 않는 선택지만 노출한다.
+    maxRounds: [5, 10, 15, 20].includes(Number(config.maxRounds)) ? Number(config.maxRounds) : 10,
   };
 
   const host = makePlayer(hostNick, 0, persona.ranks[0]!, avatar);
@@ -115,6 +121,8 @@ export function createRoomState(
     config: normalized,
     advisorFavor: {}, // 조언자 이름 -> 채택 수 (연출·현황용)
     advisorLastQuirk: {},
+    situationOrder: shuffledIndices(persona.situations.length), // 상황 덱 셔플 — 판마다 등장 순서가 다르다
+
     hall: [], // 라운드별 채택자 — 명예의 전당
     round: null,
     feed: [],

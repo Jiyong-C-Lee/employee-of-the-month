@@ -6,7 +6,7 @@ import type {
   AdoptedInfo, FeedItem, ServerEvent, Situation, Standing, Verdict,
 } from '@eotm/shared';
 import { computeStandings, publicRoom, type RoomState } from './state';
-import { buildSpeakQueue, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, MAX_SPEECH_CHARS } from './logic';
+import { ADVISORS_PER_ROUND, MAX_ROUNDS, buildSpeakQueue, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, MAX_SPEECH_CHARS } from './logic';
 import { APPROACHES } from '../ai/prompts';
 import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, type Deps } from '../ai/orchestrate';
 import { logger } from '../log';
@@ -119,7 +119,9 @@ export class Engine {
   private beginRound(): void {
     const room = this.room;
     room.roundNo += 1;
-    const situation = this.persona.situations[room.roundNo - 1];
+    // 섞어둔 상황 덱에서 뽑는다. 구버전 스냅샷(덱 없음)은 정의 순서로 폴백.
+    const situationIdx = room.situationOrder?.[room.roundNo - 1] ?? room.roundNo - 1;
+    const situation = this.persona.situations[situationIdx];
     if (!situation) {
       this.endByExhaustion();
       return;
@@ -166,9 +168,13 @@ export class Engine {
   private beginSpeeches(): void {
     if (this.room.state !== 'PLAYING' || this.room.phase !== 'SITUATION') return;
     const room = this.room;
-    // 참모 풀에서 이번 라운드 출전 인원만 무작위 발탁 — 큐에 오른 참모만 발언·채택 경쟁한다.
+    // AI 출전 수: 싱글은 고정, 멀티는 정원의 빈자리만큼 채운다 (6명 방에 2명 입장 → AI 4명, 만석이면 0명).
+    // 참모 풀에서 라운드마다 새로 발탁 — 한 판 안에서도 여러 참모가 번갈아 등장한다.
+    const aiCount = room.config.mode === 'single'
+      ? ADVISORS_PER_ROUND
+      : Math.max(0, room.config.maxPlayers - room.players.length);
     room.round!.queue = buildSpeakQueue({
-      advisors: pickRoundAdvisors(this.persona.advisors),
+      advisors: pickRoundAdvisors(this.persona.advisors, aiCount),
       advisorFavor: room.advisorFavor,
       players: room.players,
       roundNo: room.roundNo,
@@ -395,7 +401,22 @@ export class Engine {
       this.endSession(this.line('session.championReason', { nick: champ?.nick ?? '', topRank: this.persona.ranks.at(-1) }));
       return;
     }
+    // 라운드 상한(방 설정) — 최고 직급 등극자가 없으면 최고 총애자를 '올해의 사원'으로 발표하고 끝낸다.
+    // 구버전 방 스냅샷(config.maxRounds 없음)은 기본 상한으로 폴백.
+    const cap = this.room.config.maxRounds ?? MAX_ROUNDS;
+    if (this.room.roundNo >= cap) {
+      this.endByMaxRounds(cap);
+      return;
+    }
     this.beginRound();
+  }
+
+  private endByMaxRounds(cap: number): void {
+    const standings = this.standings();
+    const top = standings[0];
+    this.endSession(top && top.favor > 0
+      ? this.line('session.maxRoundsMvp', { maxRounds: cap, nick: top.nick, favor: top.favor })
+      : this.line('session.maxRoundsNone', { maxRounds: cap }));
   }
 
   // 플레이테스트용 디버그 액션 (클라이언트 ?debug=1 패널에서 호출).

@@ -1,11 +1,6 @@
 // 「이달의 우수사원」 액자 연출 (회의실 밈 오마주). 채택자의 아바타를 액자에 건다.
-const AVATAR_COLORS = ['#e0685c', '#5c8ae0', '#5cb87a', '#c78be0', '#e0a75c', '#5cc4c9'];
-
-function hashColor(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
-}
+// 색은 공용 hashColor를 쓴다 — 자체 팔레트 사본을 두면 같은 사람이 발언 컷과 액자에서 다른 색이 된다.
+import { hashColor } from '../comic-assets.js';
 
 export function FrameAvatar({ adopted, size = 'md' }) {
   if (adopted.kind === 'ai') {
@@ -28,7 +23,7 @@ export default function EmployeeFrame({ adopted, roundNo }) {
       </div>
       <div className="ef-plate">
         <b>{adopted.name}</b>
-        <span className="ef-sub">{adopted.kind === 'ai' ? 'AI 참모' : adopted.rank} · Round {roundNo}</span>
+        <span className="ef-sub">{adopted.kind === 'ai' ? `Round ${roundNo}` : `${adopted.rank} · Round ${roundNo}`}</span>
       </div>
     </div>
   );

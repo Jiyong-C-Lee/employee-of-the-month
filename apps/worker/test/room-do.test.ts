@@ -95,8 +95,18 @@ test('debug 액션은 DEBUG_ACTIONS 설정 시에만 허용된다 (I4)', async (
   });
   const { playerId, token } = create.body as { playerId: string; token: string };
 
-  // 기본(미설정) — 404로 차단.
-  expect((await post(s, '/debug', { playerId, token, action: 'adoptMe' })).status).toBe(404);
+  // 미설정 — 404로 차단. 로컬 .dev.vars에 DEBUG_ACTIONS가 켜져 있어도 테스트는 명시적으로 끄고 검증한다.
+  const blocked = await runInDurableObject(s, async (instance) => {
+    const inst = instance as unknown as { env: Record<string, string | undefined>; fetch: (r: Request) => Promise<Response> };
+    inst.env = { ...inst.env, DEBUG_ACTIONS: undefined };
+    const res = await inst.fetch(new Request('http://do/debug', {
+      method: 'POST',
+      body: JSON.stringify({ playerId, token, action: 'adoptMe' }),
+    }));
+    await res.json(); // Windows teardown 이슈 — body 소비
+    return res.status;
+  });
+  expect(blocked).toBe(404);
 
   // DO 인스턴스 env에 DEBUG_ACTIONS 주입 후에만 허용 (프로덕션에선 미설정=비활성).
   const status = await runInDurableObject(s, async (instance) => {

@@ -73,7 +73,7 @@ export function buildPoseMap({ persona, players, queue }) {
 
 // 얼굴 슬롯 — 포즈 이미지 위에 아바타/이니셜/이모지를 반투명(FACE_ALPHA)으로 합성한다.
 // avatar가 있으면 원형 이미지, 없으면 기존 색원+이니셜(유저) / 이모지(AI)로 폴백한다.
-function FaceSlot({ pose, entry, mine, avatar }) {
+function FaceSlot({ pose, entry, avatar }) {
   const p = getPoses()[pose];
   const alpha = getFaceAlpha();
   const style = { left: `${p.x}%`, top: `${p.y}%`, width: `${p.d}%` };
@@ -98,8 +98,10 @@ function FaceSlot({ pose, entry, mine, avatar }) {
       </div>
     );
   }
+  // 색은 이름 해시로만 정한다 — 뷰어별 강조색을 섞으면 같은 유저가 클라이언트마다 다른 색으로 보인다.
+  // (본인 표시는 이름표의 ★가 담당)
   return (
-    <div className="face-slot user" style={{ ...style, background: hexToRgba(mine ? '#5cb87a' : hashColor(entry.name), alpha) }}>
+    <div className="face-slot user" style={{ ...style, background: hexToRgba(hashColor(entry.name), alpha) }}>
       <span>{entry.name.slice(0, 1)}</span>
     </div>
   );
@@ -152,10 +154,12 @@ export function SituationCut({ persona, situation }) {
 }
 
 // ── ② 발언 컷 그리드 ──
-export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players, poseMap }) {
+export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players, poseMap, persona }) {
   const speechByKey = Object.fromEntries(speeches.map((s) => [s.key, s]));
   const rankByKey = Object.fromEntries((players || []).map((p) => [p.id, p.rank]));
   const avatarByKey = avatarByKeyFromPlayers(players);
+  // 참모 얼굴 이모지 — 큐 엔트리에는 emoji가 없어서 persona.advisors에서 이름으로 찾는다(없으면 FaceSlot이 🤖 폴백).
+  const emojiByName = Object.fromEntries((persona?.advisors || []).map((a) => [a.name, a.emoji]));
   const showTimer = timer && timer.phase === 'PLAYER_TURNS' && timer.total > 0;
 
   return (
@@ -182,7 +186,11 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
             </div>
             <div className="sp-figure">
               <img src={poseUrl(poseMap[entry.key])} alt="" />
-              <FaceSlot pose={poseMap[entry.key]} entry={entry} mine={mine} avatar={avatarByKey[entry.key]} />
+              <FaceSlot
+                pose={poseMap[entry.key]}
+                entry={entry.kind === 'ai' ? { ...entry, emoji: entry.emoji ?? emojiByName[entry.name] } : entry}
+                avatar={avatarByKey[entry.key]}
+              />
             </div>
             {/* 이름표는 컷(패널) 기준 우하단 고정 — span2에서 캐릭터가 가운데 정렬돼도 모든 컷과 같은 구석 위치를 유지한다. */}
             <span className="sp-label">{label}</span>
@@ -209,39 +217,46 @@ export function GaugeStrip({ persona, done }) {
   );
 }
 
+// 금테 액자 프레임 — 라운드 수상(이달의 사원)과 세션 MVP(올해의 사원)가 같은 비주얼을 공유한다.
+export function AwardFrame({ title, entry, pose = USER_POSE, avatar, plate }) {
+  return (
+    <div className="award">
+      <div className="aw-ribbon">🏆 {title}</div>
+      <div className="aw-frame">
+        <div className="aw-frame-in">
+          <div className="aw-mat">
+            <div className="aw-photo">
+              {/* 얼굴 원이 잘 보이게 아래쪽을 크롭 — 슬롯 %좌표 기준(이미지 박스)은 inner가 유지 */}
+              <div className="aw-photo-inner">
+                <img src={poseUrl(pose)} alt="" />
+                <FaceSlot pose={pose} entry={entry} avatar={avatar} />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="aw-plate">
+          <span>{plate}</span>
+        </div>
+        <span className="aw-screw tl" /><span className="aw-screw tr" />
+        <span className="aw-screw bl" /><span className="aw-screw br" />
+      </div>
+    </div>
+  );
+}
+
 // ── ④-a 수상 컷 (이달의 사원 액자) ──
-export function AwardCut({ adopted, poseMap, playerId, players }) {
-  const awardPose = adopted ? (poseMap[adopted.key] ?? USER_POSE) : USER_POSE;
+export function AwardCut({ adopted, poseMap, players }) {
   const avatarByKey = avatarByKeyFromPlayers(players);
   return (
     <div className="cut award-cut">
       {adopted ? (
-        <div className="award">
-          <div className="aw-ribbon">🏆 이달의 사원</div>
-          <div className="aw-frame">
-            <div className="aw-frame-in">
-              <div className="aw-mat">
-                <div className="aw-photo">
-                  {/* 얼굴 원이 잘 보이게 아래쪽을 크롭 — 슬롯 %좌표 기준(이미지 박스)은 inner가 유지 */}
-                  <div className="aw-photo-inner">
-                    <img src={poseUrl(awardPose)} alt="" />
-                    <FaceSlot
-                      pose={awardPose}
-                      entry={adopted.kind === 'ai' ? { kind: 'ai', emoji: adopted.emoji } : { kind: 'user', name: adopted.name }}
-                      mine={adopted.kind === 'user' && adopted.key === playerId}
-                      avatar={adopted.kind === 'user' ? avatarByKey[adopted.key] : undefined}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="aw-plate">
-              <span>{adopted.name} · {adopted.kind === 'ai' ? 'AI 참모' : `${adopted.rank} 승진`}</span>
-            </div>
-            <span className="aw-screw tl" /><span className="aw-screw tr" />
-            <span className="aw-screw bl" /><span className="aw-screw br" />
-          </div>
-        </div>
+        <AwardFrame
+          title="이달의 사원"
+          pose={poseMap[adopted.key] ?? USER_POSE}
+          entry={adopted.kind === 'ai' ? { kind: 'ai', emoji: adopted.emoji } : { kind: 'user', name: adopted.name }}
+          avatar={adopted.kind === 'user' ? avatarByKey[adopted.key] : undefined}
+          plate={adopted.kind === 'ai' ? adopted.name : `${adopted.name} · ${adopted.rank} 승진`}
+        />
       ) : (
         <div className="no-adopt-stamp">전원 반려</div>
       )}
@@ -250,7 +265,12 @@ export function AwardCut({ adopted, poseMap, playerId, players }) {
 }
 
 // ── ④-b 창밖 투척 컷 (최하위) ──
-export function WindowCut({ last, pose }) {
+export function WindowCut({ last, pose, persona, players }) {
+  // 날아가는 몸체에도 발언 컷과 같은 얼굴 합성 — 누가 던져졌는지 보이게 한다.
+  const kind = String(last.key || '').startsWith('ai:') ? 'ai' : 'user';
+  const emoji = kind === 'ai' ? persona?.advisors?.find((a) => a.name === last.name)?.emoji : undefined;
+  const avatar = kind === 'user' ? avatarByKeyFromPlayers(players)[last.key] : undefined;
+  const flyPose = pose ?? SEAT_POSES[0];
   return (
     <div className="cut window-cut">
       <div className="wh-speed" />
@@ -259,7 +279,8 @@ export function WindowCut({ last, pose }) {
         <div className="w-sash-l" /><div className="w-sash-r" />
       </div>
       <div className="wh-flyer">
-        <img src={poseUrl(pose ?? SEAT_POSES[0])} alt="" />
+        <img src={poseUrl(flyPose)} alt="" />
+        <FaceSlot pose={flyPose} entry={{ kind, name: last.name, emoji }} avatar={avatar} />
       </div>
       <div className="wh-caption">최하위 {last.name}{josa(last.name, '은', '는')} 창밖으로.</div>
     </div>

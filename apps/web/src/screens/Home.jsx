@@ -4,8 +4,12 @@ import { AVATAR_EMOJI_PREFIX, avatarEmoji, hashColor, isEmojiAvatar, isImageAvat
 const AVATAR_KEY = 'eotm.avatar';
 const AVATAR_SIZE = 128;
 
-// 아이콘 선택 프리셋 — 직장인 테마 이모지 12종.
-const AVATAR_EMOJI_PRESETS = ['😎', '🤓', '😤', '🥸', '😏', '🫡', '🤔', '😴', '🤑', '😇', '👻', '🐱'];
+// 아이콘 선택 프리셋 — 표정·동물·사물 30종 (얼굴 원 안에서 알아보기 좋은 것 위주).
+const AVATAR_EMOJI_PRESETS = [
+  '😎', '🤓', '😤', '🥸', '😏', '🫡', '🤔', '😴', '🤑', '😇', '👻', '🤠', '🥶', '🥳', '😈',
+  '🐱', '🐶', '🦊', '🐼', '🐸', '🐯', '🐷', '🐧', '🦄',
+  '☕', '🍕', '🎮', '📈', '💼', '🔥',
+];
 
 // 이미지 파일 → 128x128 커버 크롭 → JPEG dataURL(품질 0.8). 실패하면 reject(호출부가 토스트로 안내).
 function resizeAvatar(file) {
@@ -78,6 +82,7 @@ export default function Home({ state, actions }) {
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [aiCompete, setAiCompete] = useState(false);
   const [difficulty, setDifficulty] = useState('normal');
+  const [maxRounds, setMaxRounds] = useState(10);
 
   // 인물 목록 로드
   useEffect(() => {
@@ -106,8 +111,8 @@ export default function Home({ state, actions }) {
     if (!personaId) return actions.toast('인물을 선택하세요.');
     setBusy(true);
     const config = modeKind === 'single'
-      ? { mode: 'single', personaId, difficulty } // 싱글은 제한시간 없음
-      : { mode: 'multi', personaId, speakTime: Number(speakTime), maxPlayers: Number(maxPlayers), aiCompete, difficulty };
+      ? { mode: 'single', personaId, difficulty, maxRounds: Number(maxRounds) } // 싱글은 제한시간 없음
+      : { mode: 'multi', personaId, speakTime: Number(speakTime), maxPlayers: Number(maxPlayers), aiCompete, difficulty, maxRounds: Number(maxRounds) };
     const res = await actions.createRoom(nick, config, avatar || undefined);
     setBusy(false);
     if (res.error) actions.toast(res.error);
@@ -131,7 +136,6 @@ export default function Home({ state, actions }) {
             <span className="pc-name">{p.name}</span>
             <span className="pc-intro">{p.intro}</span>
             <span className="pc-axes">채점축: {p.axes.join(' · ')}</span>
-            <span className="pc-goal">목표: {p.ranks[0]} → {p.ranks[p.ranks.length - 1]}</span>
           </span>
         </label>
       ))}
@@ -145,6 +149,18 @@ export default function Home({ state, actions }) {
         <option value="easy">순한맛 (참모가 허술함)</option>
         <option value="normal">보통</option>
         <option value="hard">매운맛 (참모가 날카로움)</option>
+      </select>
+    </label>
+  );
+
+  const roundsField = (
+    <label className="field">
+      <span>라운드 수 (도달 시 최고 총애자가 '올해의 사원')</span>
+      <select value={maxRounds} onChange={(e) => setMaxRounds(e.target.value)}>
+        <option value={5}>5라운드 (스피드)</option>
+        <option value={10}>10라운드 (기본)</option>
+        <option value={15}>15라운드</option>
+        <option value={20}>20라운드 (풀코스)</option>
       </select>
     </label>
   );
@@ -164,7 +180,7 @@ export default function Home({ state, actions }) {
     <div className="home">
       <div className="home-card">
         <h1 className="logo">🏆 이달의 사원</h1>
-        <p className="tagline">보스의 마음을 움직이는 간언으로 사원에서 사장까지 승진해 보세요</p>
+        <p className="tagline">보스의 마음을 움직이는 간언으로 <br/> 사원에서 사장까지 승진해 보세요</p>
 
         <div className="avatar-setting">
           <span
@@ -222,6 +238,7 @@ export default function Home({ state, actions }) {
             {nickField}
             {personaPicker}
             {difficultyField}
+            {roundsField}
             <div className="row">
               <button className="btn" onClick={() => setMode('menu')}>뒤로</button>
               <button className="btn primary" disabled={busy} onClick={() => start('single')}>출근하기 ▶</button>
@@ -234,9 +251,8 @@ export default function Home({ state, actions }) {
             {nickField}
             {personaPicker}
             {speakTimeField}
-            {difficultyField}
             <label className="field">
-              <span>정원</span>
+              <span>정원 (빈자리는 AI 참모가 채웁니다)</span>
               <select value={maxPlayers} onChange={(e) => setMaxPlayers(e.target.value)}>
                 <option value={2}>2명</option>
                 <option value={3}>3명</option>
@@ -249,6 +265,8 @@ export default function Home({ state, actions }) {
               <span>AI 참모도 채택 경쟁 참전</span>
               <input type="checkbox" checked={aiCompete} onChange={(e) => setAiCompete(e.target.checked)} />
             </label>
+            {difficultyField}
+            {roundsField}
             <div className="row">
               <button className="btn" onClick={() => setMode('menu')}>뒤로</button>
               <button className="btn primary" disabled={busy} onClick={() => start('multi')}>방 생성</button>

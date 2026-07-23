@@ -114,7 +114,8 @@ export function judgeSchema(axes: string[]) {
 // ---- 에필로그 ----
 
 export function epilogueSystem(persona: FullPersona): string {
-  return fmt(PROMPTS.epilogueSystem, { personaName: persona.name });
+  // personaIntro: 보스가 어느 회사의 누구인지 — 상황 속 타사(도원컴퍼니 등)로 시점이 새는 것을 막는다.
+  return fmt(PROMPTS.epilogueSystem, { personaName: persona.name, personaIntro: persona.intro });
 }
 
 export function epilogueUser(persona: FullPersona, situation: Situation, adopted: { name: string; text: string }): string {

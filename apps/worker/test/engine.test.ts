@@ -48,6 +48,23 @@ test('싱글 1라운드: 시작→조언자 발언→내 발언→판정→RESUL
   expect(room.round!.verdict).not.toBeNull();
 });
 
+test('라운드 상한: 10라운드가 지나면 올해의 사원 발표로 세션 종료', async () => {
+  const { room, playerId } = createRoomState('T5', '나', { mode: 'single', personaId: 'caocao' });
+  const { bus } = fakeBus();
+  const eng = new Engine(room, bus, deps);
+  expect(eng.start(playerId)).toEqual({ ok: true });
+
+  for (let r = 1; r <= 10; r++) {
+    expect(room.roundNo).toBe(r);
+    await waitUntil(() => ['SITUATION', 'PLAYER_TURNS', 'JUDGING'].includes(room.phase ?? ''));
+    expect(eng.debug(playerId, 'noAdopt')).toEqual({ ok: true });
+    await waitUntil(() => room.phase === 'RESULT');
+    eng.debug(playerId, 'next');
+  }
+  expect(room.state).toBe('ENDED');
+  expect(room.endedReason).toContain('올해의 사원');
+});
+
 test('라운드 시작 시 자막(round.intro·round.question)은 중복이라 발행하지 않는다', async () => {
   const { room, playerId } = createRoomState('T1Q', '나', { mode: 'single', personaId: 'liubei' });
   const { bus, events } = fakeBus();

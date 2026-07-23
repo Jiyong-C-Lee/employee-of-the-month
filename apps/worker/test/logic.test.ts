@@ -1,6 +1,6 @@
 // 원본 tests/sycoLogic.test.js를 vitest로 이식 (전 케이스).
 import { test, expect } from 'vitest';
-import { buildSpeakQueue, computeAdoption, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion } from '../src/game/logic';
+import { buildSpeakQueue, computeAdoption, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, shuffledIndices } from '../src/game/logic';
 
 const P = (id: string, joinOrder: number, favor: number) =>
   ({ id, nick: id, joinOrder, favor }) as { id: string; nick: string; joinOrder: number; favor: number };
@@ -69,6 +69,12 @@ test('라운드 출전 발탁: 풀에서 n명, 중복 없이 정의 순서 유�
 test('라운드 출전 발탁: 풀이 n 이하면 전원 출전', () => {
   expect(pickRoundAdvisors(['a', 'b'], 3)).toEqual(['a', 'b']);
   expect(pickRoundAdvisors(['a', 'b', 'c'], 3)).toEqual(['a', 'b', 'c']);
+});
+
+test('상황 덱 셔플: 0..n-1 순열 (중복·누락 없음)', () => {
+  const order = shuffledIndices(20);
+  expect(order.length).toBe(20);
+  expect([...order].sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, i) => i));
 });
 
 test('해법 축 배정: 참모 전원에게 유효한 축을 겹치지 않게 배정', () => {

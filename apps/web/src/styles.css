@@ -195,8 +195,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); b
 .pc-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .pc-name { font-weight: 800; }
 .pc-intro { font-size: .82rem; color: var(--muted); line-height: 1.4; }
-.pc-axes, .pc-goal { font-size: .75rem; color: var(--gold); }
-.pc-goal { color: var(--muted); }
+.pc-axes { font-size: .75rem; color: var(--gold); }
 
 /* 조언자/간언 말풍선 */
 .msg.advisor { background: #221a2e; border: 1px solid #4a3a63; align-self: flex-start; }
@@ -315,7 +314,6 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); b
 .home .persona-card.sel { border-color: var(--gold); background: #fff8e6; box-shadow: 0 0 0 2px var(--gold); }
 .home .pc-intro { color: var(--comic-muted); }
 .home .pc-axes { color: var(--tan-text); }
-.home .pc-goal { color: var(--comic-muted); }
 
 /* 대기실 */
 .lobby .code-box { background: var(--paper-2); border: 2px solid var(--ink); }
@@ -330,6 +328,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); b
 .lobby .dot[data-on="true"] { background: #5cb87a; }
 .lobby .badge.host { background: var(--gold); color: var(--ink); }
 .lobby .badge.me { background: var(--ink); color: #fff; }
+
+/* 올해의 사원 (세션 종료 MVP) — 라운드 수상 컷과 같은 AwardFrame을 팝 연출로 강조 */
+.mvp-award { display: flex; justify-content: center; animation: mvpPop .5s cubic-bezier(.2, 1.6, .4, 1); }
+.mvp-award .award { width: 200px; }
+@keyframes mvpPop { from { transform: scale(.6); opacity: 0; } }
 
 /* 명예의 전당 */
 .hall-of-fame { margin: 8px 0; }

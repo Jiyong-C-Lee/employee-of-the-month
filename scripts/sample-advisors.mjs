@@ -4,7 +4,7 @@
 // 사용법:  node scripts/sample-advisors.mjs [--pack caocao|liubei] [--count 5] [--difficulty normal] [--model gemini-3.5-flash-lite]
 //   키는 apps/worker/.dev.vars 의 GOOGLE_AI_STUDIO_API_KEY 를 읽는다.
 //   결과: docs/samples/advisor-samples-<pack>.md
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -40,7 +40,10 @@ const loadPack = (id) => ({
   persona: JSON.parse(readFileSync(join(ROOT, `packages/content/packs/${id}/persona.json`), 'utf8')),
   situations: JSON.parse(readFileSync(join(ROOT, `packages/content/packs/${id}/situations.json`), 'utf8')),
 });
-const PACK_IDS = ['caocao', 'liubei'].filter((id) => !packFilter || id === packFilter);
+const PACK_IDS = readdirSync(join(ROOT, 'packages/content/packs'), { withFileTypes: true })
+  .filter((d) => d.isDirectory())
+  .map((d) => d.name)
+  .filter((id) => !packFilter || id === packFilter);
 
 const fmt = (tpl, vars = {}) => {
   const s = Array.isArray(tpl) ? tpl.join('\n') : String(tpl ?? '');
@@ -92,6 +95,13 @@ const advisorBatchUser = (persona, situation) => [
   situation.text,
   `# ${persona.name}의 물음: ${situation.question}`,
 ].join('\n');
+
+// apps/worker/src/ai/prompts.ts epilogueSystem/User와 동일 — 채택안 이후 이야기도 같은 파일에서 검수한다
+const epilogueSystem = (persona) => fmt(PROMPTS.epilogueSystem, { personaName: persona.name, personaIntro: persona.intro });
+const epilogueUser = (persona, situation, adopted) => [
+  '# 상황', situation.text, `# 물음: ${situation.question}`, '', `# 채택된 간언 (${adopted.name})`, adopted.text,
+].join('\n');
+const epilogueSchema = { type: 'object', properties: { story: { type: 'string' } }, required: ['story'] };
 
 const advisorBatchSchema = (n) => ({
   type: 'object',
@@ -178,6 +188,15 @@ for (const id of PACK_IDS) {
       for (const s of r.speeches) {
         const adv = persona.advisors.find((a) => a.name === s.name);
         out.push(`- ${adv?.emoji ?? ''} **${s.name}** [${approaches[s.name] ?? s.approach}]  `, `  ${s.text}`);
+      }
+      // 무작위 발언 하나를 채택안 삼아 에필로그까지 생성 — 시점 이탈(타사 무대 표류) 같은 결함을 함께 검수
+      const adopted = r.speeches[Math.floor(Math.random() * r.speeches.length)];
+      try {
+        await sleep(2000);
+        const ep = await callGemini(epilogueSystem(persona), epilogueUser(persona, situation, adopted), epilogueSchema);
+        out.push('', `> 📖 그 후 이야기 (채택: ${adopted.name})  `, `> ${ep.story}`);
+      } catch (e) {
+        out.push('', `(에필로그 실패: ${e.message})`);
       }
       out.push('');
       console.log('ok');
