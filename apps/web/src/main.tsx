@@ -1,6 +1,10 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+// 폰트는 로컬 번들 — CDN 의존 제거 + 라운드 캡처(html-to-image)에서 폰트 보장.
+import '@fontsource/nanum-gothic/400.css';
+import '@fontsource/nanum-gothic/700.css';
+import '@fontsource/nanum-gothic/800.css';
 import './styles.css';
 
 // Cloudflare Web Analytics — 토큰이 설정된 빌드에서만 로드 (쿠키 없음, 동의 배너 불필요).
