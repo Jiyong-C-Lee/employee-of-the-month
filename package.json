@@ -2,7 +2,10 @@
   "name": "employee-of-the-month",
   "private": true,
   "type": "module",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace @eotm/worker",
     "dev:web": "npm run dev --workspace @eotm/web",
@@ -11,5 +14,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "deploy": "npm run build --workspace @eotm/web && npm run deploy --workspace @eotm/worker",
     "smoke": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.3"
   }
 }
