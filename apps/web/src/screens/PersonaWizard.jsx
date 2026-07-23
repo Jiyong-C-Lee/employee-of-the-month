@@ -55,16 +55,16 @@ export default function PersonaWizard({ onSaved, onCancel, toast }) {
       <div className="stack wizard">
         <h2>🛠 나만의 보스 만들기</h2>
         <label className="field"><span>보스 이름 *</span>
-          <input value={form.name} onChange={set('name')} maxLength={20} placeholder="예: 건물주 할머니" /></label>
+          <input value={form.name} onChange={set('name')} maxLength={20} placeholder="예: 용왕" /></label>
         <label className="field"><span>컨셉 *</span>
           <textarea value={form.concept} onChange={set('concept')} maxLength={300} rows={3}
-            placeholder="예: 역세권 건물 12채를 가진 할머니 회장. 월세와 손주 자랑이 인생의 전부." /></label>
+            placeholder="예: 바닷속 용궁물산 그룹의 회장. 용궁의 위엄이 최우선이지만 육지 문물에 호기심이 많고, 사실 헤엄이 서툴다는 것을 숨기고 있다." /></label>
         <label className="field"><span>말투 힌트 (비우면 AI가 정함)</span>
-          <input value={form.voiceHint} onChange={set('voiceHint')} maxLength={200} placeholder="예: 구수한 사투리, 반말" /></label>
+          <input value={form.voiceHint} onChange={set('voiceHint')} maxLength={200} placeholder="예: 근엄한 하오체, 흥분하면 말끝에 물거품 소리" /></label>
         <label className="field"><span>역린 (비우면 AI가 정함)</span>
-          <input value={form.taboo} onChange={set('taboo')} maxLength={200} placeholder="예: 재개발 무산 얘기" /></label>
+          <input value={form.taboo} onChange={set('taboo')} maxLength={200} placeholder="예: 이무기 시절 이야기" /></label>
         <label className="field"><span>채점축 (쉼표 구분, 비우면 AI가 정함)</span>
-          <input value={form.axes} onChange={set('axes')} placeholder="예: 월세, 체면, 손주" /></label>
+          <input value={form.axes} onChange={set('axes')} placeholder="예: 위엄, 실리, 용궁부심" /></label>
         <div className="row">
           <button className="btn" onClick={onCancel}>뒤로</button>
           <button className="btn primary" disabled={busy} onClick={generate}>{busy ? 'AI 생성 중… (최대 1분)' : '✨ AI로 생성'}</button>

@@ -35,22 +35,32 @@ export default function Game({ state, actions }) {
   // 캐릭터별 고정 포즈 (순번·뷰어가 바뀌어도 몸이 안 바뀐다). 큐를 넘겨 이번 라운드 출전 참모끼리만 충돌을 푼다.
   const poseMap = buildPoseMap({ persona, players: room.players, queue: room.round?.queue });
 
-  // 라운드 공유 — 만화 페이지 전체(comic-page)를 그대로 PNG로 찍는다. 워터마크는 캡처 순간에만 붙인다.
+  // 라운드 공유 — 만화 페이지(comic-page)를 오프스크린에 복제해 전체 높이로 펼친 뒤 PNG로 찍는다.
+  // (스크롤 컨테이너를 직접 찍으면 보이는 영역만 나오거나 빈 이미지가 나온다.)
   const [sharing, setSharing] = useState(false);
   async function onShare() {
     const node = pageRef.current;
     if (!node || sharing) return;
     setSharing(true);
+    const holder = document.createElement('div');
+    holder.className = 'comic-app share-capture-holder'; // comic-app: CSS 변수 상속용
+    holder.style.width = `${node.clientWidth}px`;
+    const clone = node.cloneNode(true);
+    clone.style.height = 'auto';
+    clone.style.maxHeight = 'none';
+    clone.style.overflow = 'visible';
     const mark = document.createElement('div');
     mark.className = 'share-watermark';
     mark.textContent = `🏆 이달의 사원 — ${location.origin}`;
-    node.appendChild(mark);
+    clone.appendChild(mark);
+    holder.appendChild(clone);
+    document.body.appendChild(holder);
     try {
-      await shareRoundImage(node, { title: `이달의 사원 R.${room.roundNo}`, url: location.origin });
+      await shareRoundImage(clone, { title: `이달의 사원 R.${room.roundNo}`, url: location.origin });
     } catch {
       actions.toast('이미지 생성에 실패했습니다.');
     } finally {
-      mark.remove();
+      holder.remove();
       setSharing(false);
     }
   }

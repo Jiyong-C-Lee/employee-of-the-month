@@ -263,7 +263,9 @@
 }
 
 /* ---- 라운드 공유 (전체 페이지 캡처) ---- */
-/* 캡처 순간에만 comic-page 말미에 붙는 워터마크 줄 */
+/* 캡처 순간에만 존재하는 오프스크린 복제 홀더 — comic-app 클래스로 CSS 변수를 상속시킨다 */
+.share-capture-holder { position: fixed; left: -10000px; top: 0; height: auto; min-height: 0; display: block; }
+/* 캡처 복제본 말미에 붙는 워터마크 줄 */
 .share-watermark { border-top: 2px dashed var(--ink); margin-top: 8px; padding-top: 10px; text-align: center; font-size: 13px; color: #555; }
 /* 결과 내비: 공유는 왼쪽 구석, 다음(또는 대기 문구)은 오른쪽 구석 */
 .comic-app .actionbar.result { justify-content: flex-end; }

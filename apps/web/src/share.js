@@ -2,14 +2,7 @@
 import { toBlob } from 'html-to-image';
 
 export async function shareRoundImage(node, { title, url, background = '#f6f1e9' }) {
-  // 스크롤 컨테이너를 펼쳐서 라운드 페이지 전체를 찍는다 (보이는 영역만이 아니라).
-  const blob = await toBlob(node, {
-    pixelRatio: 2,
-    backgroundColor: background,
-    width: node.scrollWidth,
-    height: node.scrollHeight,
-    style: { height: 'auto', maxHeight: 'none', overflow: 'visible' },
-  });
+  const blob = await toBlob(node, { pixelRatio: 2, backgroundColor: background });
   if (!blob) throw new Error('capture-fail');
   const file = new File([blob], 'eotm-round.png', { type: 'image/png' });
   if (navigator.canShare?.({ files: [file] })) {
