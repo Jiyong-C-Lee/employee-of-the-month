@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import ActionBar from '../components/ActionBar.jsx';
 import MenuPanel from '../components/MenuPanel.jsx';
-import ShareCard from '../components/ShareCard.jsx';
 import { shareRoundImage } from '../share.js';
 import { HallOfFame } from '../components/EmployeeFrame.jsx';
 import {
@@ -36,17 +35,22 @@ export default function Game({ state, actions }) {
   // 캐릭터별 고정 포즈 (순번·뷰어가 바뀌어도 몸이 안 바뀐다). 큐를 넘겨 이번 라운드 출전 참모끼리만 충돌을 푼다.
   const poseMap = buildPoseMap({ persona, players: room.players, queue: room.round?.queue });
 
-  // 라운드 공유 — 캡처 전용 숨김 레이아웃(ShareCard)을 PNG로 찍는다.
-  const shareRef = useRef(null);
+  // 라운드 공유 — 만화 페이지 전체(comic-page)를 그대로 PNG로 찍는다. 워터마크는 캡처 순간에만 붙인다.
   const [sharing, setSharing] = useState(false);
   async function onShare() {
-    if (!shareRef.current || sharing) return;
+    const node = pageRef.current;
+    if (!node || sharing) return;
     setSharing(true);
+    const mark = document.createElement('div');
+    mark.className = 'share-watermark';
+    mark.textContent = `🏆 이달의 사원 — ${location.origin}`;
+    node.appendChild(mark);
     try {
-      await shareRoundImage(shareRef.current, { title: `이달의 사원 R.${room.roundNo}`, url: location.origin });
+      await shareRoundImage(node, { title: `이달의 사원 R.${room.roundNo}`, url: location.origin });
     } catch {
       actions.toast('이미지 생성에 실패했습니다.');
     } finally {
+      mark.remove();
       setSharing(false);
     }
   }
@@ -68,9 +72,6 @@ export default function Game({ state, actions }) {
         </div>
         {rows.length > 0 && <ScoreCut verdict={verdict} rows={rows} axes={axes} />}
         {verdict.adoptReason && <BossCommentCut persona={persona} reason={verdict.adoptReason} />}
-        <button className="btn small share-btn" disabled={sharing} onClick={onShare}>
-          {sharing ? '캡처 중…' : '📤 이 라운드 공유'}
-        </button>
         {verdictItem.standings?.length > 1 && (
           <div className="standing-strip">
             {verdictItem.standings.map((s, i) => (
@@ -149,14 +150,7 @@ export default function Game({ state, actions }) {
         {caption && <div className="comic-caption">{caption.text}</div>}
       </div>
 
-      {resulted && (
-        <div className="share-card-holder" aria-hidden="true">
-          <ShareCard cardRef={shareRef} persona={persona} situation={verdictItem.situation}
-            speeches={speeches} verdict={verdictItem.verdict} epilogue={epilogueItem?.story} roundNo={verdictItem.roundNo} />
-        </div>
-      )}
-
-      {!ended && <ActionBar state={state} actions={actions} />}
+      {!ended && <ActionBar state={state} actions={actions} share={resulted ? { sharing, onShare } : null} />}
 
       {debugMode && !ended && <DebugPanel actions={actions} />}
     </div>

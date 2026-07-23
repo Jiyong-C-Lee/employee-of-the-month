@@ -1,8 +1,15 @@
 // 라운드 캡처·공유. 모바일=Web Share(파일), 미지원=PNG 다운로드.
 import { toBlob } from 'html-to-image';
 
-export async function shareRoundImage(node, { title, url }) {
-  const blob = await toBlob(node, { pixelRatio: 2, backgroundColor: '#fdf6e3' });
+export async function shareRoundImage(node, { title, url, background = '#f6f1e9' }) {
+  // 스크롤 컨테이너를 펼쳐서 라운드 페이지 전체를 찍는다 (보이는 영역만이 아니라).
+  const blob = await toBlob(node, {
+    pixelRatio: 2,
+    backgroundColor: background,
+    width: node.scrollWidth,
+    height: node.scrollHeight,
+    style: { height: 'auto', maxHeight: 'none', overflow: 'visible' },
+  });
   if (!blob) throw new Error('capture-fail');
   const file = new File([blob], 'eotm-round.png', { type: 'image/png' });
   if (navigator.canShare?.({ files: [file] })) {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 const MAX_SPEECH_CHARS = 160;
 
-export default function ActionBar({ state, actions }) {
+export default function ActionBar({ state, actions, share }) {
   const { phase, room, playerId, speakTurn } = state;
   const isHost = room.hostId === playerId;
   const persona = room.persona;
@@ -46,12 +46,17 @@ export default function ActionBar({ state, actions }) {
   if (phase === 'RESULT') {
     return (
       <div className="actionbar result">
+        {share && (
+          <button className="btn share-btn" disabled={share.sharing} onClick={share.onShare}>
+            {share.sharing ? '캡처 중…' : '📸 라운드 결과 공유'}
+          </button>
+        )}
         {isHost ? (
-          <button className="btn primary big" onClick={async () => { const r = await actions.nextRound(); if (r?.error) actions.toast(r.error); }}>
+          <button className="btn primary big next-btn" onClick={async () => { const r = await actions.nextRound(); if (r?.error) actions.toast(r.error); }}>
             다음 ▶
           </button>
         ) : (
-          <span className="ab-label waiting">방장이 다음으로 넘기기를 기다리는 중…</span>
+          <span className="ab-label waiting next-btn">방장이 다음으로 넘기기를 기다리는 중…</span>
         )}
       </div>
     );
