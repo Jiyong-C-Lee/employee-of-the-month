@@ -39,6 +39,12 @@ test('E2E: 방 생성 → SSE 구독 → 발언 → 판정 수신 (mock AI)', as
   const reader = sse.body!.getReader();
   // 접속 즉시 스냅샷이 먼저 온다.
   await readUntil(reader, (ev) => ev.kind === 'snapshot');
+  // 상황 확인 대기 — 방장이 proceed해야 참모 발언이 시작된다.
+  const { status: proceedStatus } = await api(`/rooms/${code}/proceed`, {
+    body: { playerId, token },
+    ip: 'e2e-single',
+  });
+  expect(proceedStatus).toBe(200);
   // 내 순번이 될 때까지 대기 → 발언 → verdict feed 대기.
   await readUntil(reader, (ev) => ev.kind === 'turn' && ev.turn?.current === playerId);
 

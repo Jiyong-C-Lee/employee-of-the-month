@@ -12,7 +12,6 @@ import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, type Deps } from '../ai
 import { logger } from '../log';
 import type { Candidate } from '../ai/prompts';
 
-const REVEAL_DELAY_SEC = 2.5;
 const JUDGING_PAUSE_MS = 900; // 마지막 발언 → 심판 돌입 사이 숨 고르기
 
 // 발언 공개 후 다음 순번까지의 텀 — 클라이언트 타이핑 연출(글자당 ~28ms)과 보조를 맞춘다.
@@ -159,7 +158,15 @@ export class Engine {
     logger.roundStarted({ roomCode: room.code, roundNo: room.roundNo, situation: situation.text });
     this.setPhase('SITUATION', { situation });
     // 라운드 자막(round.intro·round.question)은 만화 UI의 상황 카드(SituationCut)가 본문·질문을 이미 렌더하므로 중복 — 발행하지 않는다.
-    this.bus.delay(REVEAL_DELAY_SEC * 1000, () => this.beginSpeeches());
+    // 자동 진행하지 않는다 — 전원이 상황을 읽는 동안 대기하고, 방장의 proceed로 발언(AI 배치 요청)을 시작한다.
+  }
+
+  // 참모 회의 시작 (방장 전용) — 상황을 다 읽은 뒤 눌러야 AI 대사 생성이 시작된다.
+  proceed(byPlayerId: string): { ok: true } | { error: string } {
+    if (byPlayerId !== this.room.hostId) return { error: STRINGS.errors.notHostNext! };
+    if (this.room.state !== 'PLAYING' || this.room.phase !== 'SITUATION') return { error: STRINGS.errors.notNow! };
+    this.beginSpeeches();
+    return { ok: true };
   }
 
   // 조언자 발언 배치를 한 번의 콜로 생성. promise는 인스턴스에 보관(라운드 번호로 유효성 판정).
@@ -632,13 +639,12 @@ export class Engine {
     }
   }
 
-  // DO 재기동 시 SITUATION/AI 턴/JUDGING에 멈춘 진행을 재개. 각 재킥은 idempotent(phase 가드) 하다.
+  // DO 재기동 시 AI 턴/JUDGING에 멈춘 진행을 재개. 각 재킥은 idempotent(phase 가드) 하다.
+  // SITUATION은 재킥하지 않는다 — 방장의 proceed를 기다리는 대기 상태가 정상이다.
   resumeAfterRestore(): void {
     const room = this.room;
     if (room.state !== 'PLAYING' || !room.round) return;
-    if (room.phase === 'SITUATION') {
-      this.beginSpeeches();
-    } else if (room.phase === 'PLAYER_TURNS') {
+    if (room.phase === 'PLAYER_TURNS') {
       if (room.config.mode === 'multi' && !room.round.revealing) {
         // 멀티 입력 창 중 재기동 — inputWindow 알람은 DO storage에 살아 있으므로 대기만 하면 된다.
         // 다만 알람 발동 직전/유실 시에도 전원 제출 상태면 즉시 공개로 넘어간다.

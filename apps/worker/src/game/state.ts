@@ -111,7 +111,7 @@ export function createRoomState(
     difficulty: ['easy', 'normal', 'hard'].includes(config.difficulty as string) ? (config.difficulty as RoomConfig['difficulty']) : 'normal',
     maxPlayers: mode === 'single' ? 1 : Math.min(6, Math.max(2, Number(config.maxPlayers) || 4)),
     // 라운드 상한 — 허용값 외엔 기본 10. 상황 덱(20개)을 넘지 않는 선택지만 노출한다.
-    maxRounds: [5, 10, 15, 20].includes(Number(config.maxRounds)) ? Number(config.maxRounds) : 10,
+    maxRounds: [5, 10, 15].includes(Number(config.maxRounds)) ? Number(config.maxRounds) : 5,
   };
   // 상황 덱보다 많은 라운드는 불가 — 커스텀 팩(상황 10개)에서 20라운드를 고르는 경우 클램프.
   normalized.maxRounds = Math.min(normalized.maxRounds, persona.situations.length);

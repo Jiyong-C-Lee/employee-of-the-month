@@ -165,6 +165,7 @@ export interface GameActions {
   createRoom(nick: string, config: object, avatar?: string): Promise<unknown>;
   joinRoom(code: string, nick: string, avatar?: string): Promise<unknown>;
   start(): Promise<unknown>;
+  proceed(): Promise<unknown>;
   speak(text: string): Promise<unknown>;
   nextRound(): Promise<unknown>;
   rematch(): Promise<unknown>;
@@ -249,6 +250,9 @@ export function useGame(): { state: PublicState; actions: GameActions } {
     },
     start() {
       return withSession((s) => post(`/rooms/${s.code}/start`, { playerId: s.playerId, token: s.token }));
+    },
+    proceed() {
+      return withSession((s) => post(`/rooms/${s.code}/proceed`, { playerId: s.playerId, token: s.token }));
     },
     speak(text) {
       return withSession((s) => post(`/rooms/${s.code}/speak`, { playerId: s.playerId, token: s.token, text }));

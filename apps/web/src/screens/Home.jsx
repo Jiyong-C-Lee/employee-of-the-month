@@ -136,7 +136,7 @@ export default function Home({ state, actions }) {
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [aiCompete, setAiCompete] = useState(false);
   const [difficulty, setDifficulty] = useState('normal');
-  const [maxRounds, setMaxRounds] = useState(10);
+  const [maxRounds, setMaxRounds] = useState(5);
 
   // 인물 목록 로드
   useEffect(() => {
@@ -236,10 +236,9 @@ export default function Home({ state, actions }) {
     <label className="field">
       <span>라운드 수 (도달 시 최고 총애자가 '올해의 사원')</span>
       <select value={maxRounds} onChange={(e) => setMaxRounds(e.target.value)}>
-        <option value={5}>5라운드 (스피드)</option>
-        <option value={10}>10라운드 (기본)</option>
-        <option value={15}>15라운드</option>
-        <option value={20}>20라운드 (풀코스)</option>
+        <option value={5}>5라운드 (기본)</option>
+        <option value={10}>10라운드</option>
+        <option value={15}>15라운드 (풀코스)</option>
       </select>
     </label>
   );

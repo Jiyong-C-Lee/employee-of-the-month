@@ -17,6 +17,9 @@ test('생성→SSE 스냅샷→발언→판정 이벤트가 스트림에 흐른�
   const first = new TextDecoder().decode((await reader.read()).value);
   expect(first).toContain('"kind":"snapshot"');
 
+  // 상황 확인 대기 — 방장이 proceed해야 참모 발언이 시작된다.
+  expect((await post(s, '/proceed', { playerId, token })).status).toBe(200);
+
   // 내 순번이 될 때까지 이벤트 소비 → 발언 → verdict feed 수신 확인.
   await readUntil(reader, (ev) => ev.kind === 'turn' && ev.turn?.current === playerId);
   const spoke = await post(s, '/speak', { playerId, token, text: '제 생각은 이렇습니다.' });
@@ -43,6 +46,7 @@ test('스냅샷은 캐시가 아니라 room 상태에서 speakTurn을 재구성�
     code: 'TESTC1', nick: '나', config: { mode: 'single', personaId: 'caocao' },
   });
   const { playerId, token } = create.body as { playerId: string; token: string };
+  expect((await post(s, '/proceed', { playerId, token })).status).toBe(200);
 
   // 첫 접속으로 내 순번까지 진행시킨다.
   const res1 = await s.fetch(`http://do/events?playerId=${playerId}&token=${token}`);
@@ -71,6 +75,8 @@ test('멀티 입력 창: 일부만 제출해도 공용 마감 알람이 유지�
 
   const res = await s.fetch(`http://do/events?playerId=${hostId}&token=${hostTok}`);
   const reader = res.body!.getReader();
+  // 구독 후 방장이 회의를 시작해야 입력 창이 열린다 (구독 전에 열면 timer 이벤트를 놓친다).
+  expect((await post(s, '/proceed', { playerId: hostId, token: hostTok })).status).toBe(200);
   // 입력 창이 열리면 전원 공용 타이머(입력 마감)가 흐른다.
   await readUntil(reader, (ev) => ev.kind === 'timer' && ev.timer !== null);
   expect((await post(s, '/speak', { playerId: hostId, token: hostTok, text: '호스트 의견' })).status).toBe(200);

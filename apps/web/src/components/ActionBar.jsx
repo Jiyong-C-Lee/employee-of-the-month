@@ -6,9 +6,30 @@ export default function ActionBar({ state, actions, share }) {
   const { phase, room, playerId, speakTurn } = state;
   const isHost = room.hostId === playerId;
   const persona = room.persona;
+  // 회의 시작(proceed)은 AI 대사 생성을 트리거하므로 중복 클릭을 막는다.
+  const [proceeding, setProceeding] = useState(false);
 
   if (phase === 'SITUATION') {
-    return <div className="actionbar idle"><span className="ab-label">📜 상황을 읽어보세요…</span></div>;
+    // 상황을 읽는 동안 서버는 대기 — 방장이 눌러야 참모 발언(AI 생성)이 시작된다.
+    if (isHost) {
+      return (
+        <div className="actionbar result">
+          <span className="ab-label">📜 상황을 읽어보세요…</span>
+          <button
+            className="btn primary big next-btn" disabled={proceeding}
+            onClick={async () => {
+              setProceeding(true);
+              const r = await actions.proceed();
+              setProceeding(false);
+              if (r?.error) actions.toast(r.error);
+            }}
+          >
+            {proceeding ? '준비 중…' : '회의 시작 ▶'}
+          </button>
+        </div>
+      );
+    }
+    return <div className="actionbar idle"><span className="ab-label">📜 상황을 읽어보세요… (방장이 회의를 시작합니다)</span></div>;
   }
 
   if (phase === 'PLAYER_TURNS') {

@@ -154,6 +154,7 @@ export class RoomDO implements DurableObject {
 
     switch (path) {
       case '/start': return this.handleEngineAction(() => this.engine!.start(playerId));
+      case '/proceed': return this.handleEngineAction(() => this.engine!.proceed(playerId));
       case '/next': return this.handleEngineAction(() => this.engine!.nextRound(playerId));
       case '/rematch': return this.handleEngineAction(() => this.engine!.rematch(playerId));
       case '/debug':

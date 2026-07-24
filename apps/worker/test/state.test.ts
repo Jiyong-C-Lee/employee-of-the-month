@@ -90,6 +90,6 @@ test('customPersona로 방을 만들면 그 페르소나로 방이 선다', () =
 
 test('customPersona의 maxRounds는 상황 수를 넘지 않는다', () => {
   const custom = personaSchema.parse(CUSTOM_PERSONA);
-  const { room } = createRoomState('AB12', '호스트', { personaId: custom.id, mode: 'single', maxRounds: 20 }, undefined, custom);
+  const { room } = createRoomState('AB12', '호스트', { personaId: custom.id, mode: 'single', maxRounds: 15 }, undefined, custom);
   expect(room.config.maxRounds).toBe(custom.situations.length); // 10
 });

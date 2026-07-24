@@ -28,11 +28,50 @@ function findFeed(events: EngineEvent[], type: string) {
   );
 }
 
+test('상황 공개 후 대기: 방장이 proceed해야 발언(AI 배치 요청)이 시작된다', async () => {
+  const { room, playerId } = createRoomState('P1', '나', { mode: 'single', personaId: 'caocao' });
+  const { bus, events } = fakeBus();
+  const eng = new Engine(room, bus, deps);
+  expect(eng.start(playerId)).toEqual({ ok: true });
+
+  // 자동 진행 없음 — 상황을 읽는 동안 SITUATION에 멈춰 있고 발언 피드도 없다.
+  expect(room.phase).toBe('SITUATION');
+  await new Promise((r) => setTimeout(r, 50));
+  expect(room.phase).toBe('SITUATION');
+  expect(findFeed(events, 'speech').length).toBe(0);
+
+  // 방장만 진행할 수 있다.
+  expect(eng.proceed('stranger')).toEqual({ error: STRINGS.errors.notHostNext });
+  expect(eng.proceed(playerId)).toEqual({ ok: true });
+  await waitUntil(() => room.phase === 'PLAYER_TURNS');
+  // 이미 진행된 뒤의 중복 proceed는 거부된다.
+  expect(eng.proceed(playerId)).toEqual({ error: STRINGS.errors.notNow });
+});
+
+test('재기동 재개: SITUATION은 자동 진행하지 않고 방장 proceed를 기다린다', async () => {
+  const { room, playerId } = createRoomState('P2', '나', { mode: 'single', personaId: 'caocao' });
+  const b1 = fakeBus();
+  const eng1 = new Engine(room, b1.bus, deps);
+  expect(eng1.start(playerId)).toEqual({ ok: true });
+
+  // 재기동 시뮬레이션 — SITUATION에서 멈춘 방은 그대로 대기해야 한다.
+  const b2 = fakeBus();
+  const eng2 = new Engine(room, b2.bus, deps);
+  eng2.resumeAfterRestore();
+  await new Promise((r) => setTimeout(r, 50));
+  expect(room.phase).toBe('SITUATION');
+
+  // 재기동 후에도 방장 proceed로 정상 진행된다.
+  expect(eng2.proceed(playerId)).toEqual({ ok: true });
+  await waitUntil(() => room.phase === 'PLAYER_TURNS');
+});
+
 test('싱글 1라운드: 시작→조언자 발언→내 발언→판정→RESULT', async () => {
   const { room, playerId } = createRoomState('T1', '나', { mode: 'single', personaId: 'caocao' });
   const { bus, events } = fakeBus();
   const eng = new Engine(room, bus, deps);
   expect(eng.start(playerId)).toEqual({ ok: true });
+  expect(eng.proceed(playerId)).toEqual({ ok: true });
 
   // mock AI 배치는 비동기 — 조언자 발언·내 순번까지 진행을 기다린다.
   await waitUntil(
@@ -48,13 +87,14 @@ test('싱글 1라운드: 시작→조언자 발언→내 발언→판정→RESUL
   expect(room.round!.verdict).not.toBeNull();
 });
 
-test('라운드 상한: 10라운드가 지나면 올해의 사원 발표로 세션 종료', async () => {
+test('라운드 상한: 기본 5라운드가 지나면 올해의 사원 발표로 세션 종료', async () => {
   const { room, playerId } = createRoomState('T5', '나', { mode: 'single', personaId: 'caocao' });
+  expect(room.config.maxRounds).toBe(5); // 기본 라운드 수
   const { bus } = fakeBus();
   const eng = new Engine(room, bus, deps);
   expect(eng.start(playerId)).toEqual({ ok: true });
 
-  for (let r = 1; r <= 10; r++) {
+  for (let r = 1; r <= 5; r++) {
     expect(room.roundNo).toBe(r);
     await waitUntil(() => ['SITUATION', 'PLAYER_TURNS', 'JUDGING'].includes(room.phase ?? ''));
     expect(eng.debug(playerId, 'noAdopt')).toEqual({ ok: true });
@@ -87,6 +127,7 @@ test('멀티: 동시 입력 — 제출 수집·중복 거부, 전원 제출 시 
   const { bus, events, scheduled } = fakeBus();
   const eng = new Engine(room, bus, deps);
   expect(eng.start(hostId)).toEqual({ ok: true });
+  expect(eng.proceed(hostId)).toEqual({ ok: true });
   await waitUntil(() => room.phase === 'PLAYER_TURNS');
 
   // 라운드당 하나의 공용 마감 알람이 예약된다.
@@ -112,6 +153,7 @@ test('멀티: 입력 마감 알람 — 미제출자 기권 처리 후 제출분�
   const { bus, events } = fakeBus();
   const eng = new Engine(room, bus, deps);
   expect(eng.start(hostId)).toEqual({ ok: true });
+  expect(eng.proceed(hostId)).toEqual({ ok: true });
   await waitUntil(() => room.phase === 'PLAYER_TURNS');
 
   expect(eng.handleSpeak(hostId, '호스트 의견')).toBeUndefined();
@@ -132,6 +174,7 @@ test('재기동 재개(멀티): 입력 창 유지, 이후 제출·공개가 정�
   const b1 = fakeBus();
   const eng1 = new Engine(room, b1.bus, deps);
   expect(eng1.start(hostId)).toEqual({ ok: true });
+  expect(eng1.proceed(hostId)).toEqual({ ok: true });
   await waitUntil(() => room.phase === 'PLAYER_TURNS');
   expect(eng1.handleSpeak(hostId, '호스트 의견')).toBeUndefined();
 
@@ -155,6 +198,7 @@ test('재기동 재개: 발언 종료 후 심판 대기 창에서 beginJudging �
   const b1 = fakeBus();
   const eng1 = new Engine(room, b1.bus, deps);
   expect(eng1.start(playerId)).toEqual({ ok: true });
+  expect(eng1.proceed(playerId)).toEqual({ ok: true });
   await waitUntil(
     () => room.phase === 'PLAYER_TURNS' && room.round!.queue[room.round!.turnIdx]?.kind === 'user',
   );
@@ -207,5 +251,7 @@ test('한 판 더: 싱글은 로비 없이 즉시 재시작', async () => {
   expect(eng.rematch(playerId)).toEqual({ ok: true });
   expect(room.state).toBe('PLAYING');
   expect(room.roundNo).toBe(1);
+  expect(room.phase).toBe('SITUATION'); // 재시작도 상황 확인 대기부터
+  expect(eng.proceed(playerId)).toEqual({ ok: true });
   await waitUntil(() => room.phase === 'PLAYER_TURNS');
 });
