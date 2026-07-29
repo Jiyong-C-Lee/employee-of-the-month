@@ -1,5 +1,7 @@
 {
   "name": "employee-of-the-month",
+  "routes": [{ "pattern": "eotm.narre.io", "custom_domain": true }],
+  "workers_dev": true,
   "main": "src/index.ts",
   "compatibility_date": "2026-07-01",
   "compatibility_flags": ["nodejs_compat"],
