@@ -26,5 +26,33 @@
     "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
     "LLM_DAILY_LIMIT_GEMINI": "1000",
     "LLM_DAILY_LIMIT_NVIDIA": "5000"
+  },
+  // dev 환경: 별도 워커(employee-of-the-month-dev, workers.dev 전용)·별도 DO/KV 저장소.
+  // LLM 시크릿은 필요 시 `wrangler secret put <이름> --env dev`로 — 없으면 mock 폴백.
+  "env": {
+    "dev": {
+      "workers_dev": true,
+      "routes": [],
+      "assets": {
+        "directory": "../web/dist",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application"
+      },
+      "kv_namespaces": [
+        { "binding": "SHARE_KV", "id": "ba1428c26c654a2e844f114942227924" }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "ROOM_DO", "class_name": "RoomDO" },
+          { "name": "QUOTA_DO", "class_name": "QuotaDO" }
+        ]
+      },
+      "vars": {
+        "GEMINI_MODEL": "gemini-flash-lite-latest",
+        "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
+        "LLM_DAILY_LIMIT_GEMINI": "1000",
+        "LLM_DAILY_LIMIT_NVIDIA": "5000"
+      }
+    }
   }
 }
