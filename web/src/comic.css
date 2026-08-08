@@ -164,8 +164,10 @@
 }
 
 /* 채택 도장이 내려앉는 순간 그리드가 한 번 흔들린다. */
-/* 흔들림은 채택 도장이 앉는 순간에 맞춘다 — stampDelays의 채택 지연(lead + n·step + gap)과 짝. */
-.speak-grid.judged { animation: judgeShake .5s ease-out 2.7s both; }
+/* 지연은 SpeakGrid가 채택 도장의 실제 지연에서 계산해 --shake-delay로 넘긴다.
+   여기에 초를 박으면 발언자 수가 바뀌는 순간 도장보다 먼저 흔들린다. 채택이 없으면(전원 반려)
+   judged 자체가 안 붙어서 흔들림도 없다. */
+.speak-grid.judged { animation: judgeShake .5s ease-out var(--shake-delay) both; }
 @keyframes judgeShake {
   0%, 100% { transform: translate(0, 0); }
   20% { transform: translate(-5px, 3px); }

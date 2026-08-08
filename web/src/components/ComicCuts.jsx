@@ -158,6 +158,8 @@ const STAMP_LEAD = 0.4;
 // 채택 도장은 반려가 다 찍힌 뒤에 내려온다. 그만큼 뒤로 미는 간격.
 const STAMP_ADOPT_GAP = 0.6;
 const STAMP_DURATION = 0.9; // comic.css stampIn과 같은 값
+// stampIn이 60% 지점에서 축소를 멈추고 도장이 종이에 닿는다. 화면은 그때 흔들려야 한다.
+const STAMP_IMPACT = STAMP_DURATION * 0.6;
 
 function stampDelays(queue, adoptedKey) {
   const delays = {};
@@ -189,9 +191,15 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
   const showTimer = timer && timer.phase === 'PLAYER_TURNS' && timer.total > 0;
   const adoptedKey = verdict?.adoptedKey ?? null;
   const delays = verdict ? stampDelays(queue, adoptedKey) : null;
+  // 흔들림은 채택 도장이 닿는 순간에 맞춘다. CSS에 초를 박아두면 발언자 수가 바뀌는 순간
+  // 어긋난다 — 실제로 흔들린 뒤에 도장이 내려오고 있었다. 계산값을 그대로 넘긴다.
+  const shakeDelay = delays && adoptedKey ? (delays[adoptedKey] + STAMP_IMPACT).toFixed(2) : null;
 
   return (
-    <div className={`speak-grid ${verdict ? 'judged' : ''}`}>
+    <div
+      className={`speak-grid ${shakeDelay != null ? 'judged' : ''}`}
+      style={shakeDelay != null ? { '--shake-delay': `${shakeDelay}s` } : undefined}
+    >
       {queue.map((entry, i) => {
         const spoken = speechByKey[entry.key];
         const speaking = speakTurn?.current === entry.key && !spoken;
