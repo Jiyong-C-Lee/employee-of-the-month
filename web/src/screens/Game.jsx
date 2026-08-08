@@ -13,10 +13,10 @@ import {
 import '../comic.css';
 
 // 결과 단계 공개 시각(ms) — 도장이 다 찍힌 시점 기준 누적.
-//   1 액자·창밖 · 2 채점표 · 3 보스 총평 · 4 그 후 이야기
-// 간격이 균등하면 액자가 뜨자마자 채점표가 덮어서 수상 연출을 볼 틈이 없다.
-// 1→2만 길게 잡아 액자와 창밖 컷을 보는 시간을 준다.
-const REVEAL_AT_MS = [0, 2600, 3500, 4400];
+//   1 액자 · 2 창밖 · 3 채점표 · 4 보스 총평 · 5 그 후 이야기
+// 액자와 창밖을 한 단계에 묶으면 둘이 동시에 툭 나타나서 수상도 추락도 눈에 안 들어온다.
+// 액자 연출(약 1.7초)이 끝난 뒤 창밖이 이어지도록 나눈다.
+const REVEAL_AT_MS = [0, 1900, 3700, 4600, 5500];
 
 export default function Game({ state, actions }) {
   const { room, phase, timer, playerId, feed, ended, speakTurn } = state;
@@ -135,18 +135,22 @@ export default function Game({ state, actions }) {
     resultBlock = (
       <>
         <div className="comic-sec result-anchor"><b>{UI.game.sec.result}</b><i /></div>
-        <div className={`judge-row ${hold(1)} ${showWindow ? '' : 'solo'}`}>
-          <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} players={room.players} />
-          {showWindow && <WindowCut last={last} pose={poseMap[last.key]} persona={persona} players={room.players} />}
+        {/* 액자가 먼저 서고, 창밖은 그 뒤에 이어진다. 두 칸은 처음부터 자리를 잡고 있어서
+            창밖이 열려도 액자가 밀리지 않는다. */}
+        <div className={`judge-row ${showWindow ? '' : 'solo'}`}>
+          <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} players={room.players} className={hold(1)} />
+          {showWindow && (
+            <WindowCut last={last} pose={poseMap[last.key]} persona={persona} players={room.players} className={hold(2)} />
+          )}
         </div>
         {rows.length > 0 && (
-          <div className={hold(2)}><ScoreCut verdict={verdict} rows={rows} axes={axes} /></div>
+          <div className={hold(3)}><ScoreCut verdict={verdict} rows={rows} axes={axes} /></div>
         )}
         {verdict.adoptReason && (
-          <div className={hold(3)}><BossCommentCut persona={persona} reason={verdict.adoptReason} /></div>
+          <div className={hold(4)}><BossCommentCut persona={persona} reason={verdict.adoptReason} /></div>
         )}
         {verdictItem.standings?.length > 1 && (
-          <div className={`standing-strip ${hold(3)}`}>
+          <div className={`standing-strip ${hold(4)}`}>
             {verdictItem.standings.map((s, i) => (
               <span key={s.id} className="ss-item">
                 {fmt(UI.game.standing, { no: i + 1, nick: s.nick })}
@@ -220,7 +224,7 @@ export default function Game({ state, actions }) {
         {/* 에필로그는 판정과 별개 이벤트라 늦게 도착한다. 결과 머리글 기준으로 스크롤을 잡아둔
             덕에, 뒤늦게 붙어도 이미 보고 있는 위치가 밀리지 않는다. */}
         {epilogueItem && (
-          <div className={`comic-caption ep ${resulted ? `reveal-hold ${reveal >= 4 ? 'is-in' : ''}` : 'reveal'}`}>
+          <div className={`comic-caption ep ${resulted ? `reveal-hold ${reveal >= 5 ? 'is-in' : ''}` : 'reveal'}`}>
             <div className="cap-head">{UI.game.epilogueTitle}</div>
             <div>{epilogueItem.story}</div>
             <div className="cap-note">{UI.game.epilogueNote}</div>

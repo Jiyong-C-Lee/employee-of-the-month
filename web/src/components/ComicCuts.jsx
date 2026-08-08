@@ -296,10 +296,11 @@ export function AwardFrame({ title, entry, pose = USER_POSE, avatar, plate }) {
 }
 
 // ── ④-a 수상 컷 (이달의 우수사원 액자) ──
-export function AwardCut({ adopted, poseMap, players }) {
+// className: 결과 화면이 컷마다 다른 시점에 열려고 넘긴다(reveal-hold).
+export function AwardCut({ adopted, poseMap, players, className = '' }) {
   const avatarByKey = avatarByKeyFromPlayers(players);
   return (
-    <div className="cut award-cut">
+    <div className={`cut award-cut ${className}`}>
       {adopted ? (
         <AwardFrame
           title={UI.game.awardTitle}
@@ -316,14 +317,14 @@ export function AwardCut({ adopted, poseMap, players }) {
 }
 
 // ── ④-b 창밖 투척 컷 (최하위) ──
-export function WindowCut({ last, pose, persona, players }) {
+export function WindowCut({ last, pose, persona, players, className = '' }) {
   // 날아가는 몸체에도 발언 컷과 같은 얼굴 합성 — 누가 던져졌는지 보이게 한다.
   const kind = String(last.key || '').startsWith('ai:') ? 'ai' : 'user';
   const emoji = kind === 'ai' ? persona?.advisors?.find((a) => a.name === last.name)?.emoji : undefined;
   const avatar = kind === 'user' ? avatarByKeyFromPlayers(players)[last.key] : undefined;
   const flyPose = pose ?? SEAT_POSES[0];
   return (
-    <div className="cut window-cut">
+    <div className={`cut window-cut ${className}`}>
       <div className="wh-speed" />
       <div className="wh-window">
         <div className="w-glass" /><div className="w-mull-v" /><div className="w-mull-h" />

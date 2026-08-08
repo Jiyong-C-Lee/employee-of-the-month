@@ -181,6 +181,7 @@
 .reveal, .cut.reveal { animation: revealUp .4s ease-out both; }
 .reveal-hold { opacity: 0; }
 .reveal-hold.is-in { animation: revealUp .4s ease-out both; }
+
 @keyframes revealUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -445,3 +446,18 @@
      정작 사람이 보는 대부분의 프레임에서 인물이 창 왼쪽 허공에 떠 있다. */
   .wh-flyer { left: auto; top: auto; right: 32px; bottom: 88px; width: 104px; }
 }
+
+/* ══════════ 공개 대기 중 연출 정지 ══════════
+   결과 컷은 자리를 미리 잡으려고 판정 즉시 마운트한다. 그대로 두면 액자 연출(약 1.7초)이
+   투명한 채로 다 돌아버리고, 정작 보일 때는 끝나 있다. 숨어 있는 동안 멈춰 뒀다가
+   is-in이 붙는 순간 0초부터 재생한다.
+
+   !important를 쓴다. 개별 컷의 animation 선언과 특이도가 같아서(둘 다 클래스 2개) 순서
+   싸움이 되는데, 이건 "안 보이면 안 움직인다"는 전역 규칙이라 항상 이겨야 한다.
+   파일 끝에 두는 것만으로는 부족했다 — 장식용 가상요소가 컷마다 흩어져 있다. */
+.reveal-hold:not(.is-in),
+.reveal-hold:not(.is-in)::before,
+.reveal-hold:not(.is-in)::after,
+.reveal-hold:not(.is-in) *,
+.reveal-hold:not(.is-in) *::before,
+.reveal-hold:not(.is-in) *::after { animation-play-state: paused !important; }
