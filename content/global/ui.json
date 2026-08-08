@@ -27,7 +27,7 @@
     "faceDefault": "기본",
     "menu": {
       "single": { "no": "1", "title": "혼자 출근하기", "desc": "AI 참모 3인과 채택 경쟁" },
-      "create": { "no": "2", "title": "방 만들기", "desc": "코드를 뽑아 동료를 부른다" },
+      "create": { "no": "2", "title": "방 만들기", "desc": "동료들과 채택 경쟁" },
       "join": { "no": "3", "title": "방 코드로 참가", "desc": "받은 4자리 코드 입력" }
     },
     "joinTitle": "방 코드로 참가",
