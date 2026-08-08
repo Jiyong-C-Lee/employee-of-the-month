@@ -1,3 +1,4 @@
+import { UI, fmt } from '@content/ui';
 import MenuPanel from '../components/MenuPanel.jsx';
 
 export default function Lobby({ state, actions }) {
@@ -7,6 +8,7 @@ export default function Lobby({ state, actions }) {
   // 멀티는 2명 이상이면 시작 가능(정원까지 안 채워도 됨)
   const ready = room.players.length >= 2;
   const shareUrl = `${location.origin}?code=${room.code}`;
+  const T = UI.lobby;
 
   async function start() {
     const res = await actions.start();
@@ -14,57 +16,61 @@ export default function Lobby({ state, actions }) {
   }
 
   function copyCode() {
-    navigator.clipboard?.writeText(room.code).then(() => actions.toast('방 코드 복사됨!'));
+    navigator.clipboard?.writeText(room.code).then(() => actions.toast(T.codeCopied));
   }
   function copyLink() {
-    navigator.clipboard?.writeText(shareUrl).then(() => actions.toast('초대 링크 복사됨!'));
+    navigator.clipboard?.writeText(shareUrl).then(() => actions.toast(T.linkCopied));
   }
+
+  const speakLabel = room.config.speakTime > 0
+    ? fmt(T.speakMin, { min: Math.round(room.config.speakTime / 60) })
+    : T.speakNone;
 
   return (
     <div className="lobby">
       <div className="lobby-card">
         <div className="lobby-head">
-          <h2>대기실</h2>
+          <h2>{T.title}</h2>
           <MenuPanel code={room.code} onLeave={actions.leave} />
         </div>
         <div className="code-box">
           <div>
-            <div className="code-label">방 코드</div>
-            <div className="code-value" onClick={copyCode} title="클릭하여 복사">{room.code}</div>
+            <div className="code-label">{T.codeLabel}</div>
+            <div className="code-value" onClick={copyCode} title={T.codeCopyHint}>{room.code}</div>
           </div>
-          <button className="btn" onClick={copyLink}>초대 링크 복사</button>
+          <button className="btn" onClick={copyLink}>{T.copyLink}</button>
         </div>
 
         <div className="config-summary">
-          <span>보스 {room.persona.emoji} {room.persona.name}</span>
-          <span>발언 {room.config.speakTime > 0 ? `${Math.round(room.config.speakTime / 60)}분` : '제한 없음'}</span>
-          <span>정원 {room.config.maxPlayers}명</span>
-          <span>라운드 {room.config.maxRounds ?? 10}</span>
-          <span>AI 참전 {room.config.aiCompete ? 'ON' : 'OFF'}</span>
-          <span>난이도 {{ easy: '순한맛', normal: '보통', hard: '매운맛' }[room.config.difficulty] || '보통'}</span>
+          <span>{fmt(T.boss, { emoji: room.persona.emoji, name: room.persona.name })}</span>
+          <span>{fmt(T.speak, { value: speakLabel })}</span>
+          <span>{fmt(T.capacity, { n: room.config.maxPlayers })}</span>
+          <span>{fmt(T.rounds, { n: room.config.maxRounds ?? 10 })}</span>
+          <span>{fmt(T.aiCompete, { onOff: room.config.aiCompete ? T.on : T.off })}</span>
+          <span>{fmt(T.difficulty, { label: T.diff[room.config.difficulty] || T.diff.normal })}</span>
         </div>
 
         <div className="lobby-players">
-          <div className="lp-head">참가자 {room.players.length} / {need}</div>
+          <div className="lp-head">{fmt(T.players, { now: room.players.length, need })}</div>
           {room.players.map((p) => (
             <div key={p.id} className="lp-row">
               <span className="dot" data-on={p.connected} />
               <span className="lp-nick">{p.nick} <em>{p.rank}</em></span>
-              {p.id === room.hostId && <span className="badge host">방장</span>}
-              {p.id === playerId && <span className="badge me">나</span>}
+              {p.id === room.hostId && <span className="badge host">{T.host}</span>}
+              {p.id === playerId && <span className="badge me">{T.me}</span>}
             </div>
           ))}
           {Array.from({ length: Math.max(0, need - room.players.length) }).map((_, i) => (
-            <div key={`empty-${i}`} className="lp-row empty">빈 자리…</div>
+            <div key={`empty-${i}`} className="lp-row empty">{T.emptySeat}</div>
           ))}
         </div>
 
         {isHost ? (
           <button className="btn primary big" disabled={!ready} onClick={start}>
-            {ready ? '게임 시작' : '2명 이상 모이면 시작 가능'}
+            {ready ? T.start : T.needTwo}
           </button>
         ) : (
-          <div className="waiting-note">방장이 시작하기를 기다리는 중…</div>
+          <div className="waiting-note">{T.waitHost}</div>
         )}
       </div>
     </div>

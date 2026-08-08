@@ -2,6 +2,7 @@
 // 그대로 유지해 화면 이식(다음 태스크) 시 diff를 최소화한다. 전송 방식만 socket.io → SSE + REST로 교체.
 import { useEffect, useMemo, useRef, useState, useReducer } from 'react';
 import type { EndedPayload, FeedItem, Phase, PublicRoom, ServerEvent, SpeakTurn, TimerInfo } from '@shared';
+import { UI } from '@content/ui';
 import { post } from './api/actions';
 import { subscribe } from './api/sse';
 
@@ -217,7 +218,7 @@ export function useGame(): { state: PublicState; actions: GameActions } {
     run: (session: Session) => Promise<unknown>,
   ): Promise<unknown> => {
     const session = sessionRef.current;
-    if (!session) return { error: '세션이 없습니다.' };
+    if (!session) return { error: UI.errors.noSession };
     const res = await run(session);
     if (res && typeof res === 'object' && 'error' in res) showToast((res as { error: string }).error);
     return res;

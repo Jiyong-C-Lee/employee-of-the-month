@@ -8,10 +8,12 @@ export default defineConfig({
     name: 'node',
     include: ['content/test/**/*.test.ts', 'web/test/**/*.test.ts'],
   },
+  // vite.config.ts와 같은 순서 규칙 — 접두 별칭이 정확 일치보다 먼저 와야 '@content/ui'가 잡힌다.
   resolve: {
-    alias: {
-      '@shared': fileURLToPath(new URL('./shared/index.ts', import.meta.url)),
-      '@content': fileURLToPath(new URL('./content/index.ts', import.meta.url)),
-    },
+    alias: [
+      { find: '@shared', replacement: fileURLToPath(new URL('./shared/index.ts', import.meta.url)) },
+      { find: /^@content\//, replacement: fileURLToPath(new URL('./content/', import.meta.url)) },
+      { find: '@content', replacement: fileURLToPath(new URL('./content/index.ts', import.meta.url)) },
+    ],
   },
 });

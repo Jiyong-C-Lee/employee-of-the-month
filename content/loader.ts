@@ -33,8 +33,5 @@ export function listPersonas() {
   }));
 }
 
-// {token} 치환. 배열 템플릿은 줄바꿈으로 합친다. 모르는 토큰은 그대로 둔다. (원본 content.js의 fmt)
-export function fmt(template: string | string[] | undefined, vars: Record<string, unknown> = {}): string {
-  const s = Array.isArray(template) ? template.join('\n') : String(template ?? '');
-  return s.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m));
-}
+// fmt는 fmt.ts에 산다 — 웹이 packs를 물지 않고 쓸 수 있어야 한다. 여기서는 재수출만.
+export { fmt } from './fmt';

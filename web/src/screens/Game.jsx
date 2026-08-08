@@ -1,6 +1,7 @@
 // 이달의 사원 — 회의실 만화 페이지 UI.
 // 한 라운드 = 스크롤되는 만화 한 페이지: 상황 → 발언 컷 → 심판(분노 게이지) → 결과(액자·창밖) → 채점표 → 총평.
 import { useEffect, useRef, useState } from 'react';
+import { UI, fmt } from '@content/ui';
 import ActionBar from '../components/ActionBar.jsx';
 import MenuPanel from '../components/MenuPanel.jsx';
 import { createShareLink } from '../share.js';
@@ -54,9 +55,9 @@ export default function Game({ state, actions }) {
         epilogue: epilogueItem?.story,
         players: room.players,
       };
-      const r = await createShareLink(payload, `${persona.name}의 회의실 R.${verdictItem.roundNo} — 이달의 사원`);
-      if (r === 'copied') actions.toast('공유 링크를 복사했습니다!');
-      else if (r === 'error') actions.toast('공유 링크 생성에 실패했습니다.');
+      const r = await createShareLink(payload, fmt(UI.game.shareRoundTitle, { name: persona.name, roundNo: verdictItem.roundNo }));
+      if (r === 'copied') actions.toast(UI.game.shareCopied);
+      else if (r === 'error') actions.toast(UI.game.shareFail);
     } finally {
       setSharing(false);
     }
@@ -79,9 +80,9 @@ export default function Game({ state, actions }) {
         hall: ended.hall,
         reason: ended.reason,
       };
-      const r = await createShareLink(payload, `${persona.name}의 회사에서 살아남기 — 이달의 사원`);
-      if (r === 'copied') actions.toast('공유 링크를 복사했습니다!');
-      else if (r === 'error') actions.toast('공유 링크 생성에 실패했습니다.');
+      const r = await createShareLink(payload, fmt(UI.game.shareEndTitle, { name: persona.name }));
+      if (r === 'copied') actions.toast(UI.game.shareCopied);
+      else if (r === 'error') actions.toast(UI.game.shareFail);
     } finally {
       setSharingEnd(false);
     }
@@ -96,7 +97,7 @@ export default function Game({ state, actions }) {
     const showWindow = last && last.key !== verdict.adoptedKey;
     resultBlock = (
       <>
-        <div className="comic-sec"><b>③ 결과</b><i /></div>
+        <div className="comic-sec"><b>{UI.game.sec.result}</b><i /></div>
         <GaugeStrip persona={persona} done />
         <div className={`judge-row ${showWindow ? '' : 'solo'}`}>
           <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} players={room.players} />
@@ -107,7 +108,10 @@ export default function Game({ state, actions }) {
         {verdictItem.standings?.length > 1 && (
           <div className="standing-strip">
             {verdictItem.standings.map((s, i) => (
-              <span key={s.id} className="ss-item">#{i + 1} {s.nick} <em>{s.rank} · 🏆×{s.favor}</em></span>
+              <span key={s.id} className="ss-item">
+                {fmt(UI.game.standing, { no: i + 1, nick: s.nick })}
+                {' '}<em>{fmt(UI.game.standingSub, { rank: s.rank, favor: s.favor })}</em>
+              </span>
             ))}
           </div>
         )}
@@ -127,9 +131,9 @@ export default function Game({ state, actions }) {
   return (
     <div className="comic-app">
       <header className="comic-appbar">
-        <div className="ca-title">이달의 사원</div>
+        <div className="ca-title">{UI.game.title}</div>
         {room.roundNo > 0 && <span className="ca-round">R.{room.roundNo}</span>}
-        <span className="ca-phase">{ended ? PHASE_LABEL.END : PHASE_LABEL[phase] || '대기'}</span>
+        <span className="ca-phase">{ended ? PHASE_LABEL.END : PHASE_LABEL[phase] || PHASE_LABEL.idle}</span>
         {showTimer && <span className={`ca-timer ${timer.remaining <= 10 ? 'low' : ''}`}>⏱ {fmtSec(timer.remaining)}</span>}
         <MenuPanel code={room.code} onLeave={actions.leave} />
       </header>
@@ -139,14 +143,14 @@ export default function Game({ state, actions }) {
 
         {situation && (
           <>
-            <div className="comic-sec"><b>① 문제 상황</b><i /></div>
+            <div className="comic-sec"><b>{UI.game.sec.situation}</b><i /></div>
             <SituationCut persona={persona} situation={situation} />
           </>
         )}
 
         {queue.length > 0 && (
           <>
-            <div className="comic-sec"><b>② 발언 {phase === 'PLAYER_TURNS' ? '진행 중' : ''}</b><i /></div>
+            <div className="comic-sec"><b>{phase === 'PLAYER_TURNS' ? UI.game.sec.speakLive : UI.game.sec.speakDone}</b><i /></div>
             <SpeakGrid
               queue={queue}
               speeches={speeches}
@@ -162,7 +166,7 @@ export default function Game({ state, actions }) {
 
         {judging && (
           <>
-            <div className="comic-sec"><b>③ 심판</b><i /></div>
+            <div className="comic-sec"><b>{UI.game.sec.judge}</b><i /></div>
             <GaugeStrip persona={persona} />
           </>
         )}
@@ -171,9 +175,9 @@ export default function Game({ state, actions }) {
 
         {epilogueItem && (
           <div className="comic-caption ep">
-            <div className="cap-head">📖 그 후 이야기</div>
+            <div className="cap-head">{UI.game.epilogueTitle}</div>
             <div>{epilogueItem.story}</div>
-            <div className="cap-note">※ 에필로그는 연출일 뿐, 점수와 무관합니다</div>
+            <div className="cap-note">{UI.game.epilogueNote}</div>
           </div>
         )}
 
@@ -187,7 +191,7 @@ export default function Game({ state, actions }) {
       {ended && (
         <div className="actionbar result">
           <button className="btn share-btn" disabled={sharingEnd} onClick={onShareEnded}>
-            {sharingEnd ? '링크 만드는 중…' : '🔗 최종 결과 공유'}
+            {sharingEnd ? UI.game.sharing : UI.game.shareEnd}
           </button>
           {room.hostId === playerId ? (
             <>
@@ -200,12 +204,12 @@ export default function Game({ state, actions }) {
                   if (r?.error) actions.toast(r.error);
                 }}
               >
-                {rematching ? '준비 중…' : '🔄 한 판 더'}
+                {rematching ? UI.game.rematching : UI.game.rematch}
               </button>
-              <a className="btn big" href="/">🏠 메인으로</a>
+              <a className="btn big" href="/">{UI.game.toMain}</a>
             </>
           ) : (
-            <a className="btn primary big next-btn" href="/">🏠 메인으로</a>
+            <a className="btn primary big next-btn" href="/">{UI.game.toMain}</a>
           )}
         </div>
       )}
@@ -240,11 +244,11 @@ function DebugPanel({ actions }) {
   return (
     <div className="debug-panel">
       <b>DEBUG</b>
-      <button disabled={running} onClick={() => run('adoptMe')}>이번 R 나 채택</button>
-      <button disabled={running} onClick={() => run('noAdopt')}>채택 없음 처리</button>
-      <button disabled={running} onClick={() => run('next')}>다음 라운드 ▶</button>
-      <button disabled={running} onClick={() => skipToEnd(true)}>⏭ 사장 엔딩까지</button>
-      <button disabled={running} onClick={() => skipToEnd(false)}>⏭ 10R 상한 엔딩까지</button>
+      <button disabled={running} onClick={() => run('adoptMe')}>{UI.debug.adoptMe}</button>
+      <button disabled={running} onClick={() => run('noAdopt')}>{UI.debug.noAdopt}</button>
+      <button disabled={running} onClick={() => run('next')}>{UI.debug.next}</button>
+      <button disabled={running} onClick={() => skipToEnd(true)}>{UI.debug.toBossEnd}</button>
+      <button disabled={running} onClick={() => skipToEnd(false)}>{UI.debug.toCapEnd}</button>
     </div>
   );
 }
@@ -256,15 +260,15 @@ function ComicEnded({ ended, poseMap, players }) {
   const showMvp = mvp && mvp.favor > 0;
   return (
     <div className="cut comic-ended">
-      <div className="ce-title">🏁 세션 종료</div>
+      <div className="ce-title">{UI.game.endTitle}</div>
       {showMvp && (
         <div className="mvp-award">
           <AwardFrame
-            title="올해의 사원"
+            title={UI.game.mvpTitle}
             pose={poseMap?.[mvp.id]}
             entry={{ kind: 'user', name: mvp.nick }}
             avatar={(players || []).find((p) => p.id === mvp.id)?.avatar}
-            plate={`${mvp.nick} · ${mvp.rank} · 채택 ${mvp.favor}회`}
+            plate={fmt(UI.game.mvpPlate, { nick: mvp.nick, rank: mvp.rank, favor: mvp.favor })}
           />
         </div>
       )}
@@ -272,7 +276,10 @@ function ComicEnded({ ended, poseMap, players }) {
       <HallOfFame hall={ended.hall} />
       <div className="standing-strip" style={{ justifyContent: 'center' }}>
         {ended.standings.map((s, i) => (
-          <span key={s.id} className="ss-item">#{i + 1} {s.nick} <em>{s.rank} · 🏆×{s.favor}</em></span>
+          <span key={s.id} className="ss-item">
+            {fmt(UI.game.standing, { no: i + 1, nick: s.nick })}
+            {' '}<em>{fmt(UI.game.standingSub, { rank: s.rank, favor: s.favor })}</em>
+          </span>
         ))}
       </div>
     </div>

@@ -2,11 +2,27 @@
 // 게임 화면(Game.jsx)의 결과 페이지와 같은 컷 컴포넌트로 그대로 그리되,
 // 하단 내비는 '다음' 대신 '게임 참여하기' CTA다.
 import { useEffect, useState } from 'react';
+import { UI, fmt } from '@content/ui';
 import {
   BossCard, SituationCut, SpeakGrid, GaugeStrip, AwardCut, AwardFrame, WindowCut, ScoreCut, BossCommentCut, buildPoseMap,
 } from '../components/ComicCuts.jsx';
 import { HallOfFame } from '../components/EmployeeFrame.jsx';
 import '../comic.css';
+
+// 순위 스트립 — 라운드 뷰·세션 뷰가 같은 마크업을 쓴다.
+function StandingStrip({ standings, center }) {
+  if (!standings || standings.length < 2) return null;
+  return (
+    <div className="standing-strip" style={center ? { justifyContent: 'center' } : undefined}>
+      {standings.map((s, i) => (
+        <span key={s.id} className="ss-item">
+          {fmt(UI.game.standing, { no: i + 1, nick: s.nick })}
+          {' '}<em>{fmt(UI.game.standingSub, { rank: s.rank, favor: s.favor })}</em>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export default function SharedRound() {
   const [data, setData] = useState(null);
@@ -20,15 +36,15 @@ export default function SharedRound() {
         if (j.error) setErr(j.error);
         else setData(j);
       })
-      .catch(() => setErr('서버에 연결할 수 없습니다.'));
+      .catch(() => setErr(UI.errors.connectFail));
   }, []);
 
   if (err || !data) {
     return (
       <div className="comic-app">
         <div className="share-missing">
-          <p>{err ? `😥 ${err}` : '불러오는 중…'}</p>
-          {err && <a className="btn primary big" href="/">🎮 게임 하러 가기</a>}
+          <p>{err ? `😥 ${err}` : UI.shared.loading}</p>
+          {err && <a className="btn primary big" href="/">{UI.shared.goPlay}</a>}
         </div>
       </div>
     );
@@ -44,36 +60,32 @@ export default function SharedRound() {
     return (
       <div className="comic-app">
         <header className="comic-appbar">
-          <div className="ca-title">이달의 사원</div>
+          <div className="ca-title">{UI.game.title}</div>
           <span className="ca-round">R.{roundNo}</span>
-          <span className="ca-phase">최종 결과</span>
+          <span className="ca-phase">{UI.shared.finalResult}</span>
         </header>
         <div className="comic-page">
           <BossCard persona={persona} roundNo={roundNo} phase="END" />
           <div className="cut comic-ended">
-            <div className="ce-title">🏁 세션 종료</div>
+            <div className="ce-title">{UI.game.endTitle}</div>
             {showMvp && (
               <div className="mvp-award">
                 <AwardFrame
-                  title="올해의 사원"
+                  title={UI.game.mvpTitle}
                   pose={poseMap?.[mvp.id]}
                   entry={{ kind: 'user', name: mvp.nick }}
                   avatar={(players || []).find((p) => p.id === mvp.id)?.avatar}
-                  plate={`${mvp.nick} · ${mvp.rank} · 채택 ${mvp.favor}회`}
+                  plate={fmt(UI.game.mvpPlate, { nick: mvp.nick, rank: mvp.rank, favor: mvp.favor })}
                 />
               </div>
             )}
             <div className="comic-caption" style={{ alignSelf: 'stretch' }}>{data.reason}</div>
             <HallOfFame hall={data.hall} />
-            <div className="standing-strip" style={{ justifyContent: 'center' }}>
-              {(standings || []).map((s, i) => (
-                <span key={s.id} className="ss-item">#{i + 1} {s.nick} <em>{s.rank} · 🏆×{s.favor}</em></span>
-              ))}
-            </div>
+            <StandingStrip standings={standings} center />
           </div>
         </div>
         <div className="actionbar share-cta">
-          <a className="btn primary big" href="/">🎮 나도 게임 참여하기</a>
+          <a className="btn primary big" href="/">{UI.shared.joinCta}</a>
         </div>
       </div>
     );
@@ -86,21 +98,21 @@ export default function SharedRound() {
   return (
     <div className="comic-app">
       <header className="comic-appbar">
-        <div className="ca-title">이달의 사원</div>
+        <div className="ca-title">{UI.game.title}</div>
         <span className="ca-round">R.{roundNo}</span>
-        <span className="ca-phase">공유된 라운드</span>
+        <span className="ca-phase">{UI.shared.sharedRound}</span>
       </header>
 
       <div className="comic-page">
         <BossCard persona={persona} roundNo={roundNo} phase="END" />
-        <div className="comic-sec"><b>① 문제 상황</b><i /></div>
+        <div className="comic-sec"><b>{UI.game.sec.situation}</b><i /></div>
         <SituationCut persona={persona} situation={situation} />
-        <div className="comic-sec"><b>② 발언</b><i /></div>
+        <div className="comic-sec"><b>{UI.game.sec.speak}</b><i /></div>
         <SpeakGrid
           queue={queue} speeches={speeches} speakTurn={null} playerId={null}
           timer={null} players={players} poseMap={poseMap} persona={persona}
         />
-        <div className="comic-sec"><b>③ 결과</b><i /></div>
+        <div className="comic-sec"><b>{UI.game.sec.result}</b><i /></div>
         <GaugeStrip persona={persona} done />
         <div className={`judge-row ${showWindow ? '' : 'solo'}`}>
           <AwardCut adopted={adopted} poseMap={poseMap} players={players} />
@@ -108,23 +120,17 @@ export default function SharedRound() {
         </div>
         {rows.length > 0 && <ScoreCut verdict={verdict} rows={rows} axes={axes} />}
         {verdict.adoptReason && <BossCommentCut persona={persona} reason={verdict.adoptReason} />}
-        {standings?.length > 1 && (
-          <div className="standing-strip">
-            {standings.map((s, i) => (
-              <span key={s.id} className="ss-item">#{i + 1} {s.nick} <em>{s.rank} · 🏆×{s.favor}</em></span>
-            ))}
-          </div>
-        )}
+        <StandingStrip standings={standings} />
         {epilogue && (
           <div className="comic-caption ep">
-            <div className="cap-head">📖 그 후 이야기</div>
+            <div className="cap-head">{UI.game.epilogueTitle}</div>
             <div>{epilogue}</div>
           </div>
         )}
       </div>
 
       <div className="actionbar share-cta">
-        <a className="btn primary big" href="/">🎮 나도 게임 참여하기</a>
+        <a className="btn primary big" href="/">{UI.shared.joinCta}</a>
       </div>
     </div>
   );

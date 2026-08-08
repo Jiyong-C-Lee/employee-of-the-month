@@ -1,4 +1,5 @@
 import { Shell } from '@narre/ui';
+import { UI } from '@content/ui';
 import { useGame } from './store';
 import Home from './screens/Home.jsx';
 import Lobby from './screens/Lobby.jsx';
@@ -21,7 +22,7 @@ export default function App() {
   return (
     <Shell>
       <div className="app">
-        {!tuning && !state.connected && state.room && <div className="conn-banner">서버 연결 중…</div>}
+        {!tuning && !state.connected && state.room && <div className="conn-banner">{UI.app.connecting}</div>}
         {!tuning && state.toast && <div className="toast">{state.toast}</div>}
         {screen}
       </div>

@@ -24,7 +24,8 @@ if (cfToken) {
 }
 
 const el = document.getElementById('root');
-if (!el) throw new Error('root element를 찾을 수 없습니다.');
+// 플레이어에게 안 보이는 개발자용 예외 — 마운트 지점이 없으면 앱 자체가 못 뜬다.
+if (!el) throw new Error('#root not found');
 
 createRoot(el).render(
   <React.StrictMode>

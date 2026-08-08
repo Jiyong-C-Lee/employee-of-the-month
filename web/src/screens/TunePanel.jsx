@@ -3,6 +3,7 @@
 // 값은 즉시 localStorage(eotm.poseOverride·eotm.faceAlpha)에 저장돼 게임 화면에도 곧바로 반영된다.
 // 튜닝이 끝나면 "POSES 코드 복사"로 나온 리터럴을 comic-assets.js의 POSES 기본값에 붙여넣고 커밋한다.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { UI, fmt } from '@content/ui';
 import {
   POSES as DEFAULT_POSES, FACE_ALPHA as DEFAULT_ALPHA, poseUrl,
   getPoses, setPoseOverride, resetPoseOverride, getFaceAlpha, setFaceAlpha, resetFaceAlpha,
@@ -107,15 +108,15 @@ export default function TunePanel() {
   return (
     <div className="tune-panel" onPointerMove={onDragMove} onPointerUp={endDrag}>
       <header className="tune-head">
-        <h1>포즈 얼굴 위치 튜닝</h1>
-        <p>원을 드래그하거나 클릭 후 방향키(0.5%, Shift+방향키 0.1%)로 이동 · [ ] 또는 휠로 지름 조절</p>
+        <h1>{UI.tune.title}</h1>
+        <p>{UI.tune.help}</p>
         <div className="tune-controls">
           <label className="tune-alpha">
-            프로필 투명도 {alpha.toFixed(2)}
+            {fmt(UI.tune.alpha, { value: alpha.toFixed(2) })}
             <input type="range" min="0" max="1" step="0.01" value={alpha} onChange={onAlphaChange} />
           </label>
-          <button className="btn" onClick={copyCode}>{copied ? '복사됨!' : 'POSES 코드 복사'}</button>
-          <button className="btn" onClick={resetAll}>기본값으로 리셋</button>
+          <button className="btn" onClick={copyCode}>{copied ? UI.tune.copied : UI.tune.copyCode}</button>
+          <button className="btn" onClick={resetAll}>{UI.tune.reset}</button>
         </div>
       </header>
 

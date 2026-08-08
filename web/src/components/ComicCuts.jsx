@@ -1,6 +1,7 @@
 // 회의실 코믹 컷 모음 — 디자인 프로젝트 '코믹 UI 목업.dc.html' 확정안 + 1차 플레이테스트 피드백 반영.
 // 모든 컷은 상태(room.round.queue/speeches, phase, verdict)로만 그린다. 피드는 자막·에필로그에만 쓴다.
 import { useEffect, useState } from 'react';
+import { UI, fmt } from '@content/ui';
 import {
   BOSS_FRONT, BOSS_GAZE, USER_POSE, SEAT_POSES, poseUrl, hashColor,
   getPoses, getFaceAlpha, hexToRgba, isImageAvatar, isEmojiAvatar, avatarEmoji,
@@ -23,13 +24,7 @@ function TypeText({ text, speed = 28 }) {
   return <>{text.slice(0, n)}</>;
 }
 
-export const PHASE_LABEL = {
-  SITUATION: '상황 공개',
-  PLAYER_TURNS: '발언 진행',
-  JUDGING: '검토 중',
-  RESULT: '판정',
-  END: '세션 종료',
-};
+export const PHASE_LABEL = UI.game.phase;
 
 export function fmtSec(sec) {
   if (sec == null) return '--:--';
@@ -128,7 +123,7 @@ export function BossCard({ persona, roundNo, phase }) {
           {persona.axes.map((ax) => <span key={ax} className="bc-tag">{ax}</span>)}
         </div>
       </div>
-      <span className="bc-state">R.{roundNo} {PHASE_LABEL[phase] || '진행 중'}</span>
+      <span className="bc-state">R.{roundNo} {PHASE_LABEL[phase] || PHASE_LABEL.fallback}</span>
     </div>
   );
 }
@@ -176,11 +171,11 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
           <div key={entry.key} className={cls}>
             {speaking && (
               <span className="speak-badge">
-                ▶ 발언 중{speaking && showTimer ? ` ${fmtSec(timer.remaining)}` : ''}
+                {UI.game.speaking}{showTimer ? ` ${fmtSec(timer.remaining)}` : ''}
               </span>
             )}
             <div className={`sp-bubble-wrap ${waiting ? 'faint' : ''}`}>
-              <div className="sp-bubble">{spoken ? <TypeText text={spoken.text} /> : speaking ? '…(발언 중)' : '…'}</div>
+              <div className="sp-bubble">{spoken ? <TypeText text={spoken.text} /> : speaking ? UI.game.speakingPlaceholder : UI.game.speakPending}</div>
               <div className="tail-b-ink" />
               <div className="tail-b-fill" />
             </div>
@@ -212,7 +207,7 @@ export function GaugeStrip({ persona, done }) {
       </div>
       <span className="gs-rage">💢</span>
       <span className="gs-rage r2">💢</span>
-      <div className="gs-status">{done ? '판정 완료' : '검토 중…'}</div>
+      <div className="gs-status">{done ? UI.game.gauge.done : UI.game.gauge.judging}</div>
     </div>
   );
 }
@@ -221,7 +216,7 @@ export function GaugeStrip({ persona, done }) {
 export function AwardFrame({ title, entry, pose = USER_POSE, avatar, plate }) {
   return (
     <div className="award">
-      <div className="aw-ribbon">🏆 {title}</div>
+      <div className="aw-ribbon">{title}</div>
       <div className="aw-frame">
         <div className="aw-frame-in">
           <div className="aw-mat">
@@ -251,14 +246,14 @@ export function AwardCut({ adopted, poseMap, players }) {
     <div className="cut award-cut">
       {adopted ? (
         <AwardFrame
-          title="이달의 사원"
+          title={UI.game.awardTitle}
           pose={poseMap[adopted.key] ?? USER_POSE}
           entry={adopted.kind === 'ai' ? { kind: 'ai', emoji: adopted.emoji } : { kind: 'user', name: adopted.name }}
           avatar={adopted.kind === 'user' ? avatarByKey[adopted.key] : undefined}
-          plate={adopted.kind === 'ai' ? adopted.name : `${adopted.name} · ${adopted.rank} 승진`}
+          plate={adopted.kind === 'ai' ? adopted.name : fmt(UI.game.adoptedPlate, { name: adopted.name, rank: adopted.rank })}
         />
       ) : (
-        <div className="no-adopt-stamp">전원 반려</div>
+        <div className="no-adopt-stamp">{UI.game.noAdopt}</div>
       )}
     </div>
   );
@@ -282,7 +277,7 @@ export function WindowCut({ last, pose, persona, players }) {
         <img src={poseUrl(flyPose)} alt="" />
         <FaceSlot pose={flyPose} entry={{ kind, name: last.name, emoji }} avatar={avatar} />
       </div>
-      <div className="wh-caption">최하위 {last.name}{josa(last.name, '은', '는')} 창밖으로.</div>
+      <div className="wh-caption">{fmt(UI.game.windowCaption, { name: last.name, josa: josa(last.name, '은', '는') })}</div>
     </div>
   );
 }
@@ -292,11 +287,11 @@ export function ScoreCut({ verdict, rows, axes }) {
   const cols = `.5fr 1.5fr ${axes.map(() => '.55fr').join(' ')} .6fr .4fr`;
   return (
     <div className="cut score-cut">
-      <div className="sc-title">채점 결과 · 순위</div>
+      <div className="sc-title">{UI.game.scoreTitle}</div>
       <div className="score-grid-head" style={{ gridTemplateColumns: cols }}>
-        <span>#</span><span>발언자</span>
+        <span>{UI.game.scoreHead.rank}</span><span>{UI.game.scoreHead.name}</span>
         {axes.map((ax) => <span key={ax} className="num">{ax}</span>)}
-        <span className="num">합계</span><span />
+        <span className="num">{UI.game.scoreHead.total}</span><span />
       </div>
       {rows.map((r, i) => {
         const win = r.key === verdict.adoptedKey;
@@ -307,7 +302,7 @@ export function ScoreCut({ verdict, rows, axes }) {
             <span className="g-name">{r.name}</span>
             {axes.map((ax) => <span key={ax} className="num">{r.axisScores[ax]}</span>)}
             <span className="num g-total">{r.total}</span>
-            <span className="g-mark">{win ? '🏆' : lose ? '🪟' : ''}</span>
+            <span className="g-mark">{win ? UI.game.scoreAdopted : lose ? UI.game.scoreOut : ''}</span>
           </div>
         );
       })}
@@ -326,10 +321,10 @@ export function ScoreCut({ verdict, rows, axes }) {
 export function BossCommentCut({ persona, reason }) {
   return (
     <div className="cut verdict-cut">
-      <div className="vc-title">보스 총평</div>
+      <div className="vc-title">{UI.game.verdictTitle}</div>
       <div className="vc-quote">
         “{reason}”
-        <span className="vc-by">— {persona.name} · 채택 사유</span>
+        <span className="vc-by">{fmt(UI.game.verdictBy, { name: persona.name })}</span>
       </div>
     </div>
   );

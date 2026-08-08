@@ -1,5 +1,6 @@
 // 라운드/세션 공유 링크 생성 + OG 카드 업로드 + 공유 시트/클립보드.
 // 서버가 KV에 30일 보관하고 /s/:id 읽기 전용 뷰 URL을 돌려준다.
+import { UI, fmt } from '@content/ui';
 
 // OG 카드(1200×630 PNG)를 canvas로 그린다 — 페이지에 로드된 나눔 폰트를 그대로 쓴다.
 // 실패해도 공유는 계속돼야 하므로 null 반환 (서버가 기본 og.png로 폴백).
@@ -43,15 +44,15 @@ async function renderOgCard(payload) {
     ctx.fillStyle = '#ffffff';
     ctx.font = "800 62px 'NanumSquare', 'Nanum Gothic', sans-serif";
     const title = session
-      ? `${payload.persona.name}의 회사에서 살아남기`
-      : `${payload.persona.name}의 회의실 · Round ${payload.roundNo}`;
+      ? fmt(UI.og.sessionTitle, { name: payload.persona.name })
+      : fmt(UI.og.roundTitle, { name: payload.persona.name, roundNo: payload.roundNo });
     ctx.fillText(clip(title, W - 200), W / 2, 300);
 
     ctx.fillStyle = '#f5c542';
     ctx.font = "800 46px 'NanumSquare', 'Nanum Gothic', sans-serif";
     const sub = session
-      ? (top?.nick ? `🏆 올해의 사원: ${top.nick} · ${top.rank}` : '🏁 세션 종료')
-      : (payload.adopted?.name ? `🏆 이달의 사원: ${payload.adopted.name}` : '이번 라운드, 채택 없음');
+      ? (top?.nick ? fmt(UI.og.mvp, { nick: top.nick, rank: top.rank }) : UI.og.sessionEnd)
+      : (payload.adopted?.name ? fmt(UI.og.adopted, { name: payload.adopted.name }) : UI.og.noAdopt);
     ctx.fillText(clip(sub, W - 220), W / 2, 392);
 
     ctx.fillStyle = '#9fb0c3';
@@ -61,7 +62,7 @@ async function renderOgCard(payload) {
 
     ctx.fillStyle = '#66788c';
     ctx.font = "700 28px 'NanumSquare', 'Nanum Gothic', sans-serif";
-    ctx.fillText('이달의 우수사원 — AI 보스 아부 서바이벌', W / 2, 548);
+    ctx.fillText(UI.og.footer, W / 2, 548);
 
     return await new Promise((res) => cv.toBlob(res, 'image/png'));
   } catch {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { UI } from '@content/ui';
 
 const STORE_KEY = 'eotm.customPersonas';
 const MAX_SAVED = 8;
@@ -24,10 +25,11 @@ export default function PersonaWizard({ onSaved, onCancel, toast }) {
   const [form, setForm] = useState({ name: '', concept: '', voiceHint: '', taboo: '', axes: '' });
   const [persona, setPersona] = useState(null);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const T = UI.wizard;
 
   async function generate() {
-    if (!form.name.trim()) return toast('보스 이름을 입력하세요.');
-    if (form.concept.trim().length < 2) return toast('컨셉을 입력하세요.');
+    if (!form.name.trim()) return toast(T.needName);
+    if (form.concept.trim().length < 2) return toast(T.needConcept);
     setBusy(true);
     const axes = form.axes.split(',').map((s) => s.trim()).filter(Boolean);
     const body = {
@@ -38,7 +40,7 @@ export default function PersonaWizard({ onSaved, onCancel, toast }) {
     };
     const res = await fetch('/api/personas/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    }).then((r) => r.json()).catch(() => ({ error: '서버에 연결할 수 없습니다.' }));
+    }).then((r) => r.json()).catch(() => ({ error: UI.errors.connectFail }));
     setBusy(false);
     if (res.error) return toast(res.error);
     setPersona(res.persona);
@@ -53,21 +55,21 @@ export default function PersonaWizard({ onSaved, onCancel, toast }) {
   if (step === 'input') {
     return (
       <div className="stack wizard">
-        <h2>🛠 나만의 보스 만들기</h2>
-        <label className="field"><span>보스 이름 *</span>
-          <input value={form.name} onChange={set('name')} maxLength={20} placeholder="예: 용왕" /></label>
-        <label className="field"><span>컨셉 *</span>
+        <h2>{T.title}</h2>
+        <label className="field"><span>{T.nameLabel}</span>
+          <input value={form.name} onChange={set('name')} maxLength={20} placeholder={T.namePlaceholder} /></label>
+        <label className="field"><span>{T.conceptLabel}</span>
           <textarea value={form.concept} onChange={set('concept')} maxLength={300} rows={3}
-            placeholder="예: 바닷속 용궁물산 그룹의 회장. 용궁의 위엄이 최우선이지만 육지 문물에 호기심이 많고, 사실 헤엄이 서툴다는 것을 숨기고 있다." /></label>
-        <label className="field"><span>말투 힌트 (비우면 AI가 정함)</span>
-          <input value={form.voiceHint} onChange={set('voiceHint')} maxLength={200} placeholder="예: 근엄한 하오체, 흥분하면 말끝에 물거품 소리" /></label>
-        <label className="field"><span>역린 (비우면 AI가 정함)</span>
-          <input value={form.taboo} onChange={set('taboo')} maxLength={200} placeholder="예: 이무기 시절 이야기" /></label>
-        <label className="field"><span>채점축 (쉼표 구분, 비우면 AI가 정함)</span>
-          <input value={form.axes} onChange={set('axes')} placeholder="예: 위엄, 실리, 용궁부심" /></label>
+            placeholder={T.conceptPlaceholder} /></label>
+        <label className="field"><span>{T.voiceLabel}</span>
+          <input value={form.voiceHint} onChange={set('voiceHint')} maxLength={200} placeholder={T.voicePlaceholder} /></label>
+        <label className="field"><span>{T.tabooLabel}</span>
+          <input value={form.taboo} onChange={set('taboo')} maxLength={200} placeholder={T.tabooPlaceholder} /></label>
+        <label className="field"><span>{T.axesLabel}</span>
+          <input value={form.axes} onChange={set('axes')} placeholder={T.axesPlaceholder} /></label>
         <div className="row">
-          <button className="btn" onClick={onCancel}>뒤로</button>
-          <button className="btn primary" disabled={busy} onClick={generate}>{busy ? 'AI 생성 중… (최대 1분)' : '✨ AI로 생성'}</button>
+          <button className="btn" onClick={onCancel}>{T.back}</button>
+          <button className="btn primary" disabled={busy} onClick={generate}>{busy ? T.generating : T.generate}</button>
         </div>
       </div>
     );
@@ -76,22 +78,22 @@ export default function PersonaWizard({ onSaved, onCancel, toast }) {
   const setP = (k) => (e) => setPersona({ ...persona, [k]: e.target.value });
   return (
     <div className="stack wizard">
-      <h2>{persona.emoji} 생성 결과 확인</h2>
-      <label className="field"><span>이름</span><input value={persona.name} onChange={setP('name')} maxLength={20} /></label>
-      <label className="field"><span>이모지</span><input value={persona.emoji} onChange={setP('emoji')} maxLength={4} /></label>
-      <label className="field"><span>소개</span><textarea value={persona.intro} onChange={setP('intro')} rows={2} /></label>
-      <label className="field"><span>채점축 (쉼표 구분 3개)</span>
+      <h2>{persona.emoji} {T.previewTitle}</h2>
+      <label className="field"><span>{T.fieldName}</span><input value={persona.name} onChange={setP('name')} maxLength={20} /></label>
+      <label className="field"><span>{T.fieldEmoji}</span><input value={persona.emoji} onChange={setP('emoji')} maxLength={4} /></label>
+      <label className="field"><span>{T.fieldIntro}</span><textarea value={persona.intro} onChange={setP('intro')} rows={2} /></label>
+      <label className="field"><span>{T.fieldAxes}</span>
         <input value={persona.axes.join(', ')} onChange={(e) => setPersona({ ...persona, axes: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} /></label>
       <div className="wizard-detail">
-        <div className="wd-sec"><b>승진 사다리</b><p>{persona.ranks.join(' → ')}</p></div>
-        <div className="wd-sec"><b>참모진</b>
+        <div className="wd-sec"><b>{T.ladder}</b><p>{persona.ranks.join(' → ')}</p></div>
+        <div className="wd-sec"><b>{T.advisors}</b>
           {persona.advisors.map((a) => <p key={a.name}>{a.emoji} {a.name} ({a.style}) — {a.core}</p>)}</div>
-        <div className="wd-sec"><b>상황 샘플</b><p>{persona.situations[0]?.text}</p></div>
+        <div className="wd-sec"><b>{T.sample}</b><p>{persona.situations[0]?.text}</p></div>
       </div>
       <div className="row">
-        <button className="btn" disabled={busy} onClick={() => setStep('input')}>← 다시 입력</button>
-        <button className="btn" disabled={busy} onClick={generate}>{busy ? '생성 중…' : '🔄 다시 생성'}</button>
-        <button className="btn primary" onClick={save}>저장하고 사용</button>
+        <button className="btn" disabled={busy} onClick={() => setStep('input')}>{T.reinput}</button>
+        <button className="btn" disabled={busy} onClick={generate}>{busy ? T.regenerating : T.regenerate}</button>
+        <button className="btn primary" onClick={save}>{T.save}</button>
       </div>
     </div>
   );
