@@ -5,7 +5,10 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "gen": "node content/scripts/gen-index.mjs",
+    "setup": "node scripts/setup-keys.mjs",
+    "predev": "npm run setup && npm run build",
     "dev": "wrangler dev",
+    "predev:web": "npm run gen",
     "dev:web": "vite --config web/vite.config.ts",
     "build:pkg": "npm run build --workspace @narre/llm --workspace @narre/cf",
     "prebuild": "npm run gen && npm run build:pkg",

@@ -1,5 +1,17 @@
-# apps/worker/.dev.vars 로 복사한 뒤 실제 키를 채울 것 (.env 파일에 있는 값)
+# 이 파일을 저장소 루트에 `.dev.vars` 라는 이름으로 복사한 뒤 실제 키를 채우세요.
+# wrangler dev가 루트의 .dev.vars를 읽습니다. (.dev.vars는 .gitignore에 있습니다)
+#
+# 키를 하나도 넣지 않아도 게임은 끝까지 돌아갑니다 — 내장 mock이 대사를 대신 만듭니다.
+# 실제 LLM 대사를 보려면 아래 중 최소 하나를 채우세요.
+
+# 1순위. Google AI Studio 무료 등급 키 (https://aistudio.google.com/apikey)
+GOOGLE_AI_STUDIO_FREE_API_KEY=your-gemini-free-key
+
+# 2순위. 같은 발급처의 유료 등급 키. 무료 키만 있어도 됩니다.
 GOOGLE_AI_STUDIO_API_KEY=your-gemini-key
+
+# 3순위. NVIDIA NIM 키 (https://build.nvidia.com)
 NVIDIA_API_KEY=your-nvidia-key
-# 디버그 액션(/debug: adoptMe 등)을 로컬에서 켜려면 아래 주석을 해제. 프로덕션(wrangler.jsonc)에는 넣지 않는다(I4).
+
+# 디버그 패널(?debug=1)의 라운드 건너뛰기 버튼을 켭니다. 프로덕션에는 넣지 마세요.
 # DEBUG_ACTIONS=true

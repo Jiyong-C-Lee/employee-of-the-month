@@ -1,64 +1,153 @@
-﻿# @narre/eotm (이달의 우수사원)
+# 이달의 우수사원
 
-페르소나 상사 앞에서 참모들과 아부 경쟁을 벌이는 게임. 싱글·멀티 모두 지원한다.
+> 보스의 마음을 움직이는 간언으로, 사원에서 사장까지.
 
-## 실행 방법
+**플레이: [eotm.narre.io](https://eotm.narre.io)** — 설치 없이 브라우저에서 바로 시작합니다.
+
+---
+
+## 어떤 게임인가
+
+당신은 갓 입사한 말단 사원입니다. 회장이 골치 아픈 안건을 꺼내면, AI 참모 셋과 나란히 서서 한 마디씩 올립니다. 회장은 그중 **딱 하나만 채택**합니다.
+
+채택되면 승진합니다. 꼴찌는 창밖으로 던져집니다.
+
+- **정답이 없습니다.** 회장마다 보는 것이 다릅니다. 조조는 실리·기지·체면을, 유비는 대의·의리·실속을 봅니다. 같은 말도 누구 앞이냐에 따라 명언이 되고 헛소리가 됩니다.
+- **눈치가 실력입니다.** 앞사람 발언을 밟고 넘어설지, 반박할지, 슬쩍 얹어갈지. 순번이 뒤일수록 정보는 많지만 기대치도 올라갑니다.
+- **회장이 직접 채점합니다.** 채택 사유와 축별 점수, 그리고 "그 후 이야기"까지 그 자리에서 나옵니다.
+
+### 모드
+
+| | |
+|---|---|
+| **혼자 출근하기** | AI 참모 3인과 채택 경쟁. 바로 시작합니다. |
+| **방 만들기** | 4자리 코드를 뽑아 최대 6명까지. 빈자리는 AI가 채웁니다. |
+| **방 코드로 참가** | 받은 코드를 입력해 합류합니다. |
+
+### 보스
+
+조조 회장 · 유비 대표 · 손권 회장 · 마왕 · 제우스 회장 · 선조 회장. 여섯 명이 각자 다른 채점축과 역린을 갖고 있습니다.
+
+마음에 드는 사람이 없으면 **나만의 보스 만들기**로 이름과 컨셉만 넣으면 됩니다. 참모진·승진 사다리·상황까지 AI가 만들어 줍니다.
+
+---
+
+## 로컬에서 돌리기
+
+Node.js 20 이상이 필요합니다.
 
 ```bash
-npm run dev:web -w @narre/eotm   # Vite 개발 서버 (5173, /api는 8787로 프록시)
-npm run dev -w @narre/eotm       # wrangler dev (8787)
-npm run build -w @narre/eotm     # web/dist 생성 — 배포와 워커 테스트가 이걸 요구한다
-npm test -w @narre/eotm          # vitest (node·worker 두 프로젝트)
+git clone https://github.com/Jiyong-C-Lee/employee-of-the-month.git
+cd employee-of-the-month
+npm install
+npm run dev
 ```
 
-`npm test`는 `pretest`가 `content/scripts/gen-index.mjs`를 먼저 돌려 `content/packs.gen.ts`를 만든다. 페르소나 추가는 `content/packs/` 아래 폴더 추가 + `npm run gen`이다.
+첫 실행이면 API 키를 물어봅니다.
+
+```
+  1. Google AI Studio — 무료 등급  (https://aistudio.google.com/apikey)
+  2. Google AI Studio — 유료 등급
+  3. NVIDIA NIM                    (https://build.nvidia.com)
+  0. 키 없이 시작
+
+  번호를 고르세요 [0]:
+```
+
+**`0`을 골라도 게임은 끝까지 돌아갑니다** — 내장 mock이 참모 대사와 판정을 대신 만듭니다. 다만 대사가 미리 정해진 틀이라, 실제 재미를 보려면 무료 키 하나라도 넣는 편이 낫습니다.
+
+고른 값은 저장소 루트의 `.dev.vars`에 저장되고 다음부터는 묻지 않습니다. 이 파일은 `.gitignore`에 있습니다.
+
+준비가 끝나면 `http://localhost:8787` 을 엽니다.
+
+### 키를 나중에 넣거나 바꾸려면
+
+`.dev.vars`를 직접 열어 고칩니다. 항목은 `.dev.vars.example`에 있습니다.
+
+| 변수 | 발급처 |
+|---|---|
+| `GOOGLE_AI_STUDIO_FREE_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) — 무료 등급 |
+| `GOOGLE_AI_STUDIO_API_KEY` | 같은 곳의 유료 등급 |
+| `NVIDIA_API_KEY` | [NVIDIA NIM](https://build.nvidia.com) |
+
+위에서부터 순서대로 시도해 먼저 성공하는 것을 씁니다. 전부 실패하면 mock으로 떨어지고 게임은 계속됩니다.
+
+### 화면을 고칠 때
+
+```bash
+npm run dev      # 워커 (8787) — 게임 API. 이것부터 띄웁니다.
+npm run dev:web  # Vite (5173) — 화면만 즉시 반영. /api는 8787로 넘깁니다.
+```
+
+화면 작업은 `http://localhost:5173`이 편합니다. 저장하면 새로고침 없이 반영됩니다. **8787이 꺼져 있으면 화면은 떠도 인물 목록이 안 나옵니다.**
+
+### 그 밖의 명령
+
+```bash
+npm test        # 88개 (게임 로직 · 워커 · 콘텐츠 검증)
+npm run build   # web/dist 생성
+npm run gen     # 페르소나 팩 인덱스 재생성
+```
+
+---
 
 ## 구조
 
-원본은 워크스페이스 4개(`apps/{web,worker}` + `packages/{shared,content}`)였다. narre 규약이 게임 하나 = 워크스페이스 하나라 폴더로 평탄화했다. `@eotm/*` 별칭은 `@shared`·`@content`로 바뀌었고, tsconfig `paths`와 Vite `resolve.alias` 양쪽에 배선돼 있다.
+```
+worker/     게임 서버. 상태 머신 · 채점 · LLM 오케스트레이션
+web/        화면 (React). 만화 컷 형태의 한 페이지
+shared/     양쪽이 함께 쓰는 타입
+content/    페르소나 팩 · 문자열 · 프롬프트 (전부 JSON)
+packages/   Cloudflare 배관 · LLM 체인 · 공용 UI 셸
+```
 
-런타임이 다른 테스트가 한 워크스페이스에 모여 vitest를 프로젝트로 나눴다(`vitest.workspace.ts`). `worker`는 Workers 런타임, `node`는 콘텐츠·웹이다.
+**엔진이 진실이고 LLM은 서술만 합니다.** 점수·승진·탈락 판정은 전부 `worker/game/`의 코드가 결정합니다. LLM은 그 결과를 말로 옮길 뿐이라, 모델이 바뀌거나 실패해도 게임 규칙은 흔들리지 않습니다.
 
-## 패키지 소비 지점
+**플레이어에게 보이는 문자열과 밸런스 수치는 코드에 없습니다.** 전부 `content/` 아래 JSON입니다.
 
-| 패키지 | 쓰는 것 | 파일 |
-|---|---|---|
-| `@narre/llm` | `callJsonChain` | `worker/ai/llm.ts`의 `makeLlm()` |
-| `@narre/cf` | `doRoomStore`·`doAlarms`·`sseTransport`·`Llm` 타입 | `worker/room-do.ts` |
-| `@narre/cf` | `QuotaDO`(re-export)·`incr` RPC | `worker/index.ts` |
-| `@narre/ui` | `Shell`·`tokens.css` | `web/src/App.tsx`·`main.tsx` |
+| 파일 | 내용 |
+|---|---|
+| `content/packs/<보스>/persona.json` | 성격 · 채점축 · 참모진 · 승진 사다리 |
+| `content/packs/<보스>/situations.json` | 그 보스가 꺼내는 안건들 |
+| `content/global/ui.json` | 화면에 보이는 모든 라벨·버튼·안내문 |
+| `content/global/strings.json` | 게임 진행 대사 |
+| `content/global/prompts.json` | LLM 프롬프트 |
 
-## 패키지를 안 쓴 자리
+보스를 추가하려면 `content/packs/` 아래 폴더를 만들고 `npm run gen`을 돌리면 됩니다.
 
-1. **`rateLimit` 미들웨어 미사용** (`worker/index.ts`). eotm은 IP 한도가 용도별 4종이고 키·윈도·값이 각각 다르다(방 생성 분당 5·페르소나 생성 일 5·공유 일 30·피드백 일 5). 미들웨어는 `rl:${ip}` 키 하나만 다룬다. 복원한 `QuotaDO.incr`을 직접 쓴다 — 그 진입점이 이 자리를 위한 것이다.
-2. **`createLogger` 미사용** (`worker/log.ts`). eotm 자체 로거가 타입드 이벤트 17종을 갖고 있고 `createLogger`는 `llmCall`·`quotaExceeded` 2종뿐이라 좁다. 체인 로그 통로(`logger.chain`)만 열어 `ChainContext.logger`에 꽂았다.
+### 새 상황이 매번 다른 이유
 
-## 이관에서 드러난 계약 확장 1건
+한 라운드의 흐름은 이렇습니다.
 
-**`Alarms.pending()`**. 재접속 스냅샷이 남은 발언 마감 시각을 실어 보내야 하는데, 원본은 storage의 `alarmTag` 키와 `getAlarm()`을 직접 읽었다. 그 키가 `doAlarms` 내부 구현이 되면서 밖에서 못 읽게 됐다. 게임이 부품 내부를 뒤지게 두는 대신 소거 없는 조회 메서드를 열었다. 소비자 1개라 `잠정`이다(`packages/cf/README.md`).
+```
+상황 공개 → 참모 발언 (LLM) → 내 발언 → 회장 판정 (LLM) → 결과 · 에필로그
+```
 
-## LLM 체인 — 기본 mock을 빼는 이유
+참모 발언과 판정만 LLM이 맡습니다. 누가 채택됐는지, 몇 점인지, 누가 승진하고 누가 떨어지는지는 서버가 계산합니다.
 
-`wrangler.jsonc`의 `LLM_CHAIN`이 `gemini-free,gemini,nvidia`다. `@narre/llm` 기본 체인은 마지막이 `mock` 어댑터인데, 그건 스키마 모양만 맞춘 더미다.
+---
 
-eotm은 페르소나에 맞는 실제 대사를 만드는 **게임 고유 mock**(`worker/ai/mock.ts`)이 있고, `orchestrate.ts`의 `withFallback`이 체인 실패를 잡아 그걸 쓴다. 기본 체인을 그대로 두면 체인이 절대 throw하지 않아 그 catch가 안 돌고 대사 품질이 떨어진다. 키가 없을 때도 `hasKey: false`로 체인을 아예 건너뛴다.
+## 기술
+
+Cloudflare Workers 위에서 돕니다. 서버 한 대 없이 전 세계 엣지에서 실행됩니다.
+
+- **Durable Objects** — 방 하나 = 객체 하나. 발언 순서와 타이머를 그 안에서 관리합니다.
+- **SSE** — 참가자에게 진행 상황을 실시간으로 밀어 줍니다.
+- **LLM 체인** — 무료 등급부터 순서대로 시도하고, 다 실패하면 mock으로 떨어집니다. 일일 호출 한도는 Durable Object가 셉니다.
+- **React + Vite** — 화면.
+
+---
 
 ## 배포
 
-- 워커 이름: `employee-of-the-month`
-- 도메인: `eotm.narre.io`
-- 마이그레이션 태그는 `v1` 고정. 바꾸면 기존 방이 끊긴다.
-
 ```bash
-npm run deploy -w @narre/eotm    # web 빌드 후 wrangler deploy
+npm run deploy
 ```
 
-## 시크릿·vars
+`wrangler.jsonc`의 워커 이름과 `migrations` 태그는 그대로 두세요. 태그를 바꾸면 진행 중인 방이 끊깁니다.
 
-키는 `wrangler secret`으로만 관리한다. 항목은 `.env.example` 참고.
+프로덕션 키는 파일이 아니라 `wrangler secret`으로 관리합니다.
 
 ```bash
-cd games/eotm && npx wrangler secret put GOOGLE_AI_STUDIO_FREE_API_KEY
+npx wrangler secret put GOOGLE_AI_STUDIO_FREE_API_KEY
 ```
-
-**`LLM_DAILY_LIMIT_GEMINI_FREE`는 신설 vars다.** 원본은 무료·유료 gemini가 `LLM_DAILY_LIMIT_GEMINI` 하나를 나눠 썼는데 `@narre/cf` `QuotaDO.take`는 프로바이더명별로 env를 따로 읽는다. 미설정이면 한도 0이라 무료 경로가 항상 거부된다. `wrangler.jsonc`에 값이 들어 있다.
