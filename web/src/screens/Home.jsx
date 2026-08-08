@@ -43,6 +43,12 @@ function resizeAvatar(file) {
   });
 }
 
+// 풀에서 하나 뽑는다. exclude를 주면 그것만 빼고 뽑아 같은 이름이 연속으로 나오지 않는다.
+function randomNick(exclude) {
+  const pool = UI.home.nickPool.filter((n) => n !== exclude);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 // 아바타 원 — 이미지/이모지/이니셜 세 갈래를 한 곳에서 그린다. 닉네임 줄과 3c 헤더 칩이 공유한다.
 export function AvatarCircle({ avatar, nick, className = 'ph-avatar' }) {
   if (isImageAvatar(avatar)) {
@@ -115,8 +121,7 @@ export default function Home({ state, actions }) {
       const saved = localStorage.getItem(NICK_KEY);
       if (saved) return saved;
     } catch { /* 사파리 프라이빗 등 — 아래 랜덤으로 간다 */ }
-    const pool = UI.home.nickPool;
-    return pool[Math.floor(Math.random() * pool.length)];
+    return randomNick();
   });
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -125,10 +130,18 @@ export default function Home({ state, actions }) {
     try { return localStorage.getItem(AVATAR_KEY) || null; } catch { return null; }
   });
 
-  // 닉네임은 재방문에도 남는다 — 3a는 닉네임이 이미 채워진 상태를 기본으로 그린다.
-  useEffect(() => {
-    try { localStorage.setItem(NICK_KEY, nick); } catch { /* 사파리 프라이빗 등 — 무시 */ }
-  }, [nick]);
+  // 직접 고친 이름만 저장한다. 랜덤 기본값까지 저장하면 첫 방문에 뽑힌 하나가 영영 굳어서
+  // 매번 같은 이름만 보게 된다(실제로 '커피수혈'에 고정돼 있었다).
+  function editNick(value) {
+    setNick(value);
+    try { localStorage.setItem(NICK_KEY, value); } catch { /* 사파리 프라이빗 등 — 무시 */ }
+  }
+
+  // 순환 버튼 — 저장하지 않는다. 다음 방문에도 계속 새로 뽑히게 둔다.
+  function shuffleNick() {
+    setNick((cur) => randomNick(cur));
+    try { localStorage.removeItem(NICK_KEY); } catch { /* 무시 */ }
+  }
 
   // 초대 링크(?code=XXXX)로 들어오면 참가 모드로 자동 전환
   useEffect(() => {
@@ -215,12 +228,16 @@ export default function Home({ state, actions }) {
               <div className="ph-nick-label">{UI.home.nickLabel}</div>
               <input
                 value={nick}
-                onChange={(e) => setNick(e.target.value)}
+                onChange={(e) => editNick(e.target.value)}
                 maxLength={16}
                 placeholder={UI.home.nickPlaceholder}
                 aria-label={UI.home.nickLabel}
               />
             </div>
+            <button
+              type="button" className="ph-nick-shuffle"
+              onClick={shuffleNick} title={UI.home.nickShuffle} aria-label={UI.home.nickShuffle}
+            >↻</button>
             <button type="button" className="ph-face-btn" onClick={() => setFaceOpen((v) => !v)}>
               {UI.home.changeFace}
             </button>

@@ -58,14 +58,17 @@ export default function Game({ state, actions }) {
     if (el && !settled) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [phase, speeches.length, speakTurn?.current, settled, !!ended]);
 
-  // 결과는 다르다. 컷을 하나씩 붙이면 페이지 높이가 그때마다 늘어 스크롤이 네 번에 걸쳐 내려갔다.
-  // 자리는 판정이 오는 즉시 전부 잡아두고(투명하게), 스크롤은 결과 머리글로 한 번만 내린다.
-  // 그다음 컷들이 제자리에서 차례로 떠오른다.
+  // 결과 구간 스크롤은 두 걸음이다.
+  //   ① 판정이 오면 발언 컷으로 — 반려·채택 도장이 거기서 찍힌다. 바로 결과로 내려가면
+  //      정작 그 연출을 못 본다.
+  //   ② 도장이 다 찍히면(reveal 1) 결과 머리글로.
+  // 자리는 판정과 동시에 전부 잡아둬서(reveal-hold), 컷이 열릴 때마다 페이지가 길어지며
+  // 스크롤이 계단식으로 따라가던 것은 없앴다.
+  const scrollStage = !resulted ? null : (reveal >= 1 ? '.result-anchor' : '.speak-grid');
   useEffect(() => {
-    if (!resulted) return;
-    const anchor = pageRef.current?.querySelector('.result-anchor');
-    anchor?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [resulted, room.roundNo]);
+    if (!scrollStage) return;
+    pageRef.current?.querySelector(scrollStage)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [scrollStage, room.roundNo]);
   // 캐릭터별 고정 포즈 (순번·뷰어가 바뀌어도 몸이 안 바뀐다). 큐를 넘겨 이번 라운드 출전 참모끼리만 충돌을 푼다.
   const poseMap = buildPoseMap({ persona, players: room.players, queue: room.round?.queue });
 

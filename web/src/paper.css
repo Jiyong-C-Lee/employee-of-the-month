@@ -90,6 +90,14 @@
 }
 .ph-nick-body input:focus { outline: none; }
 .ph-nick-body input::placeholder { color: #b8b1a6; font-weight: 400; }
+/* 이름 다시 뽑기 — 아이콘 하나라 정사각. 터치 목표 44px는 지킨다. */
+.ph-nick-shuffle {
+  flex: none; width: 44px; height: 44px; padding: 0;
+  background: #fff; border: 2px solid var(--ink); border-radius: 6px;
+  font-size: 18px; line-height: 1; color: var(--ink);
+}
+.ph-nick-shuffle:active { transform: rotate(-90deg); transition: transform .15s; }
+
 .ph-face-btn {
   flex: none; min-height: 44px; padding: 0 13px;
   background: #fff; border: 2px solid var(--ink); border-radius: 6px;
