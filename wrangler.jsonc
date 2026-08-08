@@ -1,0 +1,75 @@
+{
+  "name": "employee-of-the-month",
+  "routes": [{ "pattern": "eotm.narre.io", "custom_domain": true }],
+  "workers_dev": true,
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "kv_namespaces": [
+    { "binding": "SHARE_KV", "id": "cfe825532dcd405f942e84350b487d05" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM_DO", "class_name": "RoomDO" },
+      { "name": "QUOTA_DO", "class_name": "QuotaDO" },
+      { "name": "EGRESS_DO", "class_name": "EgressDO" }
+    ]
+  },
+  // 태그를 바꾸면 기존 방이 끊긴다. 같은 워커 이름·같은 클래스 이름으로 배포를 교체하므로 v1 고정.
+  // v2는 뒤에 덧붙인 것이라 기존 방에 영향이 없다 — 아시아 콜로의 Gemini 호출이 지역 차단으로
+  // 거부돼 게임 고유 mock으로 조용히 떨어지던 것을 잡으려고 추가했다.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RoomDO", "QuotaDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["EgressDO"] }
+  ],
+  "vars": {
+    "GEMINI_MODEL": "gemini-flash-lite-latest",
+    "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
+    // @narre/llm 기본 체인의 마지막 mock 어댑터를 뺀다. eotm은 페르소나에 맞는 대사를 만드는
+    // 게임 고유 mock(worker/ai/mock.ts)이 있어서, 체인이 스키마 더미로 조용히 성공하면
+    // orchestrate의 withFallback이 안 돌고 대사 품질이 떨어진다.
+    "LLM_CHAIN": "gemini-free,gemini,nvidia",
+    "LLM_DAILY_LIMIT_GEMINI": "1000",
+    // 신설 — @narre/cf QuotaDO는 프로바이더명별로 env를 읽는다. 미설정이면 한도 0이라
+    // 무료 경로가 항상 거부된다.
+    "LLM_DAILY_LIMIT_GEMINI_FREE": "1000",
+    "LLM_DAILY_LIMIT_NVIDIA": "5000"
+  },
+  // dev 환경: 별도 워커(employee-of-the-month-dev, workers.dev 전용)·별도 DO/KV 저장소.
+  // LLM 시크릿은 필요 시 `wrangler secret put <이름> --env dev`로 — 없으면 게임 고유 mock 폴백.
+  "env": {
+    "dev": {
+      "workers_dev": true,
+      "routes": [],
+      "assets": {
+        "directory": "web/dist",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application"
+      },
+      "kv_namespaces": [
+        { "binding": "SHARE_KV", "id": "ba1428c26c654a2e844f114942227924" }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "ROOM_DO", "class_name": "RoomDO" },
+          { "name": "QUOTA_DO", "class_name": "QuotaDO" },
+          { "name": "EGRESS_DO", "class_name": "EgressDO" }
+        ]
+      },
+      "vars": {
+        "GEMINI_MODEL": "gemini-flash-lite-latest",
+        "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
+        "LLM_CHAIN": "gemini-free,gemini,nvidia",
+        "LLM_DAILY_LIMIT_GEMINI": "1000",
+        "LLM_DAILY_LIMIT_GEMINI_FREE": "1000",
+        "LLM_DAILY_LIMIT_NVIDIA": "5000"
+      }
+    }
+  }
+}

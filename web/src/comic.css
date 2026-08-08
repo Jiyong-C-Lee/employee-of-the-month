@@ -1,0 +1,280 @@
+/* ══════════ 이달의 우수사원 — 회의실 코믹 UI (디자인 프로젝트 '코믹 UI 목업' 확정 토큰) ══════════
+   잉크 #2a2330 · 2px 테두리 · 크림 종이 #f6f1e9 · 레드 #b3312f · 골드 #f2b01e · 나눔고딕 400/700/800 */
+
+.comic-app {
+  --ink: #2a2330;
+  --paper: #f6f1e9;
+  --paper-2: #fbf9f4;
+  --red: #b3312f;
+  --gold: #f2b01e;
+  --tan: #f0e4cc;
+  --tan-text: #8a6b42;
+  --comic-muted: #6e6878;
+  --green: #5cb87a;
+
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: #e8e4da;
+  color: var(--ink);
+  font-family: 'Nanum Gothic', 'Malgun Gothic', system-ui, sans-serif;
+}
+
+/* ── 앱 헤더 ── */
+.comic-appbar {
+  flex: none;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; max-width: 470px; margin: 0 auto;
+  padding: 10px 15px 11px;
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper-2);
+}
+.comic-appbar .ca-title { flex: 1; font-weight: 800; font-size: 19px; letter-spacing: -0.01em; }
+
+/* narre 칩이 좌상단에 상시 떠 있다. 상단바가 470px 열이라 화면이 넓으면 칩이 바깥
+   여백에 앉지만, 좁아지면 제목 위로 올라온다. 겹치는 폭에서만 제목을 민다.
+   610 = 상단바 470 + 칩이 필요한 좌우 여백 70 × 2. */
+@media (max-width: 610px) {
+  .comic-appbar { padding-left: var(--narre-chip-inset); }
+}
+.comic-appbar .ca-round { background: var(--red); color: #fff; font-weight: 800; font-size: 12px; padding: 3px 9px; border-radius: 3px; }
+.comic-appbar .ca-phase { background: var(--ink); color: #fff; font-weight: 800; font-size: 11px; padding: 3px 9px; border-radius: 3px; }
+.comic-appbar .ca-timer { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+.comic-appbar .ca-timer.low { color: var(--red); animation: comicBlink 1s steps(2) infinite; }
+@keyframes comicBlink { 50% { opacity: .35; } }
+
+/* ── 만화 페이지 (누적 스크롤) ── */
+.comic-page {
+  flex: 1; min-height: 0; overflow-y: auto;
+  width: 100%; max-width: 470px; margin: 0 auto;
+  background: var(--paper);
+  padding: 14px 14px 20px;
+  display: flex; flex-direction: column; gap: 13px;
+}
+/* 스크롤 컨테이너의 flex 자식이 짜부라지지 않게 (고정 height 컷 보호) */
+.comic-page > * { flex: none; }
+
+/* 이모지 원형 썸네일 */
+.emoji-circle {
+  width: 64px; height: 64px; flex: none; border-radius: 50%;
+  background: var(--tan); border: 2px solid var(--ink);
+  display: flex; align-items: center; justify-content: center;
+}
+.emoji-circle span { font-size: 32px; line-height: 1; }
+.emoji-circle.sm { width: 38px; height: 38px; background: #fff; }
+.emoji-circle.sm span { font-size: 19px; }
+
+/* 섹션 구분선 */
+.comic-sec { display: flex; align-items: center; gap: 9px; margin-top: 6px; }
+.comic-sec b { font-weight: 800; font-size: 12px; letter-spacing: .02em; background: var(--ink); color: #fff; padding: 4px 12px; }
+.comic-sec i { flex: 1; height: 2px; background: repeating-linear-gradient(90deg, #c9beac 0 6px, transparent 6px 10px); }
+
+/* 공용 컷(패널) */
+.cut { position: relative; background: #fff; border: 2px solid var(--ink); }
+
+/* ── 보스 프로필 카드 (원형 썸네일 + 이름 + 한 줄 소개 + 태그) ── */
+.boss-card { display: flex; gap: 12px; align-items: center; padding: 11px 12px; }
+.boss-card .bc-name { font-weight: 800; font-size: 20px; margin: 0 0 3px; }
+.boss-card .bc-intro { font-size: 11px; color: var(--comic-muted); line-height: 1.45; margin-bottom: 7px; padding-right: 56px; }
+.boss-card .bc-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.boss-card .bc-tag { background: var(--tan); color: var(--tan-text); font-weight: 700; font-size: 11px; padding: 3px 9px; border-radius: 11px; }
+.boss-card .bc-state { position: absolute; top: 9px; right: 10px; background: var(--ink); color: #fff; font-weight: 800; font-size: 10px; padding: 2px 7px; border-radius: 9px; }
+
+/* ── 문제 상황 컷 ── */
+.situation-cut { display: flex; gap: 8px; align-items: center; padding: 12px 12px 12px 8px; }
+.situation-cut .sc-boss { position: relative; width: 42%; flex: none; }
+.situation-cut .sc-boss img { display: block; width: 100%; height: auto; }
+.situation-cut .sc-bubble-wrap { flex: 1; position: relative; }
+
+/* 말풍선 (좌측 꼬리 — 두 겹 삼각형) */
+.bubble-left { background: #fff; border: 2px solid var(--ink); border-radius: 16px; padding: 12px 14px; font-size: 12px; line-height: 1.55; }
+.bubble-left b.q { display: block; margin-top: 6px; color: var(--red); }
+.tail-l-ink { position: absolute; left: -11px; top: 34%; width: 0; height: 0; border-top: 11px solid transparent; border-bottom: 11px solid transparent; border-right: 11px solid var(--ink); }
+.tail-l-fill { position: absolute; left: -6px; top: 34%; width: 0; height: 0; border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-right: 9px solid #fff; }
+
+/* ── 발언 컷 그리드 ── */
+.speak-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.speak-panel { display: flex; flex-direction: column; gap: 6px; padding: 10px 8px 0; }
+.speak-panel.span2 { grid-column: 1 / -1; }
+.speak-panel.speaking { background: #fff8e6; box-shadow: 0 0 0 3px var(--gold); animation: speakPulse 1.3s ease-in-out infinite; }
+@keyframes speakPulse { 0%, 100% { box-shadow: 0 0 0 3px #f2b01e; } 50% { box-shadow: 0 0 0 6px #f7c84e; } }
+.speak-badge { position: absolute; top: -11px; left: 8px; background: var(--gold); color: var(--ink); font-weight: 800; font-size: 10px; padding: 2px 9px; border-radius: 10px; z-index: 10; white-space: nowrap; }
+
+/* 패널 말풍선 (하단 꼬리) */
+.sp-bubble-wrap { position: relative; }
+.sp-bubble-wrap.faint { opacity: .4; }
+.sp-bubble { position: relative; background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 7px 9px; font-size: 13px; line-height: 1.4; min-height: 52px; word-break: break-word; }
+.tail-b-ink { position: absolute; left: 16px; bottom: -9px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid var(--ink); }
+.tail-b-fill { position: absolute; left: 18px; bottom: -5px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid #fff; }
+
+.sp-figure { position: relative; width: 100%; margin-top: auto; }
+.sp-figure img { display: block; width: 100%; height: auto; }
+/* 홀수 인원 마지막 컷(span2, 가로 두 칸)은 폭만 넓어지고 캐릭터는 1칸 폭 그대로 가운데 정렬 —
+   그림이 %폭 기준이라 그대로 두면 span2에서 2배 커지며 컷 높이도 덩달아 늘어나던 문제.
+   50% - 15px = (그리드 gap 14px + 패널 좌우 padding 16px) / 2 를 뺀 값으로, 1칸 컷의 sp-figure와
+   정확히 같은 픽셀 폭이 나온다(양쪽 다 box-sizing: border-box 기준 계산). */
+.speak-panel.span2 .sp-figure { width: calc(50% - 15px); margin-left: auto; margin-right: auto; }
+.speak-panel.waiting .sp-figure { filter: grayscale(.6) opacity(.55); }
+.speak-panel.waiting .face-slot { opacity: .5; }
+.sp-label { position: absolute; right: -2px; bottom: -2px; background: var(--ink); color: #fff; font-weight: 800; font-size: 11px; padding: 3px 9px; z-index: 10; max-width: 96%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 얼굴 슬롯 — 포즈 이미지 위 % 좌표 합성 */
+.face-slot {
+  position: absolute; transform: translate(-50%, -50%);
+  aspect-ratio: 1 / 1; border-radius: 50%; container-type: size;
+  display: flex; align-items: center; justify-content: center; z-index: 3;
+}
+.face-slot.user { border: 2px solid var(--ink); }
+.face-slot.user span { line-height: 1; color: #fff; font-weight: 800; font-size: 42cqw; }
+.face-slot.user.avatar { overflow: hidden; background: #fff; }
+.face-slot.user.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.face-slot.user.emoji span { line-height: 1; font-size: 52cqw; }
+.face-slot.ai { border: 2px solid var(--ink); }
+.face-slot.ai span { line-height: 1; font-size: 52cqw; }
+
+/* ── 심판: 분노 게이지 스트립 (가로 1줄, 1회 채움) ── */
+.judge-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.judge-row.solo { display: flex; justify-content: center; }
+.judge-row.solo .award-cut { width: 60%; }
+.gauge-strip { overflow: hidden; height: 78px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 7px; }
+.gs-fill { position: absolute; inset: 0; background: linear-gradient(90deg, #d5473a, #a92622); transform-origin: left; animation: gaugeFillX 3.8s ease-in-out forwards; z-index: 1; }
+.gauge-strip.done .gs-fill { animation: none; transform: none; }
+@keyframes gaugeFillX { 0% { transform: scaleX(.06); } 70% { transform: scaleX(.78); } 100% { transform: scaleX(1); } }
+/* 보스 응시 포즈(pose7) — SituationCut의 sc-boss와 같은 이미지+얼굴 슬롯 패턴, 스트립 높이에 맞춰 축소 */
+.gs-figure { position: relative; z-index: 2; width: 84px; flex: none; }
+.gs-figure img { display: block; width: 100%; height: auto; }
+.gs-title { position: relative; z-index: 2; font-weight: 800; font-size: 11px; color: #fff; text-shadow: 1px 1px 0 #7a1c1a; white-space: nowrap; }
+.gs-rage { position: relative; z-index: 2; font-size: 19px; line-height: 1; animation: ragePulse 1.05s ease-in-out infinite; filter: grayscale(1) brightness(0) invert(1); }
+.gs-rage.r2 { font-size: 14px; animation-duration: 1.35s; }
+@keyframes ragePulse { 0%, 100% { transform: scale(1) rotate(-6deg); } 50% { transform: scale(1.25) rotate(6deg); } }
+.gs-status { position: relative; z-index: 2; margin-left: auto; font-weight: 700; font-size: 12px; background: #fff; border: 2px solid var(--ink); padding: 2px 7px; white-space: nowrap; }
+
+/* ── ④-a 수상 컷 ── */
+.award-cut { min-height: 220px; background: #f4efe6; display: flex; align-items: center; justify-content: center; padding: 12px; }
+
+/* 수상 액자 */
+.award { position: relative; width: 158px; }
+.award .aw-ribbon { position: relative; z-index: 4; margin: 0 auto -9px; width: 132px; background: linear-gradient(#c0402f, #a5261f); color: #fff; text-align: center; font-weight: 800; font-size: 11px; padding: 6px 0 9px; box-shadow: 0 2px 0 rgba(122, 26, 21, .7); clip-path: polygon(0 0, 100% 0, 100% 66%, 50% 100%, 0 66%); }
+.award .aw-frame { position: relative; padding: 7px; border-radius: 8px; background: linear-gradient(135deg, #eccd81, #b98f4f 46%, #8a6b42); box-shadow: 0 6px 15px rgba(0, 0, 0, .32); }
+.award .aw-frame-in { padding: 4px; border-radius: 4px; background: linear-gradient(315deg, #eccd81, #9c7a3c); }
+.award .aw-mat { background: #f7f3ea; padding: 4px; border: 1px solid #cbb384; }
+/* 사진: 아래쪽을 잘라내 얼굴 원이 크게 보이게. 슬롯 %좌표는 inner(이미지 박스)에 대해 계산된다. */
+.award .aw-photo { position: relative; background: #eef4ef; overflow: hidden; border: 1px solid #b7a577; aspect-ratio: 5 / 3; }
+.award .aw-photo-inner { position: relative; width: 100%; }
+.award .aw-photo img { width: 100%; display: block; }
+.award .aw-plate { margin-top: 6px; text-align: center; }
+.award .aw-plate span { display: inline-block; background: linear-gradient(#caa25c, #a5813f); color: #2a1c08; font-weight: 800; font-size: 11px; padding: 4px 10px; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 2px rgba(0, 0, 0, .3); }
+.award .aw-screw { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff2c9, #8a6b42); }
+.award .aw-screw.tl { top: 5px; left: 5px; } .award .aw-screw.tr { top: 5px; right: 5px; }
+.award .aw-screw.bl { bottom: 5px; left: 5px; } .award .aw-screw.br { bottom: 5px; right: 5px; }
+.no-adopt-stamp { font-weight: 800; font-size: 16px; color: var(--red); border: 3px solid var(--red); border-radius: 6px; padding: 8px 16px; transform: rotate(-8deg); background: rgba(255,255,255,.7); }
+
+/* ── ④-b 창밖 투척 컷 ── */
+.window-cut { min-height: 220px; background: linear-gradient(155deg, #eaf7fd, #a9dff5); overflow: hidden; }
+.window-cut .wh-speed { position: absolute; left: 5%; top: 5%; width: 90%; height: 90%; background: repeating-linear-gradient(140deg, transparent 0 7px, rgba(42, 35, 48, .13) 7px 9px); z-index: 1; }
+.wh-window { position: absolute; right: 12px; bottom: 58px; width: 104px; height: 96px; z-index: 2; }
+.wh-window .w-glass { position: absolute; inset: 0; border: 2px solid var(--ink); background: linear-gradient(#bfe6f7, #eaf7fd); }
+.wh-window .w-mull-v { position: absolute; inset: 0; border-left: 2px solid var(--ink); left: 50%; }
+.wh-window .w-mull-h { position: absolute; inset: 0; border-top: 2px solid var(--ink); top: 50%; }
+.wh-window .w-sash-l { position: absolute; left: -16px; top: 5px; width: 32px; height: 86px; background: rgba(174, 225, 247, .5); border: 2px solid var(--ink); transform: perspective(150px) rotateY(58deg); transform-origin: right center; }
+.wh-window .w-sash-r { position: absolute; right: -16px; top: 5px; width: 32px; height: 86px; background: rgba(174, 225, 247, .5); border: 2px solid var(--ink); transform: perspective(150px) rotateY(-58deg); transform-origin: left center; }
+.wh-flyer { position: absolute; left: 18%; top: 14%; width: 88px; z-index: 3; transform: rotate(50deg); animation: flyOut 3.4s ease-in infinite; }
+.wh-flyer img { width: 100%; display: block; mix-blend-mode: multiply; }
+@keyframes flyOut {
+  0% { transform: translate(-34px, -34px) rotate(45deg); opacity: 0; }
+  14% { opacity: 1; }
+  74% { opacity: 1; }
+  100% { transform: translate(58px, 60px) rotate(330deg) scale(.5); opacity: 0; }
+}
+.wh-caption { position: absolute; right: 7px; bottom: 7px; max-width: calc(100% - 14px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; font-size: 10.5px; line-height: 1.3; background: #fff; border: 2px solid var(--ink); padding: 3px 7px; z-index: 9; }
+
+/* ── 채점 결과 표 ── */
+.score-cut { padding: 11px 12px 13px; }
+.score-cut .sc-title { font-weight: 800; font-size: 13px; color: var(--comic-muted); margin-bottom: 9px; }
+.score-grid-head, .score-grid-row { display: grid; align-items: center; font-size: 13px; padding: 6px 2px; }
+.score-grid-head { font-size: 11px; color: var(--comic-muted); padding: 0 2px 6px; border-bottom: 2px solid var(--ink); }
+.score-grid-row { border-bottom: 1px solid #e4ddcf; }
+.score-grid-row:last-child { border-bottom: none; }
+.score-grid-row.win { background: var(--tan); }
+.score-grid-row.lose { color: #9a8f7a; }
+.score-grid-row .g-rank { color: var(--comic-muted); }
+.score-grid-row .g-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score-grid-head .num, .score-grid-row .num { text-align: right; font-variant-numeric: tabular-nums; }
+.score-grid-row .g-total { font-weight: 800; color: var(--red); }
+.score-grid-row .g-mark { text-align: right; }
+.score-comments { margin-top: 10px; padding-top: 9px; border-top: 1px dashed #cfc7b7; display: flex; flex-direction: column; gap: 5px; }
+.score-comments .cm { font-size: 12px; line-height: 1.5; color: var(--comic-muted); }
+.score-comments .cm b { color: var(--ink); }
+
+/* ── 보스 총평 ── */
+.verdict-cut { padding: 11px 13px 13px; }
+.verdict-cut .vc-title { font-weight: 800; font-size: 13px; color: var(--comic-muted); margin-bottom: 7px; }
+.verdict-cut .vc-quote { border-left: 3px solid var(--red); padding: 3px 0 3px 11px; font-size: 16px; font-weight: 700; line-height: 1.5; }
+.verdict-cut .vc-by { display: block; font-size: 11px; color: var(--comic-muted); font-weight: 400; margin-top: 6px; }
+
+/* ── 내레이션(자막) 박스 · 에필로그 ── */
+.comic-caption { background: var(--paper-2); border: 2px solid var(--ink); padding: 8px 11px; font-size: 12px; line-height: 1.55; box-shadow: 3px 3px 0 rgba(42, 35, 48, .18); }
+.comic-caption.ep .cap-head { font-weight: 800; color: var(--red); margin-bottom: 4px; }
+.comic-caption .cap-note { margin-top: 6px; font-size: 10px; color: var(--comic-muted); }
+
+/* ── 순위 스트립 ── */
+.standing-strip { display: flex; flex-wrap: wrap; gap: 6px; }
+.standing-strip .ss-item { background: #fff; border: 2px solid var(--ink); font-size: 11px; font-weight: 700; padding: 3px 8px; }
+.standing-strip .ss-item em { font-style: normal; color: var(--tan-text); margin-left: 3px; }
+
+/* ── 세션 종료 ── */
+.comic-ended { padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center; }
+.comic-ended .ce-title { font-weight: 800; font-size: 17px; }
+.comic-ended .hall-of-fame { color: var(--ink); }
+
+/* ── 액션바 (코믹 스킨) ── */
+.comic-app .actionbar {
+  flex: none; width: 100%; max-width: 470px; margin: 0 auto;
+  border-top: 2px solid var(--ink); background: var(--paper-2);
+  padding: 12px 14px; display: flex; gap: 10px; align-items: center; min-height: 62px;
+  color: var(--ink);
+}
+.comic-app .actionbar textarea {
+  flex: 1; background: #fff; border: 2px solid var(--ink); border-radius: 10px;
+  color: var(--ink); font-family: inherit; font-size: 14px; padding: 9px 11px; resize: none;
+}
+.comic-app .actionbar textarea:focus { outline: 3px solid var(--gold); border-color: var(--ink); }
+.comic-app .actionbar .btn {
+  background: var(--ink); color: #fff; border: 2px solid var(--ink); border-radius: 6px;
+  font-weight: 800; font-family: inherit; padding: 10px 16px;
+}
+.comic-app .actionbar .btn.primary { background: var(--red); border-color: var(--ink); }
+.comic-app .actionbar .btn:hover:not(:disabled) { filter: brightness(1.1); }
+.comic-app .ab-label { color: var(--ink); font-weight: 700; font-size: 13px; }
+.comic-app .ab-label.waiting { color: var(--comic-muted); font-weight: 400; }
+.comic-app .char-count { color: var(--comic-muted); }
+.comic-app .spinner { border-color: #d8d1c2; border-top-color: var(--red); }
+
+/* ── 디버그 패널 (?debug=1) ── */
+.debug-panel {
+  position: fixed; right: 10px; top: 64px; z-index: 40;
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--ink); color: #fff; padding: 9px 10px; border-radius: 8px;
+  font-size: 11px; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); opacity: .93;
+}
+.debug-panel b { font-size: 10px; letter-spacing: 1px; color: var(--gold); }
+.debug-panel button {
+  background: #fff; color: var(--ink); border: none; border-radius: 5px;
+  font-family: inherit; font-weight: 700; font-size: 11px; padding: 5px 9px; cursor: pointer;
+}
+.debug-panel button:hover { background: var(--gold); }
+
+@media (max-width: 470px) {
+  .comic-appbar, .comic-page, .comic-app .actionbar { max-width: none; }
+}
+
+/* ---- 라운드 공유 (링크) ---- */
+/* 결과 내비: 공유는 왼쪽 구석, 다음(또는 대기 문구)은 오른쪽 구석 */
+.comic-app .actionbar.result { justify-content: flex-end; }
+.comic-app .actionbar.result .share-btn { margin-right: auto; }
+/* 공유 뷰(/s/:id) — 하단 참여 CTA와 로딩/만료 안내 */
+.comic-app .actionbar.share-cta { justify-content: center; }
+.comic-app .actionbar.share-cta .btn { text-decoration: none; }
+.share-missing { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--ink); font-weight: 700; }
+.share-missing .btn { text-decoration: none; }

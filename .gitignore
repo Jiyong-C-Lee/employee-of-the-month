@@ -6,10 +6,9 @@
 # 의존성·빌드 산출물
 node_modules/
 dist/
-!apps/web/dist/
-apps/web/dist/*
-!apps/web/dist/index.html
+web/dist/
 .wrangler/
+*.tsbuildinfo
 
 # 편집기·OS
 .vscode/

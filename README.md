@@ -1,85 +1,64 @@
-# 이달의 사원
+﻿# @narre/eotm (이달의 우수사원)
 
-AI 권력자에게 아부해 승진하는 파티 게임. 회장(페르소나)이 던지는 곤란한 상황에 참모(AI)와 플레이어가 번갈아 발언하고, 회장이 가장 마음에 드는 발언을 매 라운드 채택한다. 채택될수록 총애가 쌓여 사원 → 대리 → 과장 → … → 사장까지 승진하며, 최고 직급에 오르면 그 라운드에서 게임이 끝난다. 혼자서 참모들과 경쟁하는 싱글 모드와 여럿이 같은 방에서 겨루는 멀티 모드를 지원한다.
+페르소나 상사 앞에서 참모들과 아부 경쟁을 벌이는 게임. 싱글·멀티 모두 지원한다.
 
-## 모노레포 구조
+## 실행 방법
 
-npm workspaces 기반 경량 모노레포. 서버·클라이언트가 이벤트·API 계약 타입을 `packages/shared`로 공유하고, 게임데이터는 `packages/content`에서 팩 단위로 관리한다.
+```bash
+npm run dev:web -w @narre/eotm   # Vite 개발 서버 (5173, /api는 8787로 프록시)
+npm run dev -w @narre/eotm       # wrangler dev (8787)
+npm run build -w @narre/eotm     # web/dist 생성 — 배포와 워커 테스트가 이걸 요구한다
+npm test -w @narre/eotm          # vitest (node·worker 두 프로젝트)
+```
 
-| 경로 | 패키지 | 역할 |
+`npm test`는 `pretest`가 `content/scripts/gen-index.mjs`를 먼저 돌려 `content/packs.gen.ts`를 만든다. 페르소나 추가는 `content/packs/` 아래 폴더 추가 + `npm run gen`이다.
+
+## 구조
+
+원본은 워크스페이스 4개(`apps/{web,worker}` + `packages/{shared,content}`)였다. narre 규약이 게임 하나 = 워크스페이스 하나라 폴더로 평탄화했다. `@eotm/*` 별칭은 `@shared`·`@content`로 바뀌었고, tsconfig `paths`와 Vite `resolve.alias` 양쪽에 배선돼 있다.
+
+런타임이 다른 테스트가 한 워크스페이스에 모여 vitest를 프로젝트로 나눴다(`vitest.workspace.ts`). `worker`는 Workers 런타임, `node`는 콘텐츠·웹이다.
+
+## 패키지 소비 지점
+
+| 패키지 | 쓰는 것 | 파일 |
 |---|---|---|
-| `apps/worker` | `@eotm/worker` | Cloudflare Worker(Hono). REST 라우팅, RoomDO(방 상태머신·SSE·storage·alarm), QuotaDO(레이트리밋·일일 LLM 쿼터), AI 공급자 체인 |
-| `apps/web` | `@eotm/web` | React + Vite SPA. SSE 구독·화면 렌더. Workers Assets로 `apps/worker`가 함께 서빙 |
-| `packages/shared` | `@eotm/shared` | 서버·클라 공유 타입(`ServerEvent`, `PublicRoom`, API 요청/응답 등) |
-| `packages/content` | `@eotm/content` | 페르소나 콘텐츠 팩(`packs/*`) + 전역 프롬프트·대사(`global/*`), zod 검증 로더 |
-| `scripts` | — | `smoke.mjs` 등 저장소 루트 스크립트 |
-| `docs` | — | 스펙·구현 계획 문서 |
+| `@narre/llm` | `callJsonChain` | `worker/ai/llm.ts`의 `makeLlm()` |
+| `@narre/cf` | `doRoomStore`·`doAlarms`·`sseTransport`·`Llm` 타입 | `worker/room-do.ts` |
+| `@narre/cf` | `QuotaDO`(re-export)·`incr` RPC | `worker/index.ts` |
+| `@narre/ui` | `Shell`·`tokens.css` | `web/src/App.tsx`·`main.tsx` |
 
-## 로컬 개발
+## 패키지를 안 쓴 자리
 
-```bash
-npm install
+1. **`rateLimit` 미들웨어 미사용** (`worker/index.ts`). eotm은 IP 한도가 용도별 4종이고 키·윈도·값이 각각 다르다(방 생성 분당 5·페르소나 생성 일 5·공유 일 30·피드백 일 5). 미들웨어는 `rl:${ip}` 키 하나만 다룬다. 복원한 `QuotaDO.incr`을 직접 쓴다 — 그 진입점이 이 자리를 위한 것이다.
+2. **`createLogger` 미사용** (`worker/log.ts`). eotm 자체 로거가 타입드 이벤트 17종을 갖고 있고 `createLogger`는 `llmCall`·`quotaExceeded` 2종뿐이라 좁다. 체인 로그 통로(`logger.chain`)만 열어 `ChainContext.logger`에 꽂았다.
 
-# .dev.vars 준비 (Gemini·NVIDIA API 키)
-cp .dev.vars.example apps/worker/.dev.vars
-# apps/worker/.dev.vars를 열어 실제 키 값을 채운다 (GOOGLE_AI_STUDIO_API_KEY, NVIDIA_API_KEY)
-# 키를 비워두면 mock 폴백으로 동작한다 (게임 진행은 되지만 대사·판정이 결정적 목업)
+## 이관에서 드러난 계약 확장 1건
 
-npm run dev       # apps/worker — wrangler dev, http://localhost:8787
-npm run dev:web   # apps/web — vite dev server (API는 worker로 프록시)
-```
+**`Alarms.pending()`**. 재접속 스냅샷이 남은 발언 마감 시각을 실어 보내야 하는데, 원본은 storage의 `alarmTag` 키와 `getAlarm()`을 직접 읽었다. 그 키가 `doAlarms` 내부 구현이 되면서 밖에서 못 읽게 됐다. 게임이 부품 내부를 뒤지게 두는 대신 소거 없는 조회 메서드를 열었다. 소비자 1개라 `잠정`이다(`packages/cf/README.md`).
 
-## 테스트
+## LLM 체인 — 기본 mock을 빼는 이유
 
-```bash
-npm test          # 전 워크스페이스 vitest
-npm run typecheck # 전 워크스페이스 tsc --noEmit
-npm run smoke      # 헤드리스 스모크 E2E (아래 참고)
-```
+`wrangler.jsonc`의 `LLM_CHAIN`이 `gemini-free,gemini,nvidia`다. `@narre/llm` 기본 체인은 마지막이 `mock` 어댑터인데, 그건 스키마 모양만 맞춘 더미다.
 
-`npm run smoke`는 `BASE_URL`(기본 `http://localhost:8787`) 대상으로 싱글 모드 방을 만들고 SSE로 접속해, 내 차례에 발언한 뒤 판정 수신까지 1라운드를 완주시킨다. `wrangler dev`가 떠 있는 상태에서 실행하며, 실키가 채워져 있으면 실제 Gemini/NVIDIA 호출이 발생한다(라운드당 2~3건). 성공 시 `SMOKE PASS`를 출력한다.
+eotm은 페르소나에 맞는 실제 대사를 만드는 **게임 고유 mock**(`worker/ai/mock.ts`)이 있고, `orchestrate.ts`의 `withFallback`이 체인 실패를 잡아 그걸 쓴다. 기본 체인을 그대로 두면 체인이 절대 throw하지 않아 그 catch가 안 돌고 대사 품질이 떨어진다. 키가 없을 때도 `hasKey: false`로 체인을 아예 건너뛴다.
 
 ## 배포
 
-```bash
-npx wrangler secret put GOOGLE_AI_STUDIO_FREE_API_KEY --config apps/worker/wrangler.jsonc  # 무료 티어 키 (체인 1순위)
-npx wrangler secret put GOOGLE_AI_STUDIO_API_KEY --config apps/worker/wrangler.jsonc       # 유료 키 (무료 소진 시 폴백)
-npx wrangler secret put NVIDIA_API_KEY --config apps/worker/wrangler.jsonc
-npm run deploy
-```
-
-LLM 체인은 **gemini-free(무료) → gemini(유료) → nvidia** 순으로 페일오버한다. 로컬 개발(`.dev.vars`)에는 `GOOGLE_AI_STUDIO_FREE_API_KEY`만 두면 유료 키가 자동 스킵돼 개발 중 크레딧이 소모되지 않는다.
-
-`npm run deploy`는 `apps/web`을 빌드한 뒤 `apps/worker`를 배포한다(Workers Assets가 `apps/web/dist`를 함께 서빙). 배포 후 `https://employee-of-the-month.<account>.workers.dev` 형태의 URL이 출력된다.
-
-배포 검증:
+- 워커 이름: `employee-of-the-month`
+- 도메인: `eotm.narre.io`
+- 마이그레이션 태그는 `v1` 고정. 바꾸면 기존 방이 끊긴다.
 
 ```bash
-BASE_URL=https://employee-of-the-month.<account>.workers.dev npm run smoke
-curl https://employee-of-the-month.<account>.workers.dev/api/health   # providers: {gemini:true, nvidia:true} 확인
-npx wrangler tail --config apps/worker/wrangler.jsonc                 # llm_call 로그에 provider·latencyMs 확인
+npm run deploy -w @narre/eotm    # web 빌드 후 wrangler deploy
 ```
 
-배포에는 Cloudflare 계정 인증(`wrangler login`)이 필요하다.
+## 시크릿·vars
 
-## 베타 기능 운영 노트
-
-- **커스텀 페르소나**: 홈의 "🛠 나만의 보스 만들기"가 `POST /api/personas/generate`(IP당 일 5회, QuotaDO)로 팩 전체를 1콜 생성한다. 결과는 브라우저 localStorage(`eotm.customPersonas`, 최대 8개)에 보관되고, 방 생성 시 팩 JSON이 서버로 전달돼 zod 재검증(20KB 상한) 후 방에 영속된다.
-- **라운드 공유**: 판정 후 "📤 이 라운드 공유" 버튼이 캡처 전용 카드(`ShareCard`)를 html-to-image로 PNG화한다. 모바일은 Web Share 시트, 데스크톱은 다운로드 폴백.
-- **익명 분석**: Cloudflare Web Analytics. 대시보드에서 사이트 등록 후 빌드 시 `VITE_CF_BEACON_TOKEN=<토큰> npm run deploy`로 주입하면 비콘이 로드된다(미설정 시 완전 비활성).
-- **OG·파비콘**: `node scripts/og.mjs`로 `apps/web/public/`의 og.png·아이콘을 재생성한다. `apps/web/index.html`의 `og:image` 절대 URL은 커스텀 도메인 연결 시 갱신할 것.
-
-## 콘텐츠 팩 추가 방법
-
-새 페르소나는 `packages/content/packs/<id>/` 폴더에 `persona.json`(회장 설정·참모·축·계급)과 `situations.json`(상황 5개 이상)을 추가하면 된다. zod 스키마(`packages/content/src/schema.ts`)가 형식을 검증한다.
+키는 `wrangler secret`으로만 관리한다. 항목은 `.env.example` 참고.
 
 ```bash
-npm run gen -w @eotm/content   # packs/ 디렉토리를 스캔해 src/packs.gen.ts 재생성
+cd games/eotm && npx wrangler secret put GOOGLE_AI_STUDIO_FREE_API_KEY
 ```
 
-`npm test`/`npm run typecheck`는 `pretest`/`pretypecheck` 훅으로 `gen`을 자동 실행하므로, 팩을 추가한 뒤 바로 테스트를 돌려도 된다.
-
-## 문서
-
-- 설계 스펙: [`docs/superpowers/specs/2026-07-22-employee-of-the-month-standalone-design.md`](docs/superpowers/specs/2026-07-22-employee-of-the-month-standalone-design.md)
-- 구현 계획: [`docs/superpowers/plans/2026-07-22-eotm-implementation.md`](docs/superpowers/plans/2026-07-22-eotm-implementation.md)
+**`LLM_DAILY_LIMIT_GEMINI_FREE`는 신설 vars다.** 원본은 무료·유료 gemini가 `LLM_DAILY_LIMIT_GEMINI` 하나를 나눠 썼는데 `@narre/cf` `QuotaDO.take`는 프로바이더명별로 env를 따로 읽는다. 미설정이면 한도 0이라 무료 경로가 항상 거부된다. `wrangler.jsonc`에 값이 들어 있다.

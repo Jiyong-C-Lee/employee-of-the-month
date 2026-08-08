@@ -1,0 +1,29 @@
+{
+  // 테스트 전용 최소 설정. @cloudflare/vitest-pool-workers가 워커 런타임을
+  // 띄우는 데 필요한 최소 필드만 담는다. 실배포용이 아니다.
+  "name": "narre-cf-test",
+  "main": "test/worker.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      { "name": "QUOTA_DO", "class_name": "QuotaDO" },
+      { "name": "TEST_DO", "class_name": "TestDO" }
+    ]
+  },
+  // TestRoomDO는 GameRoomDO와 함께 삭제했다(스펙 §4.8). 테스트 전용 설정이라
+  // 배포 이력이 없어 태그를 고쳐도 안전하다.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["QuotaDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["TestDO"] }
+  ],
+  // 테스트 전용 값 — RL_PER_MIN=2 (분당 한도 테스트용), LLM_DAILY_LIMIT_*=1 (일일 한도 테스트용).
+  // GEMINI_FREE는 GEMINI와 별개 버킷(무료/유료 분리) 검증용 — 실배포 워커는 site/의
+  // wrangler.jsonc에서 실제 값으로 설정한다.
+  "vars": {
+    "RL_PER_MIN": "2",
+    "LLM_DAILY_LIMIT_GEMINI": "1",
+    "LLM_DAILY_LIMIT_GEMINI_FREE": "1",
+    "LLM_DAILY_LIMIT_NVIDIA": "1"
+  }
+}

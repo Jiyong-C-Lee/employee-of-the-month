@@ -1,0 +1,11 @@
+{ "extends": "../../tsconfig.base.json",
+  // lib을 ES2022로 좁힌다 — 기본값(DOM 포함)을 두면 lib.dom.d.ts의 Request/Response/WebSocket과
+  // workers-types의 동명 타입이 동시에 전역에 걸려 있는 표준 fetch 타입 코드(core.ts의 Transport
+  // 등)가 어느 쪽과도 안 맞는 것처럼 충돌한다. Workers 런타임엔 DOM이 없고 workers-types가
+  // 표준 fetch API를 충실히 모델링하므로 이쪽만 전역으로 남긴다.
+  "compilerOptions": { "outDir": "dist", "rootDir": "src", "lib": ["ES2022"], "types": ["@cloudflare/workers-types"] },
+  "include": ["src"],
+  // cf는 llm의 빌드 산출물(dist/index.d.ts)을 보고 컴파일한다. 참조를 선언해 두면
+  // `tsc --build`가 llm을 먼저 빌드한다 — npm run --workspaces는 알파벳 순이라
+  // cf가 먼저 돌고, 깨끗한 체크아웃에서 llm/dist가 없어 TS2307로 터졌다.
+  "references": [{ "path": "../llm" }] }

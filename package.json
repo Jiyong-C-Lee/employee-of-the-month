@@ -2,20 +2,39 @@
   "name": "employee-of-the-month",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "workspaces": ["packages/*"],
   "scripts": {
-    "dev": "npm run dev --workspace @eotm/worker",
-    "dev:web": "npm run dev --workspace @eotm/web",
-    "build": "npm run build --workspace @eotm/web && npm run build --workspace @eotm/worker",
-    "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "deploy": "npm run build --workspace @eotm/web && npm run deploy --workspace @eotm/worker",
-    "smoke": "node scripts/smoke.mjs"
+    "gen": "node content/scripts/gen-index.mjs",
+    "dev": "wrangler dev",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build:pkg": "npm run build --workspace @narre/llm --workspace @narre/cf",
+    "prebuild": "npm run gen && npm run build:pkg",
+    "build": "vite build --config web/vite.config.ts",
+    "deploy": "npm run build && wrangler deploy",
+    "tail": "wrangler tail",
+    "pretest": "npm run gen && npm run build:pkg",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@narre/llm": "*",
+    "@narre/cf": "*",
+    "@narre/ui": "*",
+    "hono": "^4.5.0",
+    "zod": "^3.23.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@fontsource/nanum-gothic": "^5.3.0"
   },
   "devDependencies": {
-    "sharp": "^0.35.3"
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.3.4",
+    "wrangler": "^4.114.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0",
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "@cloudflare/vitest-pool-workers": "^0.5.0"
   }
 }

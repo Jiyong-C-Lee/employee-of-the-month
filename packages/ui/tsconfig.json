@@ -1,0 +1,14 @@
+{
+  // 빌드 산출물이 없다 — 소스를 그대로 export하고 게임의 Vite가 컴파일한다(eotm의
+  // @eotm/shared 관례). 그래서 composite를 끄고 noEmit으로 타입만 본다.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM"],
+    "types": []
+  },
+  "include": ["src"]
+}

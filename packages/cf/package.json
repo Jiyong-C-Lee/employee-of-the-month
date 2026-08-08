@@ -1,0 +1,7 @@
+{
+  "name": "@narre/cf", "version": "0.0.0", "type": "module",
+  "main": "dist/index.js", "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": { "build": "tsc --build tsconfig.json", "test": "vitest run" },
+  "dependencies": { "@narre/llm": "0.0.0", "hono": "^4.5.0" }
+}

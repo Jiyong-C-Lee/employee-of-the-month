@@ -1,0 +1,105 @@
+/* 디자인 토큰 — 게임이 공유하는 유일한 스타일 층이다. 화면·컴포넌트는 게임이 짠다.
+   게임 CSS는 이 변수만 참조하고 리터럴 색·크기를 직접 쓰지 않는다. */
+:root {
+  /* 색 */
+  --narre-bg: #12100e;
+  --narre-surface: #1c1917;
+  --narre-border: #3a332e;
+  --narre-text: #f2ece4;
+  --narre-text-dim: #a89f94;
+  --narre-accent: #c9a227;
+  --narre-danger: #c0483c;
+
+  /* 타이포 */
+  --narre-font-body: 'Nanum Gothic', system-ui, -apple-system, sans-serif;
+  --narre-font-display: 'NanumSquare', var(--narre-font-body);
+  --narre-text-sm: 0.875rem;
+  --narre-text-base: 1rem;
+  --narre-text-lg: 1.25rem;
+  --narre-text-xl: 1.75rem;
+
+  /* 간격 */
+  --narre-gap-xs: 0.25rem;
+  --narre-gap-sm: 0.5rem;
+  --narre-gap-md: 1rem;
+  --narre-gap-lg: 2rem;
+
+  /* 모서리·그림자 */
+  --narre-radius: 0.5rem;
+  --narre-shadow: 0 2px 12px rgb(0 0 0 / 0.35);
+
+  /* 접힌 칩이 좌상단에 차지하는 가로 폭(왼쪽 여백 + 칩 + 숨 쉴 틈).
+     "자리를 차지하지 않는다"가 기획이었지만 세 게임 다 좌상단에 제목을 두기 때문에
+     실제로는 겹친다. 빈 모서리가 없어서 게임이 비켜 주는 쪽으로 정했다(스펙 §6 —
+     게임별 위치 조정은 구현 시 실제 화면에서 정한다).
+     게임은 자기 열이 화면 가운데로 좁아져 칩과 겹칠 때만 이만큼 상단바를 민다. */
+  --narre-chip-inset: 78px;
+}
+
+/* 공통 셸 — Shell.tsx가 쓰는 클래스. 게임 화면 스타일은 여기 두지 않는다.
+   접힘 헤더라 게임 위에 떠 있고 레이아웃 자리를 차지하지 않는다(스펙 §6).
+
+   래퍼는 통과만 시킨다. 배경·색·글꼴을 정하지 않는다 — 칩은 position: fixed라
+   래퍼가 자리를 차지할 이유가 없고, 정하면 게임 배경을 덮어쓴다.
+
+   height: 100%가 중요하다. 이게 없으면 래퍼가 auto가 되어, #root에서 내려오던
+   퍼센트 높이 사슬이 여기서 끊긴다. 게임이 내용 높이로 쪼그라들고 남은 화면이
+   셸 배경으로 칠해졌다(eotm에서 실제로 났다). */
+.narre-shell {
+  height: 100%;
+}
+
+.narre-shell__chip {
+  position: fixed;
+  top: var(--narre-gap-sm);
+  left: var(--narre-gap-sm);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: var(--narre-gap-sm);
+  padding: var(--narre-gap-xs);
+  border: 1px solid transparent;
+  border-radius: var(--narre-radius);
+}
+
+/* 펼친 상태에서만 배경·테두리를 준다. 접혀 있을 때는 칩만 떠 있다. */
+.narre-shell__chip[data-open] {
+  background: var(--narre-surface);
+  border-color: var(--narre-border);
+  box-shadow: var(--narre-shadow);
+}
+
+.narre-shell__logo {
+  padding: var(--narre-gap-xs) var(--narre-gap-sm);
+  border: 0;
+  border-radius: var(--narre-radius);
+  background: var(--narre-surface);
+  color: var(--narre-accent);
+  font-family: var(--narre-font-display);
+  font-size: var(--narre-text-sm);
+  cursor: pointer;
+}
+
+.narre-shell__chip[data-open] .narre-shell__logo {
+  background: transparent;
+}
+
+.narre-shell__menu {
+  display: flex;
+  align-items: center;
+  gap: var(--narre-gap-md);
+  padding-right: var(--narre-gap-sm);
+  /* 래퍼가 글꼴을 안 정하므로 칩 UI가 스스로 챙긴다. */
+  font-family: var(--narre-font-body);
+}
+
+.narre-shell__link {
+  color: var(--narre-text-dim);
+  font-size: var(--narre-text-sm);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.narre-shell__link:hover {
+  color: var(--narre-accent);
+}

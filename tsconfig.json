@@ -1,0 +1,26 @@
+{
+  // 게임은 빌드 산출물을 내지 않는다 — 워커는 wrangler가, 웹은 vite가 번들한다.
+  // 여기서는 타입만 본다.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "jsx": "react-jsx",
+    // content/packs.gen.ts가 팩 JSON을 직접 import한다.
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["@cloudflare/workers-types", "@cloudflare/vitest-pool-workers", "vite/client"],
+    "baseUrl": ".",
+    // 4워크스페이스를 폴더로 평탄화하면서 @eotm/* 를 대신한 별칭.
+    // Vite 쪽에도 같은 별칭을 둔다(web/vite.config.ts) — tsconfig는 타입만, Vite는 번들만 본다.
+    "paths": {
+      "@shared": ["./shared/index.ts"],
+      "@shared/*": ["./shared/*"],
+      "@content": ["./content/index.ts"],
+      "@content/*": ["./content/*"]
+    }
+  },
+  "include": ["worker", "web/src", "web/test", "shared", "content"]
+}
