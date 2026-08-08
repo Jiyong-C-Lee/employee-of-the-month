@@ -160,6 +160,7 @@ export default function Game({ state, actions }) {
               players={room.players}
               poseMap={poseMap}
               persona={persona}
+              verdict={resulted ? verdictItem.verdict : undefined}
             />
           </>
         )}

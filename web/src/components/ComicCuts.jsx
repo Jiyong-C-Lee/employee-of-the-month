@@ -148,27 +148,54 @@ export function SituationCut({ persona, situation }) {
   );
 }
 
+// 도장 등장 순서 — 반려가 큐 순서대로 하나씩 찍히고, 채택이 마지막에 내려온다(5a).
+// 초 단위 상수는 comic.css의 stampIn 길이와 짝이다.
+const STAMP_STEP = 0.3;
+const STAMP_LEAD = 0.15;
+
+function stampDelays(queue, adoptedKey) {
+  const delays = {};
+  let n = 0;
+  queue.forEach((e) => {
+    if (e.key === adoptedKey) return;
+    delays[e.key] = STAMP_LEAD + n * STAMP_STEP;
+    n += 1;
+  });
+  if (adoptedKey) delays[adoptedKey] = STAMP_LEAD + n * STAMP_STEP + 0.25;
+  return delays;
+}
+
 // ── ② 발언 컷 그리드 ──
-export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players, poseMap, persona }) {
+// verdict가 오면 컷 위에 반려·채택 도장을 얹는다(5a). 판정 전에는 undefined로 들어와 도장이 없다.
+export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players, poseMap, persona, verdict }) {
   const speechByKey = Object.fromEntries(speeches.map((s) => [s.key, s]));
   const rankByKey = Object.fromEntries((players || []).map((p) => [p.id, p.rank]));
   const avatarByKey = avatarByKeyFromPlayers(players);
   // 참모 얼굴 이모지 — 큐 엔트리에는 emoji가 없어서 persona.advisors에서 이름으로 찾는다(없으면 FaceSlot이 🤖 폴백).
   const emojiByName = Object.fromEntries((persona?.advisors || []).map((a) => [a.name, a.emoji]));
   const showTimer = timer && timer.phase === 'PLAYER_TURNS' && timer.total > 0;
+  const adoptedKey = verdict?.adoptedKey ?? null;
+  const delays = verdict ? stampDelays(queue, adoptedKey) : null;
 
   return (
-    <div className="speak-grid">
+    <div className={`speak-grid ${verdict ? 'judged' : ''}`}>
       {queue.map((entry, i) => {
         const spoken = speechByKey[entry.key];
         const speaking = speakTurn?.current === entry.key && !spoken;
         const waiting = !spoken && !speaking;
         const mine = entry.kind === 'user' && entry.key === playerId;
         const span2 = queue.length % 2 === 1 && i === queue.length - 1;
-        const cls = ['cut', 'speak-panel', speaking ? 'speaking' : '', waiting ? 'waiting' : '', span2 ? 'span2' : ''].join(' ');
+        const adopted = verdict && entry.key === adoptedKey;
+        const rejected = verdict && !adopted;
+        const cls = [
+          'cut', 'speak-panel',
+          speaking ? 'speaking' : '', waiting ? 'waiting' : '', span2 ? 'span2' : '',
+          adopted ? 'adopted' : '', rejected ? 'rejected' : '',
+        ].join(' ');
         const label = `${i + 1}  ${entry.name}${entry.kind === 'user' ? ` ${rankByKey[entry.key] || ''}` : ''}${mine ? ' ★' : ''}`;
+        const stampDelay = delays ? `${delays[entry.key] ?? 0}s` : undefined;
         return (
-          <div key={entry.key} className={cls}>
+          <div key={entry.key} className={cls} style={verdict ? { '--stamp-delay': stampDelay } : undefined}>
             {speaking && (
               <span className="speak-badge">
                 {UI.game.speaking}{showTimer ? ` ${fmtSec(timer.remaining)}` : ''}
@@ -187,6 +214,11 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
                 avatar={avatarByKey[entry.key]}
               />
             </div>
+            {verdict && (
+              <span className={`sp-stamp ${adopted ? 'adopt' : 'reject'}`}>
+                {adopted ? UI.game.stamp.adopt : UI.game.stamp.reject}
+              </span>
+            )}
             {/* 이름표는 컷(패널) 기준 우하단 고정 — span2에서 캐릭터가 가운데 정렬돼도 모든 컷과 같은 구석 위치를 유지한다. */}
             <span className="sp-label">{label}</span>
           </div>
@@ -205,8 +237,10 @@ export function GaugeStrip({ persona, done }) {
         <img src={poseUrl(BOSS_GAZE)} alt="" />
         <FaceSlot pose={BOSS_GAZE} entry={{ kind: 'ai', emoji: persona.emoji }} />
       </div>
-      <span className="gs-rage">💢</span>
-      <span className="gs-rage r2">💢</span>
+      <div className="gs-copy">
+        <div className="gs-title">{UI.game.gauge.reading}</div>
+        <div className="gs-sub">{UI.game.gauge.readingSub}</div>
+      </div>
       <div className="gs-status">{done ? UI.game.gauge.done : UI.game.gauge.judging}</div>
     </div>
   );

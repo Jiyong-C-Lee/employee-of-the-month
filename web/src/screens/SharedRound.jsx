@@ -111,6 +111,7 @@ export default function SharedRound() {
         <SpeakGrid
           queue={queue} speeches={speeches} speakTurn={null} playerId={null}
           timer={null} players={players} poseMap={poseMap} persona={persona}
+          verdict={verdict}
         />
         <div className="comic-sec"><b>{UI.game.sec.result}</b><i /></div>
         <GaugeStrip persona={persona} done />
