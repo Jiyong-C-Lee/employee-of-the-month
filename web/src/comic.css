@@ -297,7 +297,9 @@
 /* 수상 액자 */
 .award { position: relative; width: 158px; }
 /* 리본 배너를 걷어내고 자간 넓힌 캡션으로(5a) — 액자 자체가 주인공이라 위쪽은 조용해야 한다. */
-.award .aw-ribbon { position: relative; z-index: 4; margin: 0 0 13px; text-align: center; font-weight: 800; font-size: 17px; letter-spacing: .18em; color: #6b4f24; text-shadow: 0 1px 0 rgba(255, 255, 255, .7); }
+/* nowrap 필수 — awCaption이 자간 .5em에서 시작하는데, 그 폭이 액자(158px)를 넘어서
+   등장하는 순간 "이달의 우수사/원"으로 줄이 갈렸다. 넘치는 건 컷 안쪽 여백이 받아준다. */
+.award .aw-ribbon { position: relative; z-index: 4; margin: 0 0 13px; text-align: center; white-space: nowrap; font-weight: 800; font-size: 17px; letter-spacing: .18em; color: #6b4f24; text-shadow: 0 1px 0 rgba(255, 255, 255, .7); }
 .award .aw-frame { position: relative; padding: 7px; border-radius: 8px; background: linear-gradient(135deg, #eccd81, #b98f4f 46%, #8a6b42); box-shadow: 0 6px 15px rgba(0, 0, 0, .32); }
 .award .aw-frame-in { padding: 4px; border-radius: 4px; background: linear-gradient(315deg, #eccd81, #9c7a3c); }
 .award .aw-mat { background: #f7f3ea; padding: 4px; border: 1px solid #cbb384; }
