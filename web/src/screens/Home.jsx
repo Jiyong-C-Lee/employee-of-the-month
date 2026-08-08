@@ -1,8 +1,16 @@
+// 메인 화면 — 디자인 프로젝트 '스타일 탐색' 3a 확정안.
+// 히어로(보스 컷 + 말풍선) → 닉네임 한 줄 → 번호 붙은 진입 3개. 보스 선택·회의 설정은
+// 다음 화면(BossPick, 3c)이 맡는다. 이 화면은 "누가 들어가는가"만 정한다.
 import { useEffect, useState } from 'react';
-import { AVATAR_EMOJI_PREFIX, avatarEmoji, hashColor, isEmojiAvatar, isImageAvatar } from '../comic-assets.js';
-import PersonaWizard, { loadCustomPersonas, deleteCustomPersona } from './PersonaWizard.jsx';
+import { UI } from '@content/ui';
+import {
+  AVATAR_EMOJI_PREFIX, BOSS_FRONT, avatarEmoji, hashColor, isEmojiAvatar, isImageAvatar, poseUrl,
+} from '../comic-assets.js';
+import BossPick from './BossPick.jsx';
+import '../paper.css';
 
 const AVATAR_KEY = 'eotm.avatar';
+const NICK_KEY = 'eotm.nick';
 const AVATAR_SIZE = 128;
 
 // 아이콘 선택 프리셋 — 표정·동물·사물 30종 (얼굴 원 안에서 알아보기 좋은 것 위주).
@@ -35,6 +43,18 @@ function resizeAvatar(file) {
   });
 }
 
+// 아바타 원 — 이미지/이모지/이니셜 세 갈래를 한 곳에서 그린다. 닉네임 줄과 3c 헤더 칩이 공유한다.
+export function AvatarCircle({ avatar, nick, className = 'ph-avatar' }) {
+  if (isImageAvatar(avatar)) {
+    return <span className={className} style={{ backgroundImage: `url(${avatar})` }} />;
+  }
+  if (isEmojiAvatar(avatar)) {
+    return <span className={className}>{avatarEmoji(avatar)}</span>;
+  }
+  const seed = nick.trim() || '?';
+  return <span className={className} style={{ background: hashColor(seed) }}>{seed.slice(0, 1)}</span>;
+}
+
 // 익명 피드백 — 접이식 폼, 즉석 전송 (서버 KV 저장). 메일 앱 불필요.
 function FeedbackBox({ toast }) {
   const [open, setOpen] = useState(false);
@@ -43,42 +63,42 @@ function FeedbackBox({ toast }) {
   const [busy, setBusy] = useState(false);
 
   async function send() {
-    if (text.trim().length < 2) return toast('의견 내용을 입력해 주세요.');
+    if (text.trim().length < 2) return toast(UI.errors.feedbackEmpty);
     setBusy(true);
     const res = await fetch('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: text.trim(), ...(contact.trim() && { contact: contact.trim() }) }),
-    }).then((r) => r.json()).catch(() => ({ error: '서버에 연결할 수 없습니다.' }));
+    }).then((r) => r.json()).catch(() => ({ error: UI.errors.connectFail }));
     setBusy(false);
     if (res.error) return toast(res.error);
     setText('');
     setContact('');
     setOpen(false);
-    toast('전달됐습니다. 감사합니다! 🙏');
+    toast(UI.home.feedbackThanks);
   }
 
   if (!open) {
     return (
-      <button type="button" className="feedback-link" onClick={() => setOpen(true)}>
-        💬 버그 제보·의견 보내기
-      </button>
+      <div className="ph-foot">
+        <button type="button" onClick={() => setOpen(true)}>{UI.home.feedbackOpen}</button>
+      </div>
     );
   }
   return (
-    <div className="feedback-box">
+    <div className="ph-feedback">
       <textarea
         value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} rows={3}
-        placeholder="버그, 아이디어, 아무 의견이나 익명으로 남겨주세요" autoFocus
+        placeholder={UI.home.feedbackText} autoFocus
       />
       <input
         value={contact} onChange={(e) => setContact(e.target.value)} maxLength={100}
-        placeholder="답장 받을 연락처 (선택)"
+        placeholder={UI.home.feedbackContact}
       />
       <div className="row">
-        <button type="button" className="btn small" onClick={() => setOpen(false)}>닫기</button>
-        <button type="button" className="btn small primary" disabled={busy} onClick={send}>
-          {busy ? '보내는 중…' : '보내기'}
+        <button type="button" className="btn" onClick={() => setOpen(false)}>{UI.home.feedbackClose}</button>
+        <button type="button" className="btn primary" disabled={busy} onClick={send}>
+          {busy ? UI.home.feedbackSending : UI.home.feedbackSend}
         </button>
       </div>
     </div>
@@ -87,14 +107,28 @@ function FeedbackBox({ toast }) {
 
 // eslint-disable-next-line no-unused-vars -- App.tsx가 항상 state를 함께 넘겨 호출부 타입과 맞춘다.
 export default function Home({ state, actions }) {
-  // menu | single | create | join
+  // menu | join | single | multi  (single·multi는 보스 선택 화면으로 넘어간다)
   const [mode, setMode] = useState('menu');
-  const [nick, setNick] = useState('');
+  const [nick, setNick] = useState(() => {
+    try { return localStorage.getItem(NICK_KEY) || ''; } catch { return ''; }
+  });
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [faceOpen, setFaceOpen] = useState(false);
   const [avatar, setAvatar] = useState(() => {
     try { return localStorage.getItem(AVATAR_KEY) || null; } catch { return null; }
   });
+
+  // 닉네임은 재방문에도 남는다 — 3a는 닉네임이 이미 채워진 상태를 기본으로 그린다.
+  useEffect(() => {
+    try { localStorage.setItem(NICK_KEY, nick); } catch { /* 사파리 프라이빗 등 — 무시 */ }
+  }, [nick]);
+
+  // 초대 링크(?code=XXXX)로 들어오면 참가 모드로 자동 전환
+  useEffect(() => {
+    const p = new URLSearchParams(location.search).get('code');
+    if (p) { setCode(p.toUpperCase()); setMode('join'); }
+  }, []);
 
   async function onAvatarPick(e) {
     const file = e.target.files?.[0];
@@ -105,7 +139,7 @@ export default function Home({ state, actions }) {
       localStorage.setItem(AVATAR_KEY, dataUrl);
       setAvatar(dataUrl);
     } catch {
-      actions.toast('이미지를 처리하지 못했습니다.');
+      actions.toast(UI.errors.avatarFail);
     }
   }
 
@@ -120,252 +154,152 @@ export default function Home({ state, actions }) {
     setAvatar(value);
   }
 
-  // 초대 링크(?code=XXXX)로 들어오면 참가 모드로 자동 전환
-  useEffect(() => {
-    const p = new URLSearchParams(location.search).get('code');
-    if (p) { setCode(p.toUpperCase()); setMode('join'); }
-  }, []);
-
-  // 간신배 설정
-  const [personas, setPersonas] = useState([]);
-  const [personaId, setPersonaId] = useState(null);
-  // 커스텀 페르소나 (localStorage) + 위저드 진입 전 화면 기억
-  const [customs, setCustoms] = useState(loadCustomPersonas);
-  const [wizardReturn, setWizardReturn] = useState('single');
-  const [speakTime, setSpeakTime] = useState(60);
-  const [maxPlayers, setMaxPlayers] = useState(4);
-  const [aiCompete, setAiCompete] = useState(false);
-  const [difficulty, setDifficulty] = useState('normal');
-  const [maxRounds, setMaxRounds] = useState(5);
-
-  // 인물 목록 로드
-  useEffect(() => {
-    if (personas.length > 0) return;
-    fetch('/api/personas')
-      .then((r) => r.json())
-      .then((list) => {
-        setPersonas(list);
-        if (!personaId && list[0]) setPersonaId(list[0].id);
-      })
-      .catch(() => actions.toast('인물 목록을 불러오지 못했습니다.'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   async function join() {
-    if (!nick.trim()) return actions.toast('닉네임을 입력하세요.');
-    if (!code.trim()) return actions.toast('방 코드를 입력하세요.');
+    if (!nick.trim()) return actions.toast(UI.errors.needNick);
+    if (!code.trim()) return actions.toast(UI.errors.needCode);
     setBusy(true);
     const res = await actions.joinRoom(code, nick, avatar || undefined);
     setBusy(false);
     if (res.error) actions.toast(res.error);
   }
 
-  async function start(modeKind) {
-    if (!nick.trim()) return actions.toast('닉네임을 입력하세요.');
-    if (!personaId) return actions.toast('인물을 선택하세요.');
-    setBusy(true);
-    const config = modeKind === 'single'
-      ? { mode: 'single', personaId, difficulty, maxRounds: Number(maxRounds) } // 싱글은 제한시간 없음
-      : { mode: 'multi', personaId, speakTime: Number(speakTime), maxPlayers: Number(maxPlayers), aiCompete, difficulty, maxRounds: Number(maxRounds) };
-    // 커스텀 페르소나 선택 시 팩 전체를 동봉 — 서버가 재검증 후 방에 영속한다.
-    const custom = customs.find((p) => p.id === personaId);
-    if (custom) config.customPersona = custom;
-    const res = await actions.createRoom(nick, config, avatar || undefined);
-    setBusy(false);
-    if (res.error) actions.toast(res.error);
+  // 보스 선택 화면 — 싱글·멀티가 같은 화면을 쓰고 시작 버튼 문구·설정 항목만 갈린다.
+  if (mode === 'single' || mode === 'multi') {
+    return (
+      <BossPick
+        mode={mode}
+        nick={nick}
+        avatar={avatar}
+        actions={actions}
+        onBack={() => setMode('menu')}
+      />
+    );
   }
 
-  const nickField = (
-    <label className="field">
-      <span>닉네임</span>
-      <input value={nick} onChange={(e) => setNick(e.target.value)} maxLength={16} placeholder="예: 김철수" />
-    </label>
-  );
-
-  const personaPicker = (
-    <div className="persona-list">
-      {personas.length === 0 && <div className="waiting-note">인물 목록 불러오는 중…</div>}
-      {customs.map((p) => (
-        <label key={p.id} className={`persona-card custom ${personaId === p.id ? 'sel' : ''}`}>
-          <input type="radio" name="persona" value={p.id} checked={personaId === p.id} onChange={() => setPersonaId(p.id)} />
-          <span className="pc-emoji">{p.emoji}</span>
-          <span className="pc-body">
-            <span className="pc-name">{p.name} <em className="pc-custom-badge">커스텀</em></span>
-            <span className="pc-intro">{p.intro}</span>
-            <span className="pc-axes">채점축: {p.axes.join(' · ')}</span>
-          </span>
-          <button
-            type="button" className="pc-del" aria-label={`${p.name} 삭제`}
-            onClick={(e) => {
-              e.preventDefault();
-              setCustoms(deleteCustomPersona(p.id));
-              if (personaId === p.id) setPersonaId(personas[0]?.id ?? null);
-            }}
-          >✕</button>
-        </label>
-      ))}
-      {personas.map((p) => (
-        <label key={p.id} className={`persona-card ${personaId === p.id ? 'sel' : ''}`}>
-          <input type="radio" name="persona" value={p.id} checked={personaId === p.id} onChange={() => setPersonaId(p.id)} />
-          <span className="pc-emoji">{p.emoji}</span>
-          <span className="pc-body">
-            <span className="pc-name">{p.name}</span>
-            <span className="pc-intro">{p.intro}</span>
-            <span className="pc-axes">채점축: {p.axes.join(' · ')}</span>
-          </span>
-        </label>
-      ))}
-      <button type="button" className="btn small wizard-open" onClick={() => { setWizardReturn(mode); setMode('wizard'); }}>
-        🛠 나만의 보스 만들기
-      </button>
-    </div>
-  );
-
-  const difficultyField = (
-    <label className="field">
-      <span>AI 참모 난이도</span>
-      <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
-        <option value="easy">순한맛 (참모가 허술함)</option>
-        <option value="normal">보통</option>
-        <option value="hard">매운맛 (참모가 날카로움)</option>
-      </select>
-    </label>
-  );
-
-  const roundsField = (
-    <label className="field">
-      <span>라운드 수 (도달 시 최고 총애자가 '올해의 사원')</span>
-      <select value={maxRounds} onChange={(e) => setMaxRounds(e.target.value)}>
-        <option value={5}>5라운드 (기본)</option>
-        <option value={10}>10라운드</option>
-        <option value={15}>15라운드 (풀코스)</option>
-      </select>
-    </label>
-  );
-
-  const speakTimeField = (
-    <label className="field">
-      <span>발언 제한시간</span>
-      <select value={speakTime} onChange={(e) => setSpeakTime(e.target.value)}>
-        <option value={60}>1분</option>
-        <option value={120}>2분</option>
-        <option value={180}>3분</option>
-      </select>
-    </label>
-  );
+  const MENU = UI.home.menu;
 
   return (
-    <div className="home">
-      <div className="home-card">
-        <h1 className="logo">🏆 이달의 사원</h1>
-        <p className="tagline">보스의 마음을 움직이는 간언으로 <br/> 사원에서 사장까지 승진해 보세요</p>
-
-        <div className="avatar-setting">
-          <span
-            className="avatar-preview"
-            style={isImageAvatar(avatar) ? { backgroundImage: `url(${avatar})` } : { background: isEmojiAvatar(avatar) ? undefined : hashColor(nick.trim() || '?') }}
-          >
-            {isImageAvatar(avatar) ? null : isEmojiAvatar(avatar) ? avatarEmoji(avatar) : (nick.trim().slice(0, 1) || '?')}
-          </span>
-          <div className="avatar-actions">
-            <button type="button" className={`btn small ${!avatar ? 'sel' : ''}`} onClick={resetAvatar}>기본</button>
-            <label className="btn small">
-              사진 업로드
-              <input type="file" accept="image/*" onChange={onAvatarPick} style={{ display: 'none' }} />
-            </label>
+    <div className="paper">
+      <div className="paper-card">
+        <div className="ph-hero">
+          <i className="ph-stripes" />
+          <div className="ph-boss">
+            <img src={poseUrl(BOSS_FRONT)} alt="" />
+            <span className="ph-face">{UI.home.bossCrest}</span>
+          </div>
+          <div className="ph-bubble">
+            {UI.home.bossLine}
+            <b>{UI.home.bossLineStrong}</b>
+            <i className="tail-ink" />
+            <i className="tail-fill" />
           </div>
         </div>
-        <div className="avatar-emoji-list">
-          {AVATAR_EMOJI_PRESETS.map((e) => (
-            <button
-              key={e}
-              type="button"
-              className={`avatar-emoji-btn ${avatar === AVATAR_EMOJI_PREFIX + e ? 'sel' : ''}`}
-              onClick={() => pickEmojiAvatar(e)}
-              aria-label={`아이콘 ${e} 선택`}
-            >
-              {e}
+
+        <div className="ph-body">
+          <h1 className="ph-title">{UI.home.title}</h1>
+          <div className="ph-rule" />
+          <p className="ph-tagline">
+            {UI.home.tagline.map((line, i) => (
+              <span key={line}>{i > 0 && <br />}{line}</span>
+            ))}
+          </p>
+
+          <div className="ph-nick">
+            <AvatarCircle avatar={avatar} nick={nick} />
+            <div className="ph-nick-body">
+              <div className="ph-nick-label">{UI.home.nickLabel}</div>
+              <input
+                value={nick}
+                onChange={(e) => setNick(e.target.value)}
+                maxLength={16}
+                placeholder={UI.home.nickPlaceholder}
+                aria-label={UI.home.nickLabel}
+              />
+            </div>
+            <button type="button" className="ph-face-btn" onClick={() => setFaceOpen((v) => !v)}>
+              {UI.home.changeFace}
             </button>
-          ))}
+          </div>
+
+          {faceOpen && (
+            <div className="ph-face-sheet">
+              <div className="ph-face-head">
+                <b>{UI.home.faceTitle}</b>
+                <button type="button" className="btn small" onClick={() => setFaceOpen(false)}>{UI.home.faceDone}</button>
+              </div>
+              <div className="ph-face-grid">
+                {AVATAR_EMOJI_PRESETS.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    className={avatar === AVATAR_EMOJI_PREFIX + e ? 'sel' : ''}
+                    onClick={() => pickEmojiAvatar(e)}
+                    aria-label={e}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+              <div className="ph-face-actions">
+                <button type="button" className="btn small" onClick={resetAvatar}>{UI.home.faceDefault}</button>
+                <label className="btn small" style={{ textAlign: 'center' }}>
+                  {UI.home.facePhoto}
+                  <input type="file" accept="image/*" onChange={onAvatarPick} style={{ display: 'none' }} />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {mode === 'menu' && (
+            <>
+              <div className="ph-menu">
+                <MenuItem item={MENU.single} primary onClick={() => setMode('single')} />
+                <MenuItem item={MENU.create} onClick={() => setMode('multi')} />
+                <MenuItem item={MENU.join} onClick={() => setMode('join')} />
+              </div>
+              <FeedbackBox toast={actions.toast} />
+            </>
+          )}
+
+          {mode === 'join' && (
+            <div className="ph-join">
+              <div className="ph-join-label">{UI.home.codeLabel}</div>
+              <input
+                className="ph-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                maxLength={4}
+                placeholder={UI.home.codePlaceholder}
+                aria-label={UI.home.codeLabel}
+                autoFocus
+              />
+              <div className="ph-row">
+                <button type="button" className="btn" onClick={() => setMode('menu')}>{UI.home.back}</button>
+                <button type="button" className="btn primary" disabled={busy} onClick={join}>{UI.home.joinAction}</button>
+              </div>
+            </div>
+          )}
         </div>
-
-        {mode === 'menu' && (
-          <div className="stack">
-            <button className="btn primary big" onClick={() => setMode('single')}>👤 혼자 하기 (AI 참모와 경쟁)</button>
-            <button className="btn big" onClick={() => setMode('create')}>👥 방 만들기 (동료와 경쟁)</button>
-            <button className="btn big" onClick={() => setMode('join')}>🔑 방 코드로 참가</button>
-          </div>
-        )}
-
-        {mode === 'join' && (
-          <div className="stack">
-            {nickField}
-            <label className="field">
-              <span>방 코드</span>
-              <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={4} placeholder="예: AB12" style={{ textTransform: 'uppercase', letterSpacing: '4px', fontSize: '1.3rem' }} />
-            </label>
-            <div className="row">
-              <button className="btn" onClick={() => setMode('menu')}>뒤로</button>
-              <button className="btn primary" disabled={busy} onClick={join}>참가</button>
-            </div>
-          </div>
-        )}
-
-        {mode === 'single' && (
-          <div className="stack">
-            {nickField}
-            {personaPicker}
-            {difficultyField}
-            {roundsField}
-            <div className="row">
-              <button className="btn" onClick={() => setMode('menu')}>뒤로</button>
-              <button className="btn primary" disabled={busy} onClick={() => start('single')}>출근하기 ▶</button>
-            </div>
-          </div>
-        )}
-
-        {mode === 'wizard' && (
-          <PersonaWizard
-            toast={actions.toast}
-            onCancel={() => setMode(wizardReturn)}
-            onSaved={(p) => {
-              setCustoms(loadCustomPersonas());
-              setPersonaId(p.id);
-              setMode(wizardReturn);
-            }}
-          />
-        )}
-
-        {mode === 'menu' && <FeedbackBox toast={actions.toast} />}
-
-        {mode === 'create' && (
-          <div className="stack">
-            {nickField}
-            {personaPicker}
-            {speakTimeField}
-            <label className="field">
-              <span>정원 (빈자리는 AI 참모가 채웁니다)</span>
-              <select value={maxPlayers} onChange={(e) => setMaxPlayers(e.target.value)}>
-                <option value={2}>2명</option>
-                <option value={3}>3명</option>
-                <option value={4}>4명</option>
-                <option value={5}>5명</option>
-                <option value={6}>6명</option>
-              </select>
-            </label>
-            <label className="field check">
-              <span>AI 참모도 채택 경쟁 참전</span>
-              <input type="checkbox" checked={aiCompete} onChange={(e) => setAiCompete(e.target.checked)} />
-            </label>
-            {difficultyField}
-            {roundsField}
-            <div className="row">
-              <button className="btn" onClick={() => setMode('menu')}>뒤로</button>
-              <button className="btn primary" disabled={busy} onClick={() => start('multi')}>방 생성</button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
+  );
+}
+
+function MenuItem({ item, primary, onClick }) {
+  return (
+    // 번호·설명이 중첩 span이라 스크린리더가 이름을 못 뽑는다. 이름을 명시한다.
+    <button
+      type="button"
+      className={`ph-item ${primary ? 'primary' : ''}`}
+      aria-label={`${item.title} — ${item.desc}`}
+      onClick={onClick}
+    >
+      <span className="ph-no" aria-hidden="true">{item.no}</span>
+      <span className="ph-item-body">
+        <b>{item.title}</b>
+        <span className="ph-desc">{item.desc}</span>
+      </span>
+      <span className="ph-arrow">▶</span>
+    </button>
   );
 }

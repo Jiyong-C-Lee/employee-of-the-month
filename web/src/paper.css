@@ -1,0 +1,334 @@
+/* ══════════ 메인 · 보스 선택 — 디자인 프로젝트 '스타일 탐색' 3a/3c 확정안 ══════════
+   토큰(--ink 등)은 comic.css가 .comic-app, .paper 공용으로 선언한다. 여기는 배치만 맡는다. */
+
+.paper {
+  align-items: center;
+  overflow-y: auto;
+  padding: 16px 14px 20px;
+}
+
+/* narre 칩이 좌상단에 상시 떠 있다 — 좁은 폭에서 카드 상단과 겹치므로 그만큼 내린다. */
+@media (max-width: 610px) {
+  .paper { padding-top: var(--narre-chip-inset, 16px); }
+}
+
+.paper-card {
+  width: 100%;
+  max-width: 390px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 0 6px 0 rgba(42, 35, 48, .15);
+}
+
+/* ── 히어로: 보스 일러스트 + 말풍선 ── */
+.ph-hero {
+  position: relative;
+  height: 132px;
+  overflow: hidden;
+  background: var(--tan);
+  border-bottom: 2px solid var(--ink);
+}
+.ph-hero .ph-stripes {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(105deg, transparent 0 9px, rgba(42, 35, 48, .07) 9px 12px);
+}
+.ph-boss { position: relative; width: 150px; margin: 6px 0 0 6px; }
+.ph-boss img { display: block; width: 100%; }
+.ph-boss .ph-face {
+  position: absolute; left: 51%; top: 25%; width: 21%;
+  transform: translate(-50%, -50%);
+  aspect-ratio: 1 / 1; border-radius: 50%;
+  border: 2px solid var(--ink); background: var(--red);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800;
+  color: #fff8e6; font-size: 15px;
+}
+.ph-bubble {
+  position: absolute; right: 12px; top: 20px; max-width: 190px;
+  background: #fff; border: 2px solid var(--ink); border-radius: 14px;
+  padding: 9px 11px; font-size: 13px; line-height: 1.6;
+}
+.ph-bubble b { display: block; margin-top: 5px; color: var(--red); }
+.ph-bubble .tail-ink,
+.ph-bubble .tail-fill { position: absolute; width: 0; height: 0; }
+.ph-bubble .tail-ink {
+  left: -11px; top: 38%;
+  border-top: 9px solid transparent; border-bottom: 9px solid transparent;
+  border-right: 11px solid var(--ink);
+}
+.ph-bubble .tail-fill {
+  left: -7px; top: 38%;
+  border-top: 7px solid transparent; border-bottom: 7px solid transparent;
+  border-right: 9px solid #fff;
+}
+
+/* ── 본문 ── */
+.ph-body { padding: 18px 16px 16px; }
+.ph-title {
+  margin: 0;
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800;
+  font-size: 34px; letter-spacing: -.035em; line-height: 1.05;
+}
+.ph-rule { width: 46px; height: 5px; background: var(--red); margin: 9px 0 11px; }
+.ph-tagline { margin: 0 0 18px; font-size: 13.5px; line-height: 1.65; color: #5a5462; }
+
+/* ── 닉네임 줄 ── */
+.ph-nick {
+  display: flex; align-items: center; gap: 11px;
+  border: 2px solid var(--ink); background: #fff;
+  padding: 9px 11px; margin-bottom: 15px;
+}
+.ph-avatar {
+  width: 44px; height: 44px; flex: none; border-radius: 50%;
+  border: 2px solid var(--ink); background: #5cc4c9;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800;
+  color: #fff; font-size: 18px; overflow: hidden;
+  background-size: cover; background-position: center;
+}
+.ph-nick-body { flex: 1; min-width: 0; }
+.ph-nick-label {
+  font-size: 10.5px; font-weight: 700; color: #8a8290;
+  letter-spacing: .04em; margin-bottom: 2px;
+}
+.ph-nick-body input {
+  width: 100%; border: 0; padding: 0; background: transparent; border-radius: 0;
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 700;
+  font-size: 16px; color: var(--ink);
+}
+.ph-nick-body input:focus { outline: none; }
+.ph-nick-body input::placeholder { color: #b8b1a6; font-weight: 400; }
+.ph-face-btn {
+  flex: none; height: 36px; padding: 0 12px;
+  background: #fff; border: 2px solid var(--ink); border-radius: 6px;
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 700;
+  font-size: 12px; color: var(--ink);
+}
+
+/* ── 얼굴 고르기 시트 ── */
+.ph-face-sheet {
+  border: 2px solid var(--ink); background: #fff;
+  padding: 11px; margin-bottom: 15px;
+}
+.ph-face-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 9px;
+}
+.ph-face-head b {
+  flex: 1; font-family: 'NanumSquare', 'Nanum Gothic', sans-serif;
+  font-weight: 800; font-size: 13px;
+}
+.ph-face-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+  max-height: 148px; overflow-y: auto;
+}
+.ph-face-grid button {
+  aspect-ratio: 1 / 1; border: 2px solid #d9d2c6; background: var(--paper-2);
+  border-radius: 8px; font-size: 19px; line-height: 1; padding: 0;
+}
+.ph-face-grid button.sel { border-color: var(--ink); background: var(--tan); }
+.ph-face-actions { display: flex; gap: 7px; margin-top: 9px; }
+.ph-face-actions .btn { flex: 1; }
+
+/* ── 메뉴 버튼 3개 ── */
+.ph-menu { display: flex; flex-direction: column; gap: 10px; }
+.ph-item {
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  background: #fff; border: 2px solid var(--ink); border-radius: 8px;
+  box-shadow: 0 4px 0 rgba(42, 35, 48, .2);
+  padding: 14px 13px; color: var(--ink);
+  transition: transform .05s, box-shadow .05s;
+}
+.ph-item:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(42, 35, 48, .2); }
+.ph-item .ph-no {
+  width: 34px; height: 34px; flex: none; border: 2px solid var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800; font-size: 15px;
+}
+.ph-item .ph-item-body { flex: 1; }
+.ph-item b {
+  display: block; font-family: 'NanumSquare', 'Nanum Gothic', sans-serif;
+  font-weight: 800; font-size: 16px; margin-bottom: 2px;
+}
+.ph-item span.ph-desc { font-size: 12px; line-height: 1.5; color: #5a5462; }
+.ph-item .ph-arrow { font-size: 17px; color: #8a8290; }
+
+.ph-item.primary { background: var(--red); border-color: var(--ink); box-shadow: 0 4px 0 var(--ink); color: #fff; }
+.ph-item.primary:active { box-shadow: 0 1px 0 var(--ink); }
+.ph-item.primary .ph-no { border-color: #fff; }
+.ph-item.primary span.ph-desc { color: rgba(255, 255, 255, .9); }
+.ph-item.primary .ph-arrow { color: #fff; }
+
+/* ── 하단 링크 ── */
+.ph-foot {
+  margin-top: 16px; padding-top: 13px; border-top: 1px dashed #cfc7b7;
+  display: flex; justify-content: center;
+}
+.ph-foot button {
+  background: none; border: 0; padding: 0;
+  font-size: 12px; color: #7a7482;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* 피드백 폼 */
+.ph-feedback { margin-top: 14px; padding-top: 13px; border-top: 1px dashed #cfc7b7; display: grid; gap: 8px; }
+.ph-feedback textarea,
+.ph-feedback input {
+  background: #fff; border: 2px solid var(--ink); color: var(--ink); border-radius: 6px;
+  font-size: 13px; padding: 9px 10px;
+}
+.ph-feedback .row { display: flex; gap: 8px; }
+.ph-feedback .row .btn { flex: 1; }
+
+/* ── 방 코드 입력 ── */
+.ph-join { display: grid; gap: 12px; }
+.ph-join-label { font-size: 11px; font-weight: 700; color: #8a8290; letter-spacing: .04em; }
+.ph-code {
+  width: 100%; height: 56px; text-align: center;
+  border: 2px solid var(--ink); background: #fff; border-radius: 8px;
+  font-family: ui-monospace, Menlo, monospace; font-size: 24px; letter-spacing: 10px;
+  color: var(--ink); text-transform: uppercase;
+}
+.ph-row { display: flex; gap: 8px; }
+.ph-row .btn { flex: 1; }
+
+/* 종이 톤 버튼 — styles.css의 다크 .btn을 이 화면에서만 덮는다. */
+.paper .btn {
+  background: #fff; border: 2px solid var(--ink); color: var(--ink);
+  border-radius: 6px; font-family: 'NanumSquare', 'Nanum Gothic', sans-serif;
+  font-weight: 700; font-size: 13px; padding: 11px 14px;
+}
+.paper .btn.primary { background: var(--red); color: #fff; box-shadow: 0 4px 0 var(--ink); }
+.paper .btn:disabled { opacity: .45; }
+
+/* ══════════ 3c — 보스 선택 ══════════ */
+.pb-card { display: flex; flex-direction: column; padding: 0; }
+
+.pb-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 15px; background: var(--paper-2);
+  border-bottom: 2px solid var(--ink);
+}
+.pb-back {
+  width: 34px; height: 34px; flex: none; padding: 0;
+  background: #fff; border: 2px solid var(--ink); border-radius: 6px;
+  font-size: 14px; color: var(--ink);
+}
+.pb-title {
+  flex: 1; font-family: 'NanumSquare', 'Nanum Gothic', sans-serif;
+  font-weight: 800; font-size: 17px; letter-spacing: -.03em;
+}
+.pb-me {
+  height: 32px; display: flex; align-items: center; gap: 7px; padding: 0 6px;
+  border: 2px solid var(--ink); background: #fff; border-radius: 20px;
+}
+.pb-me-face {
+  width: 20px; height: 20px; flex: none; border-radius: 50%; background: #5cc4c9;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800;
+  font-size: 10px; color: #fff; overflow: hidden;
+  background-size: cover; background-position: center;
+}
+.pb-me b { font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 700; font-size: 11.5px; padding-right: 3px; }
+
+/* 가로 카드 캐러셀 — 스크롤 스냅으로 한 장씩 선다. */
+.pb-rail {
+  display: flex; gap: 12px; align-items: stretch;
+  padding: 16px 22px 4px;
+  overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.pb-rail::-webkit-scrollbar { display: none; }
+
+.pb-boss {
+  width: 286px; flex: none; scroll-snap-align: center;
+  background: #fff; border: 2px solid var(--ink);
+  box-shadow: 0 6px 0 rgba(42, 35, 48, .18);
+  display: flex; flex-direction: column; text-align: left;
+  padding: 0; opacity: .5; cursor: pointer;
+  transition: opacity .18s, box-shadow .18s;
+}
+.pb-boss:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.pb-boss.sel { opacity: 1; box-shadow: 0 0 0 3px var(--gold), 0 6px 0 rgba(42, 35, 48, .18); }
+
+.pb-crest {
+  position: relative; height: 96px; flex: none;
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center; justify-content: center;
+}
+.pb-crest i.stripes {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg, transparent 0 7px, rgba(255, 255, 255, .1) 7px 11px);
+}
+.pb-crest span {
+  position: relative; width: 64px; height: 64px; border-radius: 50%;
+  background: var(--paper); border: 2px solid var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800; font-size: 32px;
+}
+.pb-boss-body { padding: 14px 14px 15px; }
+.pb-name {
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800;
+  font-size: 22px; margin-bottom: 7px;
+  display: flex; align-items: baseline; gap: 7px;
+}
+.pb-custom-badge {
+  font-family: 'Nanum Gothic', sans-serif; font-size: 10.5px; font-weight: 700; font-style: normal;
+  background: var(--ink); color: #fff; padding: 2px 7px; border-radius: 3px;
+}
+.pb-intro { margin: 0 0 13px; font-size: 13px; line-height: 1.65; color: #5a5462; }
+.pb-axes-label { font-size: 11px; font-weight: 700; color: #8a8290; margin-bottom: 6px; }
+.pb-axes { display: flex; flex-wrap: wrap; gap: 5px; }
+.pb-axes span {
+  background: var(--tan); color: #7d5f37; font-weight: 700;
+  font-size: 12px; padding: 4px 11px; border-radius: 12px;
+}
+.pb-del {
+  position: absolute; top: 7px; right: 7px; width: 26px; height: 26px; padding: 0;
+  background: #fff; border: 2px solid var(--ink); border-radius: 50%;
+  font-size: 12px; line-height: 1; color: var(--ink);
+}
+
+.pb-dots { display: flex; gap: 5px; justify-content: center; padding: 14px 0 4px; }
+.pb-dots i { width: 5px; height: 5px; background: #c4bcb0; border-radius: 3px; transition: width .18s, background .18s; }
+.pb-dots i.on { width: 22px; background: var(--ink); }
+
+.pb-custom-link { padding: 8px 14px 0; display: flex; justify-content: center; }
+.pb-custom-link button {
+  background: none; border: 0; padding: 0 0 2px;
+  font-size: 12.5px; color: #6b6459; border-bottom: 1px solid #b8b1a6;
+}
+
+/* ── 설정 (3c 아래칸) ── */
+.pb-settings {
+  margin-top: 16px; border-top: 2px solid var(--ink);
+  background: var(--paper-2); padding: 14px;
+}
+.pb-settings-title {
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800;
+  font-size: 13px; color: #5a5462; margin-bottom: 11px;
+}
+.pb-field { display: grid; gap: 5px; margin-bottom: 11px; }
+.pb-field > span { font-size: 12px; font-weight: 700; color: var(--ink); }
+.pb-field em { font-style: normal; font-weight: 400; color: #8a8290; font-size: 11px; }
+.pb-field select {
+  background: #fff; border: 2px solid var(--ink); color: var(--ink);
+  border-radius: 6px; font-size: 13.5px; padding: 10px 11px;
+}
+.pb-check {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 11px;
+  border: 2px solid var(--ink); background: #fff; border-radius: 6px; padding: 10px 11px;
+}
+.pb-check span { flex: 1; font-size: 13px; font-weight: 700; }
+.pb-check input { width: 20px; height: 20px; flex: none; accent-color: var(--red); padding: 0; }
+
+.pb-start {
+  width: 100%; height: 56px;
+  background: var(--red); border: 2px solid var(--ink); border-radius: 8px;
+  box-shadow: 0 4px 0 var(--ink); color: #fff;
+  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800; font-size: 17px;
+  transition: transform .05s, box-shadow .05s;
+}
+.pb-start:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.pb-start:disabled { opacity: .5; }
+
+.pb-loading { padding: 40px 0; text-align: center; color: #7a7482; font-size: 13px; }
