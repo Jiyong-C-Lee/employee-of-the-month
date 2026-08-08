@@ -124,10 +124,8 @@
     "sec": {
       "situation": "① 문제 상황",
       "speak": "② 발언",
-      "speakLive": "② 발언 진행 중",
-      "speakDone": "② 발언 종료",
       "judge": "③ 심판",
-      "result": "③ 결과"
+      "result": "④ 결과"
     },
     "gauge": {
       "judging": "검토 중…",

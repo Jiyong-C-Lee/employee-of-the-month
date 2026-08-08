@@ -12,10 +12,11 @@ import {
 } from '../components/ComicCuts.jsx';
 import '../comic.css';
 
-// 결과가 한꺼번에 쏟아지지 않게 단계로 푼다. 도장이 다 찍힌 뒤부터 이 간격으로 하나씩 열린다.
-// 0 = 도장만, 1 = 액자·창밖, 2 = 채점표, 3 = 보스 총평, 4 = 그 후 이야기.
-const REVEAL_GAP_MS = 700;
-const REVEAL_LAST_STEP = 4;
+// 결과 단계 공개 시각(ms) — 도장이 다 찍힌 시점 기준 누적.
+//   1 액자·창밖 · 2 채점표 · 3 보스 총평 · 4 그 후 이야기
+// 간격이 균등하면 액자가 뜨자마자 채점표가 덮어서 수상 연출을 볼 틈이 없다.
+// 1→2만 길게 잡아 액자와 창밖 컷을 보는 시간을 준다.
+const REVEAL_AT_MS = [0, 2600, 3500, 4400];
 
 export default function Game({ state, actions }) {
   const { room, phase, timer, playerId, feed, ended, speakTurn } = state;
@@ -39,10 +40,7 @@ export default function Game({ state, actions }) {
   useEffect(() => {
     if (!resulted) { setReveal(0); return undefined; }
     const start = stampSequenceMs(queue, verdictItem.verdict.adoptedKey);
-    const timers = [];
-    for (let s = 1; s <= REVEAL_LAST_STEP; s += 1) {
-      timers.push(setTimeout(() => setReveal(s), start + (s - 1) * REVEAL_GAP_MS));
-    }
+    const timers = REVEAL_AT_MS.map((at, i) => setTimeout(() => setReveal(i + 1), start + at));
     return () => timers.forEach(clearTimeout);
     // roundNo가 바뀌면 다음 라운드 결과라 처음부터 다시 연다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,7 +190,8 @@ export default function Game({ state, actions }) {
 
         {queue.length > 0 && (
           <>
-            <div className="comic-sec"><b>{phase === 'PLAYER_TURNS' ? UI.game.sec.speakLive : UI.game.sec.speakDone}</b><i /></div>
+            {/* 진행 중·종료로 문구를 바꾸지 않는다 — 단계 번호가 흔들려 보인다. 상태는 상단바가 말한다. */}
+            <div className="comic-sec"><b>{UI.game.sec.speak}</b><i /></div>
             <SpeakGrid
               queue={queue}
               speeches={speeches}

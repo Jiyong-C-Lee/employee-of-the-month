@@ -30,7 +30,9 @@ export interface CustomPersona {
   advisors: { name: string; emoji: string; style: string; core: string; voice?: string; quirks: string[] }[];
   situations: { text: string; question: string }[];
 }
-export interface QueueEntry { kind: 'ai' | 'user'; key: string; name: string }
+// rank: 라운드 시작 시점의 직급을 박아 둔다. 화면이 players에서 현재 직급을 읽으면
+// 승진하는 순간 지난 라운드 컷의 이름표까지 새 직급으로 바뀐다.
+export interface QueueEntry { kind: 'ai' | 'user'; key: string; name: string; rank?: string }
 export interface Speech { key: string; name: string; kind: 'ai' | 'user'; text: string }
 export interface PublicRoom {
   code: string; hostId: string;

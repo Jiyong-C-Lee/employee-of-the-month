@@ -5,20 +5,21 @@ export { MAX_SPEECH_CHARS } from '@shared';
 interface QueueArgs {
   advisors: { name: string }[];
   advisorFavor?: Record<string, number>;
-  players: { id: string; nick: string; joinOrder: number; favor: number }[];
+  players: { id: string; nick: string; joinOrder: number; favor: number; rank?: string }[];
   roundNo: number;
 }
 
 // 발언 큐: 사람은 항상 AI 다음(마지막 블록) — 앞 의견을 보고 반박할 수 있는 유리한 자리.
 // AI끼리·사람끼리는 각각 총애 높은 순(1라운드는 정의 순/입장순). 총애가 낮을수록 블록 안에서 뒤 순번.
 export function buildSpeakQueue({ advisors, advisorFavor = {}, players, roundNo }: QueueArgs): QueueEntry[] {
-  const ai = advisors.map((a, i) => ({ kind: 'ai' as const, key: `ai:${a.name}`, name: a.name, favor: advisorFavor[a.name] || 0, idx: i }));
-  const us = players.map((p) => ({ kind: 'user' as const, key: p.id, name: p.nick, favor: p.favor, idx: p.joinOrder }));
+  const ai = advisors.map((a, i) => ({ kind: 'ai' as const, key: `ai:${a.name}`, name: a.name, favor: advisorFavor[a.name] || 0, idx: i, rank: undefined as string | undefined }));
+  // rank를 여기서 박는다 — 이 라운드의 직급이고, 뒤에 승진해도 이 큐는 안 바뀐다.
+  const us = players.map((p) => ({ kind: 'user' as const, key: p.id, name: p.nick, favor: p.favor, idx: p.joinOrder, rank: p.rank }));
   const byFavor = <T extends { favor: number; idx: number }>(arr: T[]) => [...arr].sort((a, b) => {
     if (roundNo > 1 && b.favor !== a.favor) return b.favor - a.favor;
     return a.idx - b.idx;
   });
-  return [...byFavor(ai), ...byFavor(us)].map(({ kind, key, name }) => ({ kind, key, name }));
+  return [...byFavor(ai), ...byFavor(us)].map(({ kind, key, name, rank }) => ({ kind, key, name, ...(rank && { rank }) }));
 }
 
 // 라운드 출전 참모: 풀(최대 8명)에서 라운드마다 무작위 n명 발탁 — 한 판 안에서도 여러 참모가 번갈아 등장.

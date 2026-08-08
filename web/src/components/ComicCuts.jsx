@@ -213,7 +213,10 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
           speaking ? 'speaking' : '', waiting ? 'waiting' : '', span2 ? 'span2' : '',
           adopted ? 'adopted' : '', rejected ? 'rejected' : '',
         ].join(' ');
-        const label = `${i + 1}  ${entry.name}${entry.kind === 'user' ? ` ${rankByKey[entry.key] || ''}` : ''}${mine ? ' ★' : ''}`;
+        // 직급은 큐에 박힌 그 라운드 값을 먼저 본다. players의 현재 직급을 읽으면 승진하는
+        // 순간 지난 컷 이름표까지 새 직급으로 바뀐다. rank가 없는 옛 방·공유 스냅샷만 폴백.
+        const rank = entry.rank ?? rankByKey[entry.key];
+        const label = `${i + 1}  ${entry.name}${entry.kind === 'user' ? ` ${rank || ''}` : ''}${mine ? ' ★' : ''}`;
         const stampDelay = delays ? `${delays[entry.key] ?? 0}s` : undefined;
         return (
           <div key={entry.key} className={cls} style={verdict ? { '--stamp-delay': stampDelay } : undefined}>
