@@ -33,10 +33,6 @@
   background: var(--tan);
   border-bottom: 2px solid var(--ink);
 }
-.ph-hero .ph-stripes {
-  position: absolute; inset: 0;
-  background: repeating-linear-gradient(105deg, transparent 0 9px, rgba(42, 35, 48, .07) 9px 12px);
-}
 .ph-boss { position: relative; width: 150px; margin: 6px 0 0 6px; }
 .ph-boss img { display: block; width: 100%; }
 .ph-bubble {

@@ -188,7 +188,6 @@ export default function Home({ state, actions }) {
     <div className="paper">
       <div className="paper-card ph-card">
         <div className="ph-hero">
-          <i className="ph-stripes" />
           {/* 얼굴 합성 없이 에셋 그대로 — 메인은 특정 보스의 화면이 아니다. */}
           <div className="ph-boss">
             <img src={poseUrl(BOSS_FRONT)} alt="" />
