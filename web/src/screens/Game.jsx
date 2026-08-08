@@ -49,10 +49,23 @@ export default function Game({ state, actions }) {
   }, [resulted, room.roundNo]);
 
   const pageRef = useRef(null);
+  // 발언 중에는 새 컷이 붙을 때마다 바닥까지 따라간다.
+  // RESULT/END에서는 손을 뗀다 — phase가 먼저 바뀌고 판정 데이터가 몇십 ms 뒤에 오는 구간이 있어서,
+  // 여기서 한 번 내려가고 곧바로 아래 앵커 스크롤이 끼어들면 화면이 두 번 움직인다.
+  const settled = phase === 'RESULT' || phase === 'END';
   useEffect(() => {
     const el = pageRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [phase, speeches.length, speakTurn?.current, reveal, !!verdictItem, !!epilogueItem, !!ended]);
+    if (el && !settled) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [phase, speeches.length, speakTurn?.current, settled, !!ended]);
+
+  // 결과는 다르다. 컷을 하나씩 붙이면 페이지 높이가 그때마다 늘어 스크롤이 네 번에 걸쳐 내려갔다.
+  // 자리는 판정이 오는 즉시 전부 잡아두고(투명하게), 스크롤은 결과 머리글로 한 번만 내린다.
+  // 그다음 컷들이 제자리에서 차례로 떠오른다.
+  useEffect(() => {
+    if (!resulted) return;
+    const anchor = pageRef.current?.querySelector('.result-anchor');
+    anchor?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [resulted, room.roundNo]);
   // 캐릭터별 고정 포즈 (순번·뷰어가 바뀌어도 몸이 안 바뀐다). 큐를 넘겨 이번 라운드 출전 참모끼리만 충돌을 푼다.
   const poseMap = buildPoseMap({ persona, players: room.players, queue: room.round?.queue });
 
@@ -115,19 +128,24 @@ export default function Game({ state, actions }) {
     const axes = rows[0] ? Object.keys(rows[0].axisScores) : [];
     const last = rows.length >= 2 ? rows[rows.length - 1] : null;
     const showWindow = last && last.key !== verdict.adoptedKey;
+    // 전부 즉시 마운트해 자리를 잡고, 단계가 오기 전까지는 투명하게 둔다(hold).
+    // 조건부 마운트로 하면 붙을 때마다 페이지가 길어져 스크롤이 계단식으로 내려간다.
+    const hold = (step) => `reveal-hold ${reveal >= step ? 'is-in' : ''}`;
     resultBlock = (
       <>
-        {reveal >= 1 && <div className="comic-sec reveal"><b>{UI.game.sec.result}</b><i /></div>}
-        {reveal >= 1 && (
-          <div className={`judge-row reveal ${showWindow ? '' : 'solo'}`}>
-            <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} players={room.players} />
-            {showWindow && <WindowCut last={last} pose={poseMap[last.key]} persona={persona} players={room.players} />}
-          </div>
+        <div className="comic-sec result-anchor"><b>{UI.game.sec.result}</b><i /></div>
+        <div className={`judge-row ${hold(1)} ${showWindow ? '' : 'solo'}`}>
+          <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} players={room.players} />
+          {showWindow && <WindowCut last={last} pose={poseMap[last.key]} persona={persona} players={room.players} />}
+        </div>
+        {rows.length > 0 && (
+          <div className={hold(2)}><ScoreCut verdict={verdict} rows={rows} axes={axes} /></div>
         )}
-        {reveal >= 2 && rows.length > 0 && <ScoreCut verdict={verdict} rows={rows} axes={axes} />}
-        {reveal >= 3 && verdict.adoptReason && <BossCommentCut persona={persona} reason={verdict.adoptReason} />}
-        {reveal >= 3 && verdictItem.standings?.length > 1 && (
-          <div className="standing-strip reveal">
+        {verdict.adoptReason && (
+          <div className={hold(3)}><BossCommentCut persona={persona} reason={verdict.adoptReason} /></div>
+        )}
+        {verdictItem.standings?.length > 1 && (
+          <div className={`standing-strip ${hold(3)}`}>
             {verdictItem.standings.map((s, i) => (
               <span key={s.id} className="ss-item">
                 {fmt(UI.game.standing, { no: i + 1, nick: s.nick })}
@@ -197,8 +215,10 @@ export default function Game({ state, actions }) {
 
         {resultBlock}
 
-        {epilogueItem && (!resulted || reveal >= 4) && (
-          <div className="comic-caption ep reveal">
+        {/* 에필로그는 판정과 별개 이벤트라 늦게 도착한다. 결과 머리글 기준으로 스크롤을 잡아둔
+            덕에, 뒤늦게 붙어도 이미 보고 있는 위치가 밀리지 않는다. */}
+        {epilogueItem && (
+          <div className={`comic-caption ep ${resulted ? `reveal-hold ${reveal >= 4 ? 'is-in' : ''}` : 'reveal'}`}>
             <div className="cap-head">{UI.game.epilogueTitle}</div>
             <div>{epilogueItem.story}</div>
             <div className="cap-note">{UI.game.epilogueNote}</div>

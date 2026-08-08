@@ -175,16 +175,20 @@
   70% { transform: translate(-3px, -2px); }
 }
 
-/* 결과 컷이 한 칸씩 열릴 때 아래에서 올라온다. 마운트 시점이 곧 순서라 지연은 필요 없다.
-   채점표·총평은 결과에서만 쓰는 컷이라 클래스를 따로 안 붙이고 선택자에 직접 넣는다. */
-.reveal, .cut.reveal, .score-cut, .verdict-cut { animation: revealUp .4s ease-out both; }
+/* 결과 컷은 판정과 동시에 전부 마운트해 자리를 잡아두고(hold, 투명), 차례가 오면 떠오른다.
+   조건부 마운트로 하면 컷이 붙을 때마다 페이지가 길어져 스크롤이 계단식으로 따라 내려간다.
+   .reveal은 결과 밖(에필로그 단독 도착 등)에서 쓰는 단순 등장. */
+.reveal, .cut.reveal { animation: revealUp .4s ease-out both; }
+.reveal-hold { opacity: 0; }
+.reveal-hold.is-in { animation: revealUp .4s ease-out both; }
 @keyframes revealUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (prefers-reduced-motion: reduce) {
   .sp-stamp { animation: none; opacity: 1; transform: translate(-50%, -50%) rotate(var(--stamp-tilt)); }
   .speak-grid.judged { animation: none; }
   .speak-panel.rejected { animation: none; opacity: .44; }
-  .reveal, .cut.reveal, .score-cut, .verdict-cut { animation: none; }
+  .reveal, .cut.reveal, .reveal-hold.is-in { animation: none; }
+  .reveal-hold.is-in { opacity: 1; }
 }
 
 /* 얼굴 슬롯 — 포즈 이미지 위 % 좌표 합성 */
