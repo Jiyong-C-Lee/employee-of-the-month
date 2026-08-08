@@ -2,7 +2,6 @@
    토큰(--ink 등)은 comic.css가 .comic-app, .paper 공용으로 선언한다. 여기는 배치만 맡는다. */
 
 .paper {
-  align-items: center;
   overflow-y: auto;
   padding: 16px 14px 20px;
 }
@@ -12,9 +11,15 @@
   .paper { padding-top: var(--narre-chip-inset, 16px); }
 }
 
+
+/* 가운데 정렬은 margin auto로 한다. 부모의 align-items에 기대면 안 된다 —
+   comic.css가 .comic-app, .paper 공용으로 align-items: stretch를 선언하고,
+   주입 순서상 그쪽이 나중이라 여기서 center를 줘도 덮인다. auto 마진은 그 싸움에서 자유롭다.
+   세로도 auto가 먹어서 가운데로 온다(overflow 스크롤에서도 위가 안 잘린다). */
 .paper-card {
   width: 100%;
   max-width: 390px;
+  margin: auto;
   background: var(--paper);
   border: 2px solid var(--ink);
   box-shadow: 0 6px 0 rgba(42, 35, 48, .15);
@@ -34,15 +39,6 @@
 }
 .ph-boss { position: relative; width: 150px; margin: 6px 0 0 6px; }
 .ph-boss img { display: block; width: 100%; }
-.ph-boss .ph-face {
-  position: absolute; left: 51%; top: 25%; width: 21%;
-  transform: translate(-50%, -50%);
-  aspect-ratio: 1 / 1; border-radius: 50%;
-  border: 2px solid var(--ink); background: var(--red);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 800;
-  color: #fff8e6; font-size: 15px;
-}
 .ph-bubble {
   position: absolute; right: 12px; top: 20px; max-width: 190px;
   background: #fff; border: 2px solid var(--ink); border-radius: 14px;
@@ -332,3 +328,67 @@
 .pb-start:disabled { opacity: .5; }
 
 .pb-loading { padding: 40px 0; text-align: center; color: #7a7482; font-size: 13px; }
+
+/* ══════════ 넓은 화면 ══════════
+   파일 맨 아래에 둔다. 위쪽에 두면 뒤따라오는 기본 규칙이 같은 특이도로 덮어써서
+   아무 일도 일어나지 않는다. (이 파일 안에서만 그렇다 — 부모의 align-items는 comic.css가 이긴다.) */
+
+/* 태블릿 — 아직 한 열이지만 한 뼘 넓게. */
+@media (min-width: 768px) {
+  .paper-card { max-width: 460px; }
+  .pb-boss { width: 336px; }
+}
+
+/* 데스크톱 — 폰 카드를 가운데 띄워두는 대신 화면을 쓴다.
+   메인은 히어로를 왼쪽 기둥으로 세우고 본문을 오른쪽에 붙인다. */
+@media (min-width: 900px) {
+  .paper-card { max-width: 840px; }
+
+  .ph-card {
+    display: grid;
+    grid-template-columns: 330px 1fr;
+    align-items: stretch;
+  }
+  /* 세로 기둥: 말풍선을 인물 바로 위에 붙여 아래로 내린다. 절대 배치로 띄우면
+     기둥이 길어질수록 꼬리와 인물 사이가 벌어져 삼각형이 허공을 찌른다. */
+  .ph-card .ph-hero {
+    height: auto;
+    border-bottom: 0;
+    border-right: 2px solid var(--ink);
+    display: flex; flex-direction: column; justify-content: flex-end;
+    gap: 16px; padding: 22px 20px 0;
+  }
+  .ph-card .ph-boss { width: 92%; margin: 0 auto; }
+  /* 마크업은 인물 → 말풍선 순(모바일에선 말풍선이 절대 배치라 순서가 무의미했다).
+     기둥에서는 말풍선이 위로 와야 하므로 order로 끌어올린다. */
+  .ph-card .ph-bubble {
+    position: relative; inset: auto; max-width: none; font-size: 14px; order: -1;
+  }
+  /* 꼬리를 왼쪽에서 아래로 돌린다 — 이제 인물이 말풍선 아래에 있다. */
+  .ph-card .ph-bubble .tail-ink {
+    left: 34px; top: auto; bottom: -11px;
+    border-left: 9px solid transparent; border-right: 9px solid transparent;
+    border-top: 11px solid var(--ink); border-bottom: 0; border-right-color: transparent;
+  }
+  .ph-card .ph-bubble .tail-fill {
+    left: 36px; top: auto; bottom: -7px;
+    border-left: 7px solid transparent; border-right: 7px solid transparent;
+    border-top: 9px solid #fff; border-bottom: 0; border-right-color: transparent;
+  }
+
+  .ph-card .ph-body { padding: 30px 30px 26px; display: flex; flex-direction: column; }
+  .ph-card .ph-title { font-size: 42px; }
+  .ph-card .ph-tagline { font-size: 14.5px; }
+  .ph-card .ph-menu { margin-top: auto; }
+  .ph-card .ph-item { padding: 16px 15px; }
+
+  /* 보스 선택 — 캐러셀을 접고 전부 펼친다. 데스크톱에선 옆으로 미는 것보다 한눈에 보는 게 낫다. */
+  .pb-rail {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+    overflow: visible; padding: 18px;
+  }
+  .pb-boss { width: auto; }
+  .pb-dots { display: none; }
+  .pb-settings { padding: 18px; }
+  .pb-settings-fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 14px; }
+}

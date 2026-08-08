@@ -51,6 +51,29 @@ export default function BossPick({ mode, nick, avatar, actions, onBack }) {
     el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
 
+  // 스와이프로 넘긴 카드가 곧 선택이다 — 모바일에서 넘긴 뒤 다시 눌러야 했던 걸 없앤다.
+  // 스크롤이 멎은 뒤 레일 중앙에 가장 가까운 카드를 고른다. scrollend는 지원이 갈려서 디바운스로 잡는다.
+  const settleRef = useRef(null);
+  function onRailScroll() {
+    const rail = railRef.current;
+    if (!rail) return;
+    clearTimeout(settleRef.current);
+    settleRef.current = setTimeout(() => {
+      const mid = rail.scrollLeft + rail.clientWidth / 2;
+      let best = null;
+      let bestGap = Infinity;
+      [...rail.children].forEach((el, i) => {
+        const gap = Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid);
+        if (gap < bestGap) { bestGap = gap; best = i; }
+      });
+      const p = all[best];
+      // setPersonaId만 부른다 — pick을 쓰면 scrollIntoView가 다시 스크롤을 일으켜 서로 문다.
+      if (p && p.id !== personaId) setPersonaId(p.id);
+    }, 120);
+  }
+
+  useEffect(() => () => clearTimeout(settleRef.current), []);
+
   async function start() {
     if (!nick.trim()) return actions.toast(UI.errors.needNick);
     if (!personaId) return actions.toast(UI.errors.needPersona);
@@ -104,7 +127,7 @@ export default function BossPick({ mode, nick, avatar, actions, onBack }) {
           <div className="pb-loading">{T.loading}</div>
         ) : (
           <>
-            <div className="pb-rail" ref={railRef} role="radiogroup" aria-label={T.title}>
+            <div className="pb-rail" ref={railRef} onScroll={onRailScroll} role="radiogroup" aria-label={T.title}>
               {all.map((p, i) => {
                 const isCustom = i < customs.length;
                 const sel = p.id === personaId;
@@ -167,6 +190,8 @@ export default function BossPick({ mode, nick, avatar, actions, onBack }) {
             <div className="pb-settings">
               <div className="pb-settings-title">{T.settingsTitle}</div>
 
+              {/* 넓은 화면에서 이 묶음만 2단으로 접힌다(paper.css). 시작 버튼은 밖에 둬서 항상 한 줄. */}
+              <div className="pb-settings-fields">
               <label className="pb-field">
                 <span>{T.difficulty.label}</span>
                 <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
@@ -203,6 +228,7 @@ export default function BossPick({ mode, nick, avatar, actions, onBack }) {
                   </label>
                 </>
               )}
+              </div>
 
               <button type="button" className="pb-start" disabled={busy || !selected} onClick={start}>
                 {fmt(isMulti ? T.startMulti : T.startSingle, { name: selected?.name ?? '' })}

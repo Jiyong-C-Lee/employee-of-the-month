@@ -1,4 +1,4 @@
-// 이달의 사원 상태 머신: SITUATION → PLAYER_TURNS → JUDGING → RESULT → (다음/END)
+// 이달의 우수사원 상태 머신: SITUATION → PLAYER_TURNS → JUDGING → RESULT → (다음/END)
 // 원본 server/sycophant/engine.js 이식 — 클래스 구조·메서드·분기·문구(line())는 그대로 두고,
 // 전송(bcast→bus.emit)·타이머(setInterval→timer 이벤트+alarm)·짧은 연출 지연(setTimeout→bus.delay)만 교체.
 import { STRINGS, fmt, type FullPersona } from '@content';

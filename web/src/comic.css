@@ -13,6 +13,10 @@
   --comic-muted: #6e6878;
   --green: #5cb87a;
 
+  /* 본문 한 열의 폭. 모바일 기준값이고 아래 브레이크포인트에서 넓어진다.
+     상단바·페이지·액션바가 전부 이 값을 봐서 세 줄이 항상 같은 폭으로 선다. */
+  --col: 470px;
+
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -26,18 +30,27 @@
 .comic-appbar {
   flex: none;
   display: flex; align-items: center; gap: 10px;
-  width: 100%; max-width: 470px; margin: 0 auto;
+  width: 100%; max-width: var(--col); margin: 0 auto;
   padding: 10px 15px 11px;
   border-bottom: 2px solid var(--ink);
   background: var(--paper-2);
 }
 .comic-appbar .ca-title { flex: 1; font-weight: 800; font-size: 19px; letter-spacing: -0.01em; }
 
-/* narre 칩이 좌상단에 상시 떠 있다. 상단바가 470px 열이라 화면이 넓으면 칩이 바깥
+/* narre 칩이 좌상단에 상시 떠 있다. 상단바가 열 폭에 맞춰 서 있어서 화면이 넓으면 칩이 바깥
    여백에 앉지만, 좁아지면 제목 위로 올라온다. 겹치는 폭에서만 제목을 민다.
    610 = 상단바 470 + 칩이 필요한 좌우 여백 70 × 2. */
 @media (max-width: 610px) {
   .comic-appbar { padding-left: var(--narre-chip-inset); }
+}
+
+/* 넓은 화면에서는 열도 같이 넓어진다 — 데스크톱에서 폰만 한 기둥으로 서 있지 않게.
+   컷 비율은 %라 폭만 늘리면 그림·말풍선이 함께 커진다. */
+@media (min-width: 768px) {
+  .comic-app, .paper { --col: 620px; }
+}
+@media (min-width: 1200px) {
+  .comic-app, .paper { --col: 760px; }
 }
 .comic-appbar .ca-round { background: var(--red); color: #fff; font-weight: 800; font-size: 12px; padding: 3px 9px; border-radius: 3px; }
 .comic-appbar .ca-phase { background: var(--ink); color: #fff; font-weight: 800; font-size: 11px; padding: 3px 9px; border-radius: 3px; }
@@ -48,7 +61,7 @@
 /* ── 만화 페이지 (누적 스크롤) ── */
 .comic-page {
   flex: 1; min-height: 0; overflow-y: auto;
-  width: 100%; max-width: 470px; margin: 0 auto;
+  width: 100%; max-width: var(--col); margin: 0 auto;
   background: var(--paper);
   padding: 14px 14px 20px;
   display: flex; flex-direction: column; gap: 13px;
@@ -158,10 +171,16 @@
   70% { transform: translate(-3px, -2px); }
 }
 
+/* 결과 컷이 한 칸씩 열릴 때 아래에서 올라온다. 마운트 시점이 곧 순서라 지연은 필요 없다.
+   채점표·총평은 결과에서만 쓰는 컷이라 클래스를 따로 안 붙이고 선택자에 직접 넣는다. */
+.reveal, .cut.reveal, .score-cut, .verdict-cut { animation: revealUp .4s ease-out both; }
+@keyframes revealUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
 @media (prefers-reduced-motion: reduce) {
   .sp-stamp { animation: none; opacity: 1; transform: translate(-50%, -50%) rotate(var(--stamp-tilt)); }
   .speak-grid.judged { animation: none; }
   .speak-panel.rejected { animation: none; opacity: .44; }
+  .reveal, .cut.reveal, .score-cut, .verdict-cut { animation: none; }
 }
 
 /* 얼굴 슬롯 — 포즈 이미지 위 % 좌표 합성 */
@@ -190,9 +209,9 @@
 .gs-figure { position: relative; z-index: 2; width: 84px; flex: none; }
 .gs-figure img { display: block; width: 100%; height: auto; }
 .gs-title { position: relative; z-index: 2; font-weight: 800; font-size: 11px; color: #fff; text-shadow: 1px 1px 0 #7a1c1a; white-space: nowrap; }
-/* 💢 이모지 두 개를 걷어내고 문장을 넣는다(5a) — 무슨 일이 벌어지는지 글로 말한다. */
-.gs-copy { position: relative; z-index: 2; flex: 1; min-width: 0; }
-.gs-sub { font-size: 11.5px; color: #ffe3d8; margin-top: 3px; }
+.gs-rage { position: relative; z-index: 2; font-size: 19px; line-height: 1; animation: ragePulse 1.05s ease-in-out infinite; filter: grayscale(1) brightness(0) invert(1); }
+.gs-rage.r2 { font-size: 14px; animation-duration: 1.35s; }
+@keyframes ragePulse { 0%, 100% { transform: scale(1) rotate(-6deg); } 50% { transform: scale(1.25) rotate(6deg); } }
 .gs-status { position: relative; z-index: 2; margin-left: auto; font-weight: 700; font-size: 12px; background: #fff; border: 2px solid var(--ink); padding: 2px 7px; white-space: nowrap; }
 
 /* ── ④-a 수상 컷 ── */
@@ -301,7 +320,7 @@
 
 /* ── 액션바 (코믹 스킨) ── */
 .comic-app .actionbar {
-  flex: none; width: 100%; max-width: 470px; margin: 0 auto;
+  flex: none; width: 100%; max-width: var(--col); margin: 0 auto;
   border-top: 2px solid var(--ink); background: var(--paper-2);
   padding: 12px 14px; display: flex; gap: 10px; align-items: center; min-height: 62px;
   color: var(--ink);
@@ -336,9 +355,8 @@
 }
 .debug-panel button:hover { background: var(--gold); }
 
-@media (max-width: 470px) {
-  .comic-appbar, .comic-page, .comic-app .actionbar { max-width: none; }
-}
+/* 좁은 화면용 max-width 해제 블록이 있었지만 필요 없다 — width:100% + max-width 조합이라
+   뷰포트가 열 폭보다 좁으면 max-width가 애초에 걸리지 않는다. */
 
 /* ---- 라운드 공유 (링크) ---- */
 /* 결과 내비: 공유는 왼쪽 구석, 다음(또는 대기 문구)은 오른쪽 구석 */

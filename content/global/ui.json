@@ -6,14 +6,19 @@
   },
 
   "home": {
-    "title": "이달의 사원",
+    "title": "이달의 우수사원",
     "tagline": ["보스의 마음을 움직이는 간언으로", "사원에서 사장까지 승진해 보세요."],
-    "bossCrest": "曹",
     "bossLine": "자네, 내 마음을 움직여 보게.",
     "bossLineStrong": "못 하면 창밖이야.",
     "nickLabel": "닉네임",
     "nickPlaceholder": "예: 김철수",
     "nickEmpty": "이름 없음",
+    "nickPool": [
+      "김사원", "이대리", "박과장", "최주임", "정팀장",
+      "야근요정", "월요병", "눈치백단", "결재대기", "커피수혈",
+      "연차소진", "존버중", "이직준비생", "엑셀장인", "보고서귀신",
+      "회의실붙박이", "무급열정", "자리비움", "퇴근각재는중", "사축1호"
+    ],
     "changeFace": "얼굴 바꾸기",
     "faceTitle": "얼굴 고르기",
     "faceDone": "완료",
@@ -105,7 +110,7 @@
   },
 
   "game": {
-    "title": "이달의 사원",
+    "title": "이달의 우수사원",
     "phase": {
       "SITUATION": "상황 공개",
       "PLAYER_TURNS": "발언 진행",
@@ -124,8 +129,6 @@
       "result": "③ 결과"
     },
     "gauge": {
-      "reading": "회장이 읽고 있다…",
-      "readingSub": "한 명만 살아남는다",
       "judging": "검토 중…",
       "done": "판정 완료"
     },
@@ -136,7 +139,7 @@
     "speaking": "▶ 발언 중",
     "speakingPlaceholder": "…(발언 중)",
     "speakPending": "…",
-    "awardTitle": "이달의 사원",
+    "awardTitle": "이달의 우수사원",
     "mvpTitle": "올해의 사원",
     "noAdopt": "전원 반려",
     "windowCaption": "최하위 {name}{josa} 창밖으로.",
@@ -159,8 +162,8 @@
     "sharing": "링크 만드는 중…",
     "shareCopied": "공유 링크를 복사했습니다!",
     "shareFail": "공유 링크 생성에 실패했습니다.",
-    "shareRoundTitle": "{name}의 회의실 R.{roundNo} — 이달의 사원",
-    "shareEndTitle": "{name}의 회사에서 살아남기 — 이달의 사원",
+    "shareRoundTitle": "{name}의 회의실 R.{roundNo} — 이달의 우수사원",
+    "shareEndTitle": "{name}의 회사에서 살아남기 — 이달의 우수사원",
     "rematch": "🔄 한 판 더",
     "rematching": "준비 중…",
     "toMain": "🏠 메인으로"
@@ -264,7 +267,7 @@
     "roundTitle": "{name}의 회의실 · Round {roundNo}",
     "mvp": "🏆 올해의 사원: {nick} · {rank}",
     "sessionEnd": "🏁 세션 종료",
-    "adopted": "🏆 이달의 사원: {name}",
+    "adopted": "🏆 이달의 우수사원: {name}",
     "noAdopt": "이번 라운드, 채택 없음",
     "footer": "이달의 우수사원 — AI 보스 아부 서바이벌"
   }

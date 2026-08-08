@@ -109,8 +109,14 @@ function FeedbackBox({ toast }) {
 export default function Home({ state, actions }) {
   // menu | join | single | multi  (single·multi는 보스 선택 화면으로 넘어간다)
   const [mode, setMode] = useState('menu');
+  // 처음 온 사람에겐 풀에서 하나 뽑아 채워 준다 — 빈 칸부터 마주하지 않게. 마음에 안 들면 지우고 쓴다.
   const [nick, setNick] = useState(() => {
-    try { return localStorage.getItem(NICK_KEY) || ''; } catch { return ''; }
+    try {
+      const saved = localStorage.getItem(NICK_KEY);
+      if (saved) return saved;
+    } catch { /* 사파리 프라이빗 등 — 아래 랜덤으로 간다 */ }
+    const pool = UI.home.nickPool;
+    return pool[Math.floor(Math.random() * pool.length)];
   });
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -180,12 +186,12 @@ export default function Home({ state, actions }) {
 
   return (
     <div className="paper">
-      <div className="paper-card">
+      <div className="paper-card ph-card">
         <div className="ph-hero">
           <i className="ph-stripes" />
+          {/* 얼굴 합성 없이 에셋 그대로 — 메인은 특정 보스의 화면이 아니다. */}
           <div className="ph-boss">
             <img src={poseUrl(BOSS_FRONT)} alt="" />
-            <span className="ph-face">{UI.home.bossCrest}</span>
           </div>
           <div className="ph-bubble">
             {UI.home.bossLine}

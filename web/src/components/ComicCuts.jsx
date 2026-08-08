@@ -153,6 +153,10 @@ export function SituationCut({ persona, situation }) {
 const STAMP_STEP = 0.3;
 const STAMP_LEAD = 0.15;
 
+// 채택 도장은 반려가 다 찍힌 뒤에 내려온다. 그만큼 뒤로 미는 간격.
+const STAMP_ADOPT_GAP = 0.25;
+const STAMP_DURATION = 0.45; // comic.css stampIn과 같은 값
+
 function stampDelays(queue, adoptedKey) {
   const delays = {};
   let n = 0;
@@ -161,8 +165,15 @@ function stampDelays(queue, adoptedKey) {
     delays[e.key] = STAMP_LEAD + n * STAMP_STEP;
     n += 1;
   });
-  if (adoptedKey) delays[adoptedKey] = STAMP_LEAD + n * STAMP_STEP + 0.25;
+  if (adoptedKey) delays[adoptedKey] = STAMP_LEAD + n * STAMP_STEP + STAMP_ADOPT_GAP;
   return delays;
+}
+
+// 마지막 도장이 다 찍히는 시각(ms). 결과 컷을 언제 풀지 Game이 이 값으로 정한다.
+export function stampSequenceMs(queue, adoptedKey) {
+  const delays = stampDelays(queue, adoptedKey);
+  const last = Math.max(0, ...Object.values(delays));
+  return Math.round((last + STAMP_DURATION) * 1000);
 }
 
 // ── ② 발언 컷 그리드 ──
@@ -237,16 +248,14 @@ export function GaugeStrip({ persona, done }) {
         <img src={poseUrl(BOSS_GAZE)} alt="" />
         <FaceSlot pose={BOSS_GAZE} entry={{ kind: 'ai', emoji: persona.emoji }} />
       </div>
-      <div className="gs-copy">
-        <div className="gs-title">{UI.game.gauge.reading}</div>
-        <div className="gs-sub">{UI.game.gauge.readingSub}</div>
-      </div>
+      <span className="gs-rage">💢</span>
+      <span className="gs-rage r2">💢</span>
       <div className="gs-status">{done ? UI.game.gauge.done : UI.game.gauge.judging}</div>
     </div>
   );
 }
 
-// 금테 액자 프레임 — 라운드 수상(이달의 사원)과 세션 MVP(올해의 사원)가 같은 비주얼을 공유한다.
+// 금테 액자 프레임 — 라운드 수상(이달의 우수사원)과 세션 MVP(올해의 사원)가 같은 비주얼을 공유한다.
 export function AwardFrame({ title, entry, pose = USER_POSE, avatar, plate }) {
   return (
     <div className="award">
@@ -273,7 +282,7 @@ export function AwardFrame({ title, entry, pose = USER_POSE, avatar, plate }) {
   );
 }
 
-// ── ④-a 수상 컷 (이달의 사원 액자) ──
+// ── ④-a 수상 컷 (이달의 우수사원 액자) ──
 export function AwardCut({ adopted, poseMap, players }) {
   const avatarByKey = avatarByKeyFromPlayers(players);
   return (

@@ -1,4 +1,4 @@
-// 이달의 사원 — 회의실 만화 페이지 UI.
+// 이달의 우수사원 — 회의실 만화 페이지 UI.
 // 한 라운드 = 스크롤되는 만화 한 페이지: 상황 → 발언 컷 → 심판(분노 게이지) → 결과(액자·창밖) → 채점표 → 총평.
 import { useEffect, useRef, useState } from 'react';
 import { UI, fmt } from '@content/ui';
@@ -8,9 +8,14 @@ import { createShareLink } from '../share.js';
 import { HallOfFame } from '../components/EmployeeFrame.jsx';
 import {
   BossCard, SituationCut, SpeakGrid, GaugeStrip, AwardCut, AwardFrame, WindowCut, ScoreCut, BossCommentCut,
-  PHASE_LABEL, fmtSec, buildPoseMap,
+  PHASE_LABEL, fmtSec, buildPoseMap, stampSequenceMs,
 } from '../components/ComicCuts.jsx';
 import '../comic.css';
+
+// 결과가 한꺼번에 쏟아지지 않게 단계로 푼다. 도장이 다 찍힌 뒤부터 이 간격으로 하나씩 열린다.
+// 0 = 도장만, 1 = 액자·창밖, 2 = 채점표, 3 = 보스 총평, 4 = 그 후 이야기.
+const REVEAL_GAP_MS = 700;
+const REVEAL_LAST_STEP = 4;
 
 export default function Game({ state, actions }) {
   const { room, phase, timer, playerId, feed, ended, speakTurn } = state;
@@ -24,15 +29,30 @@ export default function Game({ state, actions }) {
   const epilogueItem = findLast(feed, (m) => m.type === 'epilogue' && m.roundNo === room.roundNo);
   const lastSystem = findLast(feed, (m) => m.type === 'system');
 
+  const showTimer = timer && phase === 'PLAYER_TURNS' && timer.phase === 'PLAYER_TURNS' && timer.total > 0;
+  const judging = phase === 'JUDGING';
+  const resulted = (phase === 'RESULT' || phase === 'END') && verdictItem;
+
+  // 결과 단계 공개 — ①게이지(심판) → ②도장 → ③액자·창밖 → ④채점표 → ⑤총평 → ⑥그 후 이야기.
+  // 판정이 오면 도장이 다 찍히길 기다렸다가 나머지를 한 칸씩 연다.
+  const [reveal, setReveal] = useState(0);
+  useEffect(() => {
+    if (!resulted) { setReveal(0); return undefined; }
+    const start = stampSequenceMs(queue, verdictItem.verdict.adoptedKey);
+    const timers = [];
+    for (let s = 1; s <= REVEAL_LAST_STEP; s += 1) {
+      timers.push(setTimeout(() => setReveal(s), start + (s - 1) * REVEAL_GAP_MS));
+    }
+    return () => timers.forEach(clearTimeout);
+    // roundNo가 바뀌면 다음 라운드 결과라 처음부터 다시 연다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resulted, room.roundNo]);
+
   const pageRef = useRef(null);
   useEffect(() => {
     const el = pageRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [phase, speeches.length, speakTurn?.current, !!verdictItem, !!epilogueItem, !!ended]);
-
-  const showTimer = timer && phase === 'PLAYER_TURNS' && timer.phase === 'PLAYER_TURNS' && timer.total > 0;
-  const judging = phase === 'JUDGING';
-  const resulted = (phase === 'RESULT' || phase === 'END') && verdictItem;
+  }, [phase, speeches.length, speakTurn?.current, reveal, !!verdictItem, !!epilogueItem, !!ended]);
   // 캐릭터별 고정 포즈 (순번·뷰어가 바뀌어도 몸이 안 바뀐다). 큐를 넘겨 이번 라운드 출전 참모끼리만 충돌을 푼다.
   const poseMap = buildPoseMap({ persona, players: room.players, queue: room.round?.queue });
 
@@ -97,16 +117,17 @@ export default function Game({ state, actions }) {
     const showWindow = last && last.key !== verdict.adoptedKey;
     resultBlock = (
       <>
-        <div className="comic-sec"><b>{UI.game.sec.result}</b><i /></div>
-        <GaugeStrip persona={persona} done />
-        <div className={`judge-row ${showWindow ? '' : 'solo'}`}>
-          <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} players={room.players} />
-          {showWindow && <WindowCut last={last} pose={poseMap[last.key]} persona={persona} players={room.players} />}
-        </div>
-        {rows.length > 0 && <ScoreCut verdict={verdict} rows={rows} axes={axes} />}
-        {verdict.adoptReason && <BossCommentCut persona={persona} reason={verdict.adoptReason} />}
-        {verdictItem.standings?.length > 1 && (
-          <div className="standing-strip">
+        {reveal >= 1 && <div className="comic-sec reveal"><b>{UI.game.sec.result}</b><i /></div>}
+        {reveal >= 1 && (
+          <div className={`judge-row reveal ${showWindow ? '' : 'solo'}`}>
+            <AwardCut adopted={verdictItem.adopted} poseMap={poseMap} players={room.players} />
+            {showWindow && <WindowCut last={last} pose={poseMap[last.key]} persona={persona} players={room.players} />}
+          </div>
+        )}
+        {reveal >= 2 && rows.length > 0 && <ScoreCut verdict={verdict} rows={rows} axes={axes} />}
+        {reveal >= 3 && verdict.adoptReason && <BossCommentCut persona={persona} reason={verdict.adoptReason} />}
+        {reveal >= 3 && verdictItem.standings?.length > 1 && (
+          <div className="standing-strip reveal">
             {verdictItem.standings.map((s, i) => (
               <span key={s.id} className="ss-item">
                 {fmt(UI.game.standing, { no: i + 1, nick: s.nick })}
@@ -165,17 +186,19 @@ export default function Game({ state, actions }) {
           </>
         )}
 
-        {judging && (
+        {/* 게이지는 검토 중부터 결과까지 계속 서 있는다 — 판정이 왔다고 사라졌다 다시 뜨면
+            "회장이 읽는 중"이라는 연출이 끊긴다. 결과가 오면 done으로 게이지를 채운 채 멈춘다. */}
+        {(judging || resulted) && (
           <>
             <div className="comic-sec"><b>{UI.game.sec.judge}</b><i /></div>
-            <GaugeStrip persona={persona} />
+            <GaugeStrip persona={persona} done={!!resulted} />
           </>
         )}
 
         {resultBlock}
 
-        {epilogueItem && (
-          <div className="comic-caption ep">
+        {epilogueItem && (!resulted || reveal >= 4) && (
+          <div className="comic-caption ep reveal">
             <div className="cap-head">{UI.game.epilogueTitle}</div>
             <div>{epilogueItem.story}</div>
             <div className="cap-note">{UI.game.epilogueNote}</div>
@@ -256,7 +279,7 @@ function DebugPanel({ actions }) {
 
 function ComicEnded({ ended, poseMap, players }) {
   // 올해의 사원(MVP) = 총애 1위. standings는 서버에서 총애순 정렬이라 첫 항목이 MVP다.
-  // 라운드 수상 컷(이달의 사원)과 같은 AwardFrame으로 그려 비주얼을 통일한다.
+  // 라운드 수상 컷(이달의 우수사원)과 같은 AwardFrame으로 그려 비주얼을 통일한다.
   const mvp = ended.standings?.[0];
   const showMvp = mvp && mvp.favor > 0;
   return (
