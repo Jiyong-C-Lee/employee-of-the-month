@@ -91,7 +91,7 @@
 .ph-nick-body input:focus { outline: none; }
 .ph-nick-body input::placeholder { color: #b8b1a6; font-weight: 400; }
 .ph-face-btn {
-  flex: none; height: 36px; padding: 0 12px;
+  flex: none; min-height: 44px; padding: 0 13px;
   background: #fff; border: 2px solid var(--ink); border-radius: 6px;
   font-family: 'NanumSquare', 'Nanum Gothic', sans-serif; font-weight: 700;
   font-size: 12px; color: var(--ink);
@@ -187,7 +187,8 @@
 .paper .btn {
   background: #fff; border: 2px solid var(--ink); color: var(--ink);
   border-radius: 6px; font-family: 'NanumSquare', 'Nanum Gothic', sans-serif;
-  font-weight: 700; font-size: 13px; padding: 11px 14px;
+  font-weight: 700; font-size: 13.5px; padding: 11px 14px;
+  min-height: 44px; /* 터치 목표 최소치 */
 }
 .paper .btn.primary { background: var(--red); color: #fff; box-shadow: 0 4px 0 var(--ink); }
 .paper .btn:disabled { opacity: .45; }
@@ -201,7 +202,7 @@
   border-bottom: 2px solid var(--ink);
 }
 .pb-back {
-  width: 34px; height: 34px; flex: none; padding: 0;
+  width: 44px; height: 44px; flex: none; padding: 0;
   background: #fff; border: 2px solid var(--ink); border-radius: 6px;
   font-size: 14px; color: var(--ink);
 }

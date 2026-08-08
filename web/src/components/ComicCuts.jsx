@@ -150,12 +150,14 @@ export function SituationCut({ persona, situation }) {
 
 // 도장 등장 순서 — 반려가 큐 순서대로 하나씩 찍히고, 채택이 마지막에 내려온다(5a).
 // 초 단위 상수는 comic.css의 stampIn 길이와 짝이다.
-const STAMP_STEP = 0.3;
-const STAMP_LEAD = 0.15;
+// 처음엔 절반 속도였는데 반려가 후두둑 지나가서 누가 왜 잘렸는지 읽을 틈이 없었다.
+// 도장 하나하나를 읽을 수 있는 간격으로 늘린다.
+const STAMP_STEP = 0.7;
+const STAMP_LEAD = 0.4;
 
 // 채택 도장은 반려가 다 찍힌 뒤에 내려온다. 그만큼 뒤로 미는 간격.
-const STAMP_ADOPT_GAP = 0.25;
-const STAMP_DURATION = 0.45; // comic.css stampIn과 같은 값
+const STAMP_ADOPT_GAP = 0.6;
+const STAMP_DURATION = 0.9; // comic.css stampIn과 같은 값
 
 function stampDelays(queue, adoptedKey) {
   const delays = {};
