@@ -44,6 +44,6 @@ export interface CreateShareRes { ok: true; id: string; url: string }
 
 export interface HealthRes {
   ok: true;
-  providers: { geminiFree: boolean; gemini: boolean; nvidia: boolean };
-  models: { gemini: string; nvidia: string };
+  providers: { geminiFree: boolean; gemini: boolean; openai: boolean; nvidia: boolean };
+  models: { gemini: string; openai: string; nvidia: string };
 }

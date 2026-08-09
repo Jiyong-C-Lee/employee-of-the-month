@@ -4,9 +4,10 @@ import { SELF } from 'cloudflare:test';
 test('GET /api/health — 공급자 상태를 준다', async () => {
   const res = await SELF.fetch('http://x/api/health');
   expect(res.status).toBe(200);
-  const body = await res.json() as { ok: boolean; providers: { gemini: boolean; nvidia: boolean } };
+  const body = await res.json() as { ok: boolean; providers: { gemini: boolean; openai: boolean; nvidia: boolean } };
   expect(body.ok).toBe(true);
   expect(typeof body.providers.gemini).toBe('boolean');
+  expect(typeof body.providers.openai).toBe('boolean');
 });
 
 test('GET /api/personas — 전 팩 요약, 상황 본문 없음', async () => {

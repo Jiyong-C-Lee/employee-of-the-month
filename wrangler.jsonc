@@ -30,16 +30,18 @@
   ],
   "vars": {
     "GEMINI_MODEL": "gemini-flash-lite-latest",
+    "OPENAI_MODEL": "gpt-5.4-nano",
     "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
     // @narre/llm 기본 체인의 마지막 mock 어댑터를 뺀다. eotm은 페르소나에 맞는 대사를 만드는
     // 게임 고유 mock(worker/ai/mock.ts)이 있어서, 체인이 스키마 더미로 조용히 성공하면
     // orchestrate의 withFallback이 안 돌고 대사 품질이 떨어진다.
-    "LLM_CHAIN": "gemini-free,gemini,nvidia",
+    "LLM_CHAIN": "gemini-free,gemini,openai,nvidia",
     "LLM_DAILY_LIMIT_GEMINI": "1000",
     // 신설 — @narre/cf QuotaDO는 프로바이더명별로 env를 읽는다. 미설정이면 한도 0이라
     // 무료 경로가 항상 거부된다.
     "LLM_DAILY_LIMIT_GEMINI_FREE": "1000",
-    "LLM_DAILY_LIMIT_NVIDIA": "5000"
+    "LLM_DAILY_LIMIT_NVIDIA": "5000",
+    "LLM_DAILY_LIMIT_OPENAI": "1000"
   },
   // dev 환경: 별도 워커(employee-of-the-month-dev, workers.dev 전용)·별도 DO/KV 저장소.
   // LLM 시크릿은 필요 시 `wrangler secret put <이름> --env dev`로 — 없으면 게임 고유 mock 폴백.
@@ -64,11 +66,13 @@
       },
       "vars": {
         "GEMINI_MODEL": "gemini-flash-lite-latest",
+        "OPENAI_MODEL": "gpt-5.4-nano",
         "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
-        "LLM_CHAIN": "gemini-free,gemini,nvidia",
+        "LLM_CHAIN": "gemini-free,gemini,openai,nvidia",
         "LLM_DAILY_LIMIT_GEMINI": "1000",
         "LLM_DAILY_LIMIT_GEMINI_FREE": "1000",
-        "LLM_DAILY_LIMIT_NVIDIA": "5000"
+        "LLM_DAILY_LIMIT_NVIDIA": "5000",
+        "LLM_DAILY_LIMIT_OPENAI": "1000"
       }
     }
   }

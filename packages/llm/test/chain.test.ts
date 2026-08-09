@@ -13,7 +13,31 @@ function nvidiaOkResponse(json: unknown) {
   return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(json) } }] }), { status: 200 });
 }
 
+function openaiOkResponse(json: unknown) {
+  return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(json) } }], usage: { prompt_tokens: 11, completion_tokens: 7 } }), { status: 200 });
+}
+
 describe('callJsonChain', () => {
+  it('uses OpenAI as the fallback after Gemini', async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async (url: string | URL) => {
+      const u = String(url);
+      calls.push(u);
+      if (u.includes('api.openai.com')) return openaiOkResponse({ crack: 'graze' });
+      throw new Error(`unexpected url: ${u}`);
+    }) as typeof fetch;
+
+    const result = await callJsonChain(REQ, {
+      env: { OPEN_AI_API_KEY: 'fake-key', NVIDIA_API_KEY: 'fake-key' },
+      kind: 'test',
+      fetchImpl,
+    });
+
+    expect(result.provider).toBe('openai');
+    expect(result.raw).toEqual({ crack: 'graze' });
+    expect(calls).toEqual(['https://api.openai.com/v1/chat/completions']);
+  });
+
   it('gemini 실패 시 nvidia로 폴백한다', async () => {
     const calls: string[] = [];
     const fetchImpl = (async (url: string | URL) => {

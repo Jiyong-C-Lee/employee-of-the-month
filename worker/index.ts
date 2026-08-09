@@ -29,9 +29,10 @@ app.get('/api/health', (c) => {
     providers: {
       geminiFree: Boolean(c.env.GOOGLE_AI_STUDIO_FREE_API_KEY),
       gemini: Boolean(c.env.GOOGLE_AI_STUDIO_API_KEY),
+      openai: Boolean(c.env.OPEN_AI_API_KEY),
       nvidia: Boolean(c.env.NVIDIA_API_KEY),
     },
-    models: { gemini: c.env.GEMINI_MODEL, nvidia: c.env.NVIDIA_MODEL },
+    models: { gemini: c.env.GEMINI_MODEL, openai: c.env.OPENAI_MODEL, nvidia: c.env.NVIDIA_MODEL },
   };
   return c.json(res);
 });

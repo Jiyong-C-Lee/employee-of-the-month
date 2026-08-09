@@ -137,3 +137,13 @@ npm run deploy
 ```bash
 npx wrangler secret put GOOGLE_AI_STUDIO_FREE_API_KEY
 ```
+
+### OpenAI fallback
+
+Set `OPEN_AI_API_KEY` in `.dev.vars` for local development, or deploy it with:
+
+```bash
+npx wrangler secret put OPEN_AI_API_KEY
+```
+
+OpenAI is tried after the two Gemini providers and before NVIDIA. The default model is `gpt-5-mini`; set `OPENAI_MODEL` to override it. `LLM_DAILY_LIMIT_OPENAI` controls its daily request limit.

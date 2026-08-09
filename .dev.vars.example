@@ -13,5 +13,8 @@ GOOGLE_AI_STUDIO_API_KEY=your-gemini-key
 # 3순위. NVIDIA NIM 키 (https://build.nvidia.com)
 NVIDIA_API_KEY=your-nvidia-key
 
+# OpenAI API
+OPEN_AI_API_KEY=your-openai-key
+
 # 디버그 패널(?debug=1)의 라운드 건너뛰기 버튼을 켭니다. 프로덕션에는 넣지 마세요.
 # DEBUG_ACTIONS=true

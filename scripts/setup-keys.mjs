@@ -12,6 +12,7 @@ const DEV_VARS = fileURLToPath(new URL('../.dev.vars', import.meta.url));
 const PROVIDERS = [
   { key: 'GOOGLE_AI_STUDIO_FREE_API_KEY', label: 'Google AI Studio — 무료 등급', url: 'https://aistudio.google.com/apikey' },
   { key: 'GOOGLE_AI_STUDIO_API_KEY', label: 'Google AI Studio — 유료 등급', url: 'https://aistudio.google.com/apikey' },
+  { key: 'OPEN_AI_API_KEY', label: 'OpenAI API', url: 'https://platform.openai.com/api-keys' },
   { key: 'NVIDIA_API_KEY', label: 'NVIDIA NIM', url: 'https://build.nvidia.com' },
 ];
 

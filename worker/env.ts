@@ -10,13 +10,16 @@ export interface Env {
   GOOGLE_AI_STUDIO_FREE_API_KEY?: string;
   GOOGLE_AI_STUDIO_API_KEY?: string;
   NVIDIA_API_KEY?: string;
+  OPEN_AI_API_KEY?: string;
   GEMINI_MODEL: string;
   NVIDIA_MODEL: string;
+  OPENAI_MODEL: string;
   LLM_DAILY_LIMIT_GEMINI: string;
   // 신설 — @narre/cf QuotaDO는 프로바이더명별로 env를 읽는다(gemini-free → *_GEMINI_FREE).
   // 미설정이면 한도 0이라 무료 경로가 항상 거부된다. 배포 전 반드시 설정한다.
   LLM_DAILY_LIMIT_GEMINI_FREE: string;
   LLM_DAILY_LIMIT_NVIDIA: string;
+  LLM_DAILY_LIMIT_OPENAI: string;
   // @narre/llm 기본 체인의 마지막 mock 어댑터를 뺀다. eotm은 페르소나에 맞는 대사를 만드는
   // 게임 고유 mock(ai/mock.ts)이 있어서, 체인이 스키마 더미로 조용히 성공하면
   // orchestrate의 withFallback이 안 돌고 대사 품질이 떨어진다.

@@ -10,7 +10,7 @@ import type { Env } from '../env';
 
 /** 실 LLM 키가 하나라도 있는지. 없으면 orchestrate가 체인을 건너뛰고 게임 고유 mock을 쓴다. */
 export function hasAnyKey(env: Env): boolean {
-  return Boolean(env.GOOGLE_AI_STUDIO_FREE_API_KEY || env.GOOGLE_AI_STUDIO_API_KEY || env.NVIDIA_API_KEY);
+  return Boolean(env.GOOGLE_AI_STUDIO_FREE_API_KEY || env.GOOGLE_AI_STUDIO_API_KEY || env.OPEN_AI_API_KEY || env.NVIDIA_API_KEY);
 }
 
 type QuotaStub = { take(provider: string): Promise<boolean> };

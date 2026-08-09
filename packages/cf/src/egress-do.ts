@@ -13,7 +13,11 @@
 // 로직·허용 호스트 목록을 그대로 보존해 TS로 이식했다.
 
 // SSRF 방어 — 이 DO는 내부 바인딩으로만 닿지만, 중계기는 목적지를 좁혀두는 게 맞다.
-export const ALLOWED_HOSTS = new Set(['generativelanguage.googleapis.com', 'integrate.api.nvidia.com']);
+export const ALLOWED_HOSTS = new Set([
+  'generativelanguage.googleapis.com',
+  'integrate.api.nvidia.com',
+  'api.openai.com',
+]);
 
 // 지원 리전 기본값 — wnam(북미 서부)은 apac 힌트가 홍콩을 포함해 배제 못 하는 것과 달리
 // 지원 리전으로 확정 가능한 최단 선택이다(marriage_problem game-do.mjs 원본 근거).

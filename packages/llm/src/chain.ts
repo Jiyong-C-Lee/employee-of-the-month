@@ -7,6 +7,7 @@
 import type { ChainContext, ChainRequest, ChainResult, ProviderAdapter } from './types.js';
 import { selectProviders } from './select.js';
 import { createGeminiAdapter } from './providers/gemini.js';
+import { openaiAdapter } from './providers/openai.js';
 import { nvidiaAdapter } from './providers/nvidia.js';
 import { mockAdapter } from './providers/mock.js';
 
@@ -36,13 +37,18 @@ const registry: Record<string, RegistryEntry> = {
     hasKey: (e) => Boolean(e.NVIDIA_API_KEY),
     quota: 'nvidia',
   },
+  openai: {
+    adapter: openaiAdapter,
+    hasKey: (e) => Boolean(e.OPEN_AI_API_KEY),
+    quota: 'openai',
+  },
   mock: {
     adapter: mockAdapter,
     hasKey: () => true,
   },
 };
 
-const DEFAULT_CHAIN = ['gemini-free', 'gemini', 'nvidia', 'mock'];
+const DEFAULT_CHAIN = ['gemini-free', 'gemini', 'openai', 'nvidia', 'mock'];
 
 /** 새 프로바이더 어댑터를 레지스트리에 등록한다. hasKey 생략 시 항상 사용 가능으로 취급. */
 export function registerProvider(adapter: ProviderAdapter, hasKey: (env: Env) => boolean = () => true, quota?: string): void {
