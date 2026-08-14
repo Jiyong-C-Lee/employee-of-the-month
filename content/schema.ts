@@ -23,10 +23,31 @@ export const personaMetaSchema = z.object({
   advisors: z.array(advisorSchema).min(2).max(12), // 풀 — 라운드 출전은 ADVISORS_PER_ROUND명
 });
 
-export const situationSchema = z.object({ text: z.string().min(1), question: z.string().min(1) });
+export const situationSchema = z.object({
+  text: z.string().min(1),
+  question: z.string().min(1),
+  id: z.string().regex(/^[a-z][a-z0-9-]*$/).optional(), // 시나리오 아크가 참조하는 슬러그
+  arcOnly: z.boolean().optional(), // true면 자유 모드 랜덤 덱에서 제외 (아크 문맥 없이는 어색한 상황)
+});
 export const situationsSchema = z.array(situationSchema).min(5);
-export const personaSchema = personaMetaSchema.extend({ situations: situationsSchema });
+
+// 시나리오 아크 — 사전 저작된 상황 비트를 연대기 순서로 진행하는 선형 시퀀스.
+// beats는 같은 팩 situations의 id 참조 (무결성은 loader가 검증).
+export const scenarioSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  name: z.string().min(1),
+  tagline: z.string().min(1),
+  beats: z.array(z.string().min(1)).min(4),
+  finaleText: z.string().min(1), // 마지막 비트 뒤 세션 종료 연출 문구
+});
+export const scenariosSchema = z.array(scenarioSchema);
+
+export const personaSchema = personaMetaSchema.extend({
+  situations: situationsSchema,
+  scenarios: scenariosSchema.default([]),
+});
 export type FullPersona = z.infer<typeof personaSchema>;
+export type Scenario = z.infer<typeof scenarioSchema>;
 
 const tmpl = z.union([z.string(), z.array(z.string())]);
 export const promptsSchema = z.object({

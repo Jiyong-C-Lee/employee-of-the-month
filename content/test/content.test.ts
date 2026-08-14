@@ -36,3 +36,24 @@ test('전역 게임데이터가 로드된다', () => {
 test('스키마 위반 팩은 거부된다', () => {
   expect(() => personaSchema.parse({ id: 'bad' })).toThrow();
 });
+
+test('조조 팩 시나리오 아크가 로드되고 beats 참조가 온전하다', () => {
+  const p = getPersona('caocao')!;
+  expect(p.scenarios.length).toBe(4);
+  expect(p.scenarios.map((s) => s.id)).toEqual(['boncho-war', 'liubei-vessel', 'recruits', 'succession']);
+  const ids = new Set(p.situations.map((s) => s.id).filter(Boolean));
+  for (const sc of p.scenarios) {
+    expect(sc.beats.length).toBeGreaterThanOrEqual(4);
+    for (const beat of sc.beats) expect(ids.has(beat)).toBe(true);
+    expect(sc.finaleText).toBeTruthy();
+  }
+  // arcOnly 상황은 자유 모드 덱 제외 대상 — 최소한 아크에는 소속돼 있어야 한다.
+  const inBeats = new Set(p.scenarios.flatMap((sc) => sc.beats));
+  for (const s of p.situations.filter((x) => x.arcOnly)) expect(inBeats.has(s.id!)).toBe(true);
+  // 자유 모드 덱(arcOnly 제외)이 증량됐다: 20 → 27
+  expect(p.situations.filter((s) => !s.arcOnly).length).toBeGreaterThanOrEqual(27);
+  // listPersonas 요약에 아크가 실리되 본문(beats)은 새지 않는다
+  const summary = listPersonas().find((x) => x.id === 'caocao')!;
+  expect(summary.scenarios.map((s) => s.id)).toEqual(p.scenarios.map((s) => s.id));
+  expect(JSON.stringify(summary)).not.toContain('hanshil-chairman');
+});

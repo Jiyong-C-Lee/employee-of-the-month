@@ -8,9 +8,19 @@ function fail(where: string, e: unknown): never {
   throw new Error(`[content] ${where} 검증 실패: ${e instanceof Error ? e.message : String(e)}`);
 }
 
-const PACKS: FullPersona[] = RAW_PACKS.map(({ persona, situations }) => {
+const PACKS: FullPersona[] = RAW_PACKS.map(({ persona, situations, scenarios }) => {
   try {
-    return personaSchema.parse({ ...persona, situations });
+    const p = personaSchema.parse({ ...persona, situations, scenarios });
+    // 아크 무결성: beats가 참조하는 상황 id가 전부 존재해야 한다 (id 중복도 여기서 걸린다).
+    const idCount = new Map<string, number>();
+    for (const s of p.situations) if (s.id) idCount.set(s.id, (idCount.get(s.id) ?? 0) + 1);
+    for (const [id, n] of idCount) if (n > 1) throw new Error(`상황 id 중복: "${id}"`);
+    for (const sc of p.scenarios) {
+      for (const beat of sc.beats) {
+        if (!idCount.has(beat)) throw new Error(`시나리오 "${sc.id}"의 beat "${beat}"가 situations에 없다`);
+      }
+    }
+    return p;
   } catch (e) {
     fail(`pack "${(persona as { id?: string }).id ?? '?'}"`, e);
   }
@@ -30,6 +40,8 @@ export function listPersonas() {
     axes: p.axes, ranks: p.ranks,
     advisors: p.advisors.map((a) => ({ name: a.name, emoji: a.emoji, style: a.style })),
     situationCount: p.situations.length,
+    // 아크 요약 — 비트 본문은 제외 (스포일러 방지)
+    scenarios: p.scenarios.map((sc) => ({ id: sc.id, name: sc.name, tagline: sc.tagline, beatCount: sc.beats.length })),
   }));
 }
 

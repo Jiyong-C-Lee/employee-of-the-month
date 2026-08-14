@@ -1,0 +1,57 @@
+[
+  {
+    "id": "boncho-war",
+    "name": "본초전쟁",
+    "tagline": "어제의 동지가 최대의 적이 되었다",
+    "beats": [
+      "hanshil-chairman",
+      "boncho-ultimatum",
+      "guandu-standoff",
+      "heoyu",
+      "resume-folder",
+      "boncho-heirs"
+    ],
+    "finaleText": "본초의 간판이 내려갔다. 수도권은 이제 위그룹의 것이다. 이 전쟁에서 누가 무슨 말을 했는지, 나는 다 기억하고 있다."
+  },
+  {
+    "id": "liubei-vessel",
+    "name": "그릇",
+    "tagline": "저 사람을 곁에 둔 것이 복인가 화인가",
+    "beats": [
+      "liubei-shelter",
+      "green-plum",
+      "guanwoo-terms",
+      "guanwoo-resign",
+      "seoseo-scheme",
+      "nambu-expansion"
+    ],
+    "finaleText": "남부의 물은 차가웠다. 그 그릇을 알아보고도 놓아준 값을, 오늘에서야 다 치렀다."
+  },
+  {
+    "id": "recruits",
+    "name": "인재 영입전",
+    "tagline": "사람이 전부다 — 문제는 그 사람들이다",
+    "beats": [
+      "hiring-notice",
+      "yeopo-apply",
+      "jangsong-data",
+      "hwata-consult",
+      "guo-jia-memorial",
+      "sima-candidate"
+    ],
+    "finaleText": "명단을 다시 본다. 뽑은 사람, 놓친 사람, 보낸 사람. 회사는 결국 그 명단만큼이다."
+  },
+  {
+    "id": "succession",
+    "name": "후계",
+    "tagline": "회사는 물려줄 수 있어도 사람은 물려줄 수 없다",
+    "beats": [
+      "wanseong-deal",
+      "chochung-scale",
+      "chosik-incident",
+      "succession-choice",
+      "brothers-split"
+    ],
+    "finaleText": "도장을 넘긴다. 이제부터의 일은 아비의 몫이 아니라 저들의 몫이다."
+  }
+]
