@@ -8,6 +8,9 @@ export const APPROACHES = PROMPTS.approaches; // 조언자 해법 축 (중복 �
 
 export interface Candidate { key: string; name: string; kind: 'ai' | 'user'; order: number; text: string }
 
+// 시나리오 모드 라운드 기록 — 판정의 "이전 라운드 기억"과 브릿지 생성이 공유한다.
+export interface HistoryEntry { situationText: string; adoptedText: string | null; outcome?: string }
+
 type Advisor = FullPersona['advisors'][number];
 
 // ---- 조언자 발언 배치 생성 (라운드당 1콜 — 레이트리밋 대응, 뒤 참모가 앞 참모를 반박하는 릴레이는 프롬프트가 유지) ----
@@ -69,20 +72,31 @@ export function advisorBatchSchema() {
 
 // ---- 판정 ----
 
-export function judgeSystem(persona: FullPersona, difficulty: Difficulty = 'normal'): string {
+export function judgeSystem(persona: FullPersona, difficulty: Difficulty = 'normal', hasHistory = false): string {
   return fmt(PROMPTS.judgeSystem, {
     personaName: persona.name,
     personaPrompt: persona.personaPrompt,
     axes: persona.axes.join(', '),
     // 호칭·말투는 인물 데이터가 정한다 (사극체 "그대" 하드코딩 금지)
     addr: persona.judgeAddress || PROMPTS.judgeDefaultAddress,
-    // 사람 우대는 순한맛(easy) 한정
-    humanBias: difficulty === 'easy' ? `\n${PROMPTS.judgeHumanBiasLine}` : '',
+    // 사람 우대는 순한맛(easy) 한정. 시나리오 히스토리 규칙은 기록이 있을 때만 얹는다.
+    humanBias: (difficulty === 'easy' ? `\n${PROMPTS.judgeHumanBiasLine}` : '')
+      + (hasHistory ? `\n${PROMPTS.judgeHistoryRules}` : ''),
   });
 }
 
-export function judgeUser(persona: FullPersona, situation: Situation, candidates: Candidate[]): string {
-  const lines = [`# 상황`, situation.text, `# ${persona.name}의 물음: ${situation.question}`, '', '# 의견 (발언 순서대로)'];
+export function judgeUser(persona: FullPersona, situation: Situation, candidates: Candidate[], history: HistoryEntry[] = []): string {
+  const lines: string[] = [];
+  if (history.length > 0) {
+    lines.push('# 지난 라운드 기록 (오래된 것부터)');
+    for (const h of history) {
+      lines.push(`- 상황: ${h.situationText}`);
+      lines.push(`  채택: ${h.adoptedText ?? '채택 없음'}`);
+      if (h.outcome) lines.push(`  결과: ${h.outcome}`);
+    }
+    lines.push('');
+  }
+  lines.push(`# 상황`, situation.text, `# ${persona.name}의 물음: ${situation.question}`, '', '# 의견 (발언 순서대로)');
   for (const c of candidates) lines.push(`[${c.key}] ${c.name}${c.kind === 'ai' ? ' (참모)' : ''}: ${c.text}`);
   return lines.join('\n');
 }
@@ -124,4 +138,32 @@ export function epilogueUser(persona: FullPersona, situation: Situation, adopted
 
 export function epilogueSchema() {
   return { type: 'object', properties: { story: { type: 'string' } }, required: ['story'] };
+}
+
+// ---- 시나리오 브릿지 (라운드 사이 보스의 회고 한마디) ----
+
+export function bridgeSystem(persona: FullPersona): string {
+  return fmt(PROMPTS.bridgeSystem, { personaName: persona.name, personaPrompt: persona.personaPrompt });
+}
+
+export function bridgeUser(
+  persona: FullPersona,
+  prevSituation: Situation,
+  adopted: { name: string; text: string } | null,
+  nextSituation: Situation,
+): string {
+  return [
+    `# 지난 상황`,
+    prevSituation.text,
+    '',
+    adopted ? `# 채택한 간언 (${adopted.name})` : '# 채택한 간언',
+    adopted ? adopted.text : '없음 — 쓸 만한 안이 하나도 없어 채택하지 않았다.',
+    '',
+    `# 다음 상황 (참고용 — 내용을 미리 말하지 마라)`,
+    nextSituation.text,
+  ].join('\n');
+}
+
+export function bridgeSchema() {
+  return { type: 'object', properties: { bridge: { type: 'string' } }, required: ['bridge'] };
 }

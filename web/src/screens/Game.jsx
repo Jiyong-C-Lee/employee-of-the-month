@@ -188,7 +188,7 @@ export default function Game({ state, actions }) {
         {situation && (
           <>
             <div className="comic-sec"><b>{UI.game.sec.situation}</b><i /></div>
-            <SituationCut persona={persona} situation={situation} />
+            <SituationCut persona={persona} situation={situation} bridge={room.bridge} />
           </>
         )}
 

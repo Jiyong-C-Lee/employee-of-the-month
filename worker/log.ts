@@ -24,6 +24,8 @@ export const logger = {
   // 참모 대사 배치 — 품질 검수·모범답안 수집용. source로 실 LLM인지 mock 폴백인지 구분한다.
   advisorSpeeches: (f: { roomCode: string; roundNo: number; source: string; speeches: { name: string; approach: string; text: string }[] }) => write('info', 'advisor_speeches', f),
   epilogue: (f: { roomCode: string; roundNo: number; source: string; adoptedName: string; story: string }) => write('info', 'epilogue', f),
+  // 시나리오 브릿지 — 품질 검수용. source로 mock 폴백(빈 문자열=생략) 여부 구분.
+  bridge: (f: { roomCode: string; roundNo: number; source: string; bridge: string }) => write('info', 'bridge', f),
   verdictIssued: (f: { roomCode: string; roundNo: number; provider: string; adoptedNick: string | null; totals: Record<string, number>; comments: string[] }) => write('info', 'verdict_issued', f),
   // roomCode: 세션별 LLM 비용·지연 추적용 (방 밖 호출 — persona-gen 등 — 은 없음).
   llmCall: (f: { kind: string; provider: string; ok: boolean; latencyMs: number; failedOver?: boolean; error?: string; roomCode?: string }) => write(f.ok ? 'info' : 'warn', 'llm_call', f),

@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest';
 import { getPersona } from '@content';
-import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, type Deps } from '../ai/orchestrate';
+import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, makeBridge, type Deps } from '../ai/orchestrate';
 
 const persona = getPersona('caocao')!;
 const situation = persona.situations[0]!;
@@ -53,4 +53,15 @@ test('키는 있는데 체인이 전소하면 게임 고유 mock으로 떨어진
   expect(r.speeches.length).toBe(persona.advisors.length);
   // 스키마 더미가 아니라 페르소나에 맞는 실제 문장이어야 한다.
   expect(r.speeches[0]!.text.length).toBeGreaterThan(5);
+});
+
+test('키 없으면 브릿지는 빈 문자열 (생략 — 진행 무영향)', async () => {
+  const r = await makeBridge(deps, {
+    persona,
+    prevSituation: situation,
+    adopted: { name: '유저닉', text: '지릅시다.' },
+    nextSituation: persona.situations[1]!,
+  });
+  expect(r.source).toBe('mock');
+  expect(r.bridge).toBe('');
 });

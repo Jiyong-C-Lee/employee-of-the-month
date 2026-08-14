@@ -56,8 +56,10 @@ export const promptsSchema = z.object({
   advisorBatchSystem: tmpl,
   judgeSystem: tmpl,
   judgeHumanBiasLine: z.string(),
+  judgeHistoryRules: z.string(),
   judgeDefaultAddress: z.string(),
   epilogueSystem: tmpl,
+  bridgeSystem: tmpl,
   personaGenSystem: tmpl,
 }).passthrough(); // _readme 등 허용
 

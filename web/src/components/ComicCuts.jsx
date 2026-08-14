@@ -129,7 +129,8 @@ export function BossCard({ persona, roundNo, phase }) {
 }
 
 // ── ① 문제 상황 ──
-export function SituationCut({ persona, situation }) {
+// bridge: 시나리오 모드에서 지난 라운드 채택의 결과를 회고하는 보스의 첫마디 (없으면 생략).
+export function SituationCut({ persona, situation, bridge }) {
   return (
     <div className="cut situation-cut">
       <div className="sc-boss">
@@ -138,6 +139,7 @@ export function SituationCut({ persona, situation }) {
       </div>
       <div className="sc-bubble-wrap">
         <div className="bubble-left">
+          {bridge && <i className="sc-bridge">{bridge}</i>}
           {situation.text}
           <b className="q">“{situation.question}”</b>
         </div>

@@ -256,3 +256,73 @@ test('한 판 더: 싱글은 로비 없이 즉시 재시작', async () => {
   expect(eng.proceed(playerId)).toEqual({ ok: true });
   await waitUntil(() => room.phase === 'PLAYER_TURNS');
 });
+
+// ── 시나리오 모드 ──
+
+test('시나리오 방: 아크 beats 순서 고정 진행 → 종장 문구로 종료, 히스토리 누적', async () => {
+  const persona = getPersona('caocao')!;
+  const arc = persona.scenarios.find((s) => s.id === 'recruits')!;
+  const { room, playerId } = createRoomState('SC1', '나', { mode: 'single', personaId: 'caocao', scenarioId: 'recruits' });
+  expect(room.config.scenarioId).toBe('recruits');
+  expect(room.config.maxRounds).toBe(arc.beats.length); // 라운드 수 = 아크 길이
+
+  const { bus } = fakeBus();
+  const eng = new Engine(room, bus, deps);
+  expect(eng.start(playerId)).toEqual({ ok: true });
+
+  for (let r = 1; r <= arc.beats.length; r++) {
+    expect(room.roundNo).toBe(r);
+    // 상황이 beats 순서 그대로 나온다 (셔플 없음).
+    const beat = persona.situations.find((s) => s.id === arc.beats[r - 1])!;
+    expect(room.round!.situation.text).toBe(beat.text);
+    await vi.waitUntil(() => ['SITUATION', 'PLAYER_TURNS', 'JUDGING'].includes(room.phase ?? ''), { timeout: 3000 });
+    // adoptMe 연속이면 최고 직급 조기 등극이 종장을 가로채므로(정상), 완주는 noAdopt로 밟는다.
+    expect(eng.debug(playerId, 'noAdopt')).toEqual({ ok: true });
+    await vi.waitUntil(() => room.phase === 'RESULT', { timeout: 3000 });
+    eng.debug(playerId, 'next');
+  }
+
+  expect(room.state).toBe('ENDED');
+  expect(room.endedReason).toContain(arc.finaleText.slice(0, 10)); // 저작된 종장 문구
+  // 라운드마다 히스토리가 쌓였다 (판정 기억·브릿지의 단일 진실).
+  expect(room.scenarioHistory!.length).toBe(arc.beats.length);
+  expect(room.scenarioHistory!.every((h) => h.situationText.length > 0)).toBe(true);
+});
+
+test('자유 모드 덱은 arcOnly 상황을 제외한다', () => {
+  const persona = getPersona('caocao')!;
+  const arcOnlyIdx = new Set(persona.situations.map((s, i) => (s.arcOnly ? i : -1)).filter((i) => i >= 0));
+  expect(arcOnlyIdx.size).toBeGreaterThan(0); // 조조 팩에 arcOnly가 실제로 있다
+  const { room } = createRoomState('SC2', '나', { mode: 'single', personaId: 'caocao' });
+  expect(room.situationOrder!.some((i) => arcOnlyIdx.has(i))).toBe(false);
+  // 시나리오 방의 아크에는 arcOnly가 나올 수 있다.
+  const { room: scRoom } = createRoomState('SC3', '나', { mode: 'single', personaId: 'caocao', scenarioId: 'liubei-vessel' });
+  expect(scRoom.situationOrder!.some((i) => arcOnlyIdx.has(i))).toBe(true);
+});
+
+test('없는 시나리오 id는 조용히 자유 모드로 폴백한다', () => {
+  const { room } = createRoomState('SC4', '나', { mode: 'single', personaId: 'caocao', scenarioId: 'nope' });
+  expect(room.config.scenarioId).toBeUndefined();
+  expect(room.config.maxRounds).toBe(5);
+});
+
+test('시나리오 리매치: 아크를 처음부터 다시, 히스토리 리셋', async () => {
+  const persona = getPersona('caocao')!;
+  const arc = persona.scenarios.find((s) => s.id === 'succession')!;
+  const { room, playerId } = createRoomState('SC5', '나', { mode: 'single', personaId: 'caocao', scenarioId: 'succession' });
+  const { bus } = fakeBus();
+  const eng = new Engine(room, bus, deps);
+  expect(eng.start(playerId)).toEqual({ ok: true });
+  for (let r = 1; r <= arc.beats.length; r++) {
+    await vi.waitUntil(() => ['SITUATION', 'PLAYER_TURNS', 'JUDGING'].includes(room.phase ?? ''), { timeout: 3000 });
+    expect(eng.debug(playerId, 'noAdopt')).toEqual({ ok: true });
+    await vi.waitUntil(() => room.phase === 'RESULT', { timeout: 3000 });
+    eng.debug(playerId, 'next');
+  }
+  expect(room.state).toBe('ENDED');
+  expect(eng.rematch(playerId)).toEqual({ ok: true }); // 싱글은 즉시 재시작
+  expect(room.roundNo).toBe(1);
+  expect(room.scenarioHistory).toEqual([]);
+  const firstBeat = persona.situations.find((s) => s.id === arc.beats[0])!;
+  expect(room.round!.situation.text).toBe(firstBeat.text);
+});

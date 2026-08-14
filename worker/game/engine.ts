@@ -5,10 +5,10 @@ import { STRINGS, fmt, type FullPersona } from '@content';
 import type {
   AdoptedInfo, FeedItem, ServerEvent, Situation, Standing, Verdict,
 } from '@shared';
-import { computeStandings, publicRoom, roomPersona, type RoomState } from './state';
-import { ADVISORS_PER_ROUND, MAX_ROUNDS, buildSpeakQueue, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, MAX_SPEECH_CHARS, shuffledIndices } from './logic';
+import { computeStandings, newSituationOrder, publicRoom, roomPersona, type RoomState } from './state';
+import { ADVISORS_PER_ROUND, MAX_ROUNDS, buildSpeakQueue, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, MAX_SPEECH_CHARS } from './logic';
 import { APPROACHES } from '../ai/prompts';
-import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, type Deps } from '../ai/orchestrate';
+import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, makeBridge, type Deps } from '../ai/orchestrate';
 import { logger } from '../log';
 import type { Candidate } from '../ai/prompts';
 
@@ -77,7 +77,13 @@ export class Engine {
     this.bus.emit({ kind: 'room', room: publicRoom(this.room) });
   }
 
-  private setPhase(phase: NonNullable<RoomState['phase']>, extra: { situation?: Situation } = {}): void {
+  // 방의 시나리오 아크 — 자유 모드면 null.
+  private scenario() {
+    const id = this.room.config.scenarioId;
+    return id ? this.persona.scenarios.find((s) => s.id === id) ?? null : null;
+  }
+
+  private setPhase(phase: NonNullable<RoomState['phase']>, extra: { situation?: Situation; bridge?: string } = {}): void {
     this.room.phase = phase;
     this.bus.emit({ kind: 'phase', phase, roundNo: this.room.roundNo, ...extra });
     this.emitRoomState();
@@ -139,7 +145,8 @@ export class Engine {
     room.hall = [];
     room.advisorFavor = {};
     room.advisorLastQuirk = {};
-    room.situationOrder = shuffledIndices(this.persona.situations.length); // 상황 덱 재셔플
+    room.situationOrder = newSituationOrder(this.persona, room.config.scenarioId); // 시나리오=아크 재시작, 자유=덱 재셔플
+    room.scenarioHistory = [];
     room.pendingChampion = null;
     room.endedReason = null;
     room.feed = []; // 지난 판 피드는 비운다 (seq는 계속 증가 — 클라 순서 보장)
@@ -167,9 +174,12 @@ export class Engine {
       this.endByExhaustion();
       return;
     }
-    room.round = { situation, speeches: [], queue: [], turnIdx: 0, skipped: [], usedApproaches: [], verdict: null, submissions: {}, revealing: false };
+    // 시나리오 2라운드부터: 직전 라운드 기록의 결과(outcome)가 이번 상황의 브릿지 대사가 된다.
+    // 아직 생성이 안 끝났거나 mock 폴백(빈 문자열)이면 브릿지 없이 진행 — 연출 레이어일 뿐이다.
+    const bridge = this.scenario() && room.roundNo > 1 ? room.scenarioHistory?.at(-1)?.outcome : undefined;
+    room.round = { situation, ...(bridge ? { bridge } : {}), speeches: [], queue: [], turnIdx: 0, skipped: [], usedApproaches: [], verdict: null, submissions: {}, revealing: false };
     logger.roundStarted({ roomCode: room.code, roundNo: room.roundNo, situation: situation.text });
-    this.setPhase('SITUATION', { situation });
+    this.setPhase('SITUATION', { situation, ...(bridge ? { bridge } : {}) });
     // 라운드 자막(round.intro·round.question)은 만화 UI의 상황 카드(SituationCut)가 본문·질문을 이미 렌더하므로 중복 — 발행하지 않는다.
     // 자동 진행하지 않는다 — 전원이 상황을 읽는 동안 대기하고, 방장의 proceed로 발언(AI 배치 요청)을 시작한다.
   }
@@ -448,6 +458,8 @@ export class Engine {
     try {
       judged = await judgeSpeeches(this.deps, {
         persona: this.persona, situation: room.round!.situation, candidates, difficulty: room.config.difficulty,
+        // 시나리오: 지난 라운드 기록을 기억한 채 채점 (재탕·지난 결과와 어긋난 발언 감점). 토큰 상한으로 최근 3개.
+        history: this.scenario() ? (room.scenarioHistory ?? []).slice(-3) : [],
       });
     } catch (e) {
       logger.error({ where: 'engine.judge', error: e instanceof Error ? e.message : String(e) });
@@ -498,6 +510,34 @@ export class Engine {
         if (runnerUp) grantFavor(runnerUp.key, runnerUp.name, runnerUp.kind, 1);
       }
       if (adoptedInfo) room.hall.push({ roundNo: room.roundNo, ...adoptedInfo });
+    }
+
+    // 시나리오: 라운드 기록 누적 + 다음 상황으로 넘어가는 브릿지를 미리 생성해 둔다(RESULT 열람 시간 활용).
+    // 브릿지는 판정 기억의 "결과"이기도 하다 — 생성 실패·미완이면 다음 라운드가 브릿지 없이 뜰 뿐 진행 무영향.
+    if (this.scenario()) {
+      const adopted = verdict.adoptedKey ? candidates.find((c) => c.key === verdict.adoptedKey) ?? null : null;
+      const history = (room.scenarioHistory = room.scenarioHistory ?? []);
+      const entry: NonNullable<RoomState['scenarioHistory']>[number] = {
+        situationText: room.round!.situation.text,
+        adoptedText: adopted?.text ?? null,
+      };
+      history.push(entry);
+      const roundNo = room.roundNo;
+      const nextIdx = room.situationOrder?.[roundNo]; // 다음 라운드(roundNo+1)의 상황
+      const next = nextIdx != null ? this.persona.situations[nextIdx] : undefined;
+      if (next && judged.source !== 'debug') {
+        this.bg(makeBridge(this.deps, {
+          persona: this.persona,
+          prevSituation: room.round!.situation,
+          adopted: adopted ? { name: adopted.name, text: adopted.text } : null,
+          nextSituation: next,
+        }).then((r) => {
+          logger.bridge({ roomCode: room.code, roundNo, source: r.source, bridge: r.bridge });
+          if (!r.bridge || this.room.state !== 'PLAYING') return;
+          entry.outcome = r.bridge;
+          this.persist();
+        }).catch((e) => logger.error({ where: 'engine.bridge', error: e instanceof Error ? e.message : String(e) })));
+      }
     }
 
     this.setPhase('RESULT');
@@ -567,10 +607,22 @@ export class Engine {
     // 구버전 방 스냅샷(config.maxRounds 없음)은 기본 상한으로 폴백.
     const cap = this.room.config.maxRounds ?? MAX_ROUNDS;
     if (this.room.roundNo >= cap) {
-      this.endByMaxRounds(cap);
+      // 시나리오: 아크 비트 소진 = 저작된 종장 문구로 막을 내린다 (뒤에 우승 발표를 잇는다).
+      const sc = this.scenario();
+      if (sc) this.endByScenarioFinale(sc.finaleText, cap);
+      else this.endByMaxRounds(cap);
       return;
     }
     this.beginRound();
+  }
+
+  private endByScenarioFinale(finaleText: string, cap: number): void {
+    const standings = this.standings();
+    const top = standings[0];
+    const winnerLine = top && top.favor > 0
+      ? this.line('session.maxRoundsMvp', { maxRounds: cap, nick: top.nick, favor: top.favor })
+      : this.line('session.maxRoundsNone', { maxRounds: cap });
+    this.endSession(`${finaleText} ${winnerLine}`);
   }
 
   private endByMaxRounds(cap: number): void {

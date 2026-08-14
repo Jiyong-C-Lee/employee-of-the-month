@@ -9,10 +9,10 @@ import { ADVISOR_SPEECH_MAX_CHARS, type Difficulty, type Situation, type Verdict
 import type { FullPersona } from '@content';
 import { logger } from '../log';
 import * as P from './prompts';
-import type { Candidate } from './prompts';
+import type { Candidate, HistoryEntry } from './prompts';
 import { mockAdvisorTurnsBatch, mockJudgeSpeeches, mockEpilogue } from './mock';
 import { trimSpeech, finalizeVerdict } from './verdict';
-import { advisorBatchOut, judgeOut, epilogueOut } from './schemas';
+import { advisorBatchOut, judgeOut, epilogueOut, bridgeOut } from './schemas';
 
 type Advisor = FullPersona['advisors'][number];
 
@@ -109,7 +109,7 @@ interface JudgeRaw {
 
 export async function judgeSpeeches(
   deps: Deps,
-  { persona, situation, candidates, difficulty }: { persona: FullPersona; situation: Situation; candidates: Candidate[]; difficulty: Difficulty },
+  { persona, situation, candidates, difficulty, history = [] }: { persona: FullPersona; situation: Situation; candidates: Candidate[]; difficulty: Difficulty; history?: HistoryEntry[] },
 ): Promise<{ verdict: Verdict; source: Source }> {
   if (candidates.length === 0) {
     return { verdict: { perSpeaker: [], adoptedKey: null, adoptReason: '', totals: {} }, source: 'mock' };
@@ -131,8 +131,8 @@ export async function judgeSpeeches(
       for (let attempt = 0; attempt < 2; attempt++) {
         const { raw, provider } = await deps.llm(
           {
-            system: P.judgeSystem(persona, difficulty),
-            user: P.judgeUser(persona, situation, masked),
+            system: P.judgeSystem(persona, difficulty, history.length > 0),
+            user: P.judgeUser(persona, situation, masked, history),
             schema: P.judgeSchema(persona.axes),
             temperature: 0.7,
           },
@@ -181,5 +181,35 @@ export async function makeEpilogue(
       return { value: { story: parsed.story }, provider };
     },
     () => mockEpilogue({ persona, situation, adopted }),
+  );
+}
+
+// ---- 시나리오 브릿지 ----
+
+// 라운드 사이 보스의 회고 한마디. 연출 레이어 — mock 폴백은 빈 문자열(브릿지 생략, 진행 무영향).
+export async function makeBridge(
+  deps: Deps,
+  { persona, prevSituation, adopted, nextSituation }: {
+    persona: FullPersona;
+    prevSituation: Situation;
+    adopted: { name: string; text: string } | null;
+    nextSituation: Situation;
+  },
+): Promise<{ bridge: string; source: Source }> {
+  return withFallback(
+    deps,
+    async () => {
+      const { raw, provider } = await deps.llm(
+        {
+          system: P.bridgeSystem(persona),
+          user: P.bridgeUser(persona, prevSituation, adopted, nextSituation),
+          schema: P.bridgeSchema(),
+          temperature: 1.0,
+        },
+        { kind: 'bridge', validate: (r) => { bridgeOut.parse(r); } },
+      );
+      return { value: { bridge: bridgeOut.parse(raw).bridge }, provider };
+    },
+    () => ({ bridge: '' }),
   );
 }

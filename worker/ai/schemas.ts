@@ -19,3 +19,5 @@ export const judgeOut = z.object({
 });
 
 export const epilogueOut = z.object({ story: z.string().min(1) });
+
+export const bridgeOut = z.object({ bridge: z.string().min(1) });

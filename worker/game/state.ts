@@ -23,6 +23,8 @@ export type PlayerState = PublicPlayer;
 
 export interface RoundState {
   situation: Situation;
+  // 시나리오 모드: 이번 상황 앞에 붙는 보스 회고 대사 (직전 라운드 채택의 결과). 스냅샷 복구용으로 영속.
+  bridge?: string;
   queue: QueueEntry[];
   speeches: Speech[];
   turnIdx: number;
@@ -51,6 +53,9 @@ export interface RoomState {
   situationOrder?: number[];
   // 커스텀 페르소나 팩 전체 — 있으면 내장 팩 대신 이것을 쓴다(roomPersona). storage에 그대로 영속.
   customPersona?: FullPersona;
+  // 시나리오 모드 라운드별 기록: 상황·채택 발언·결과(outcome=브릿지 본문, 생성 실패 시 없음).
+  // 다음 라운드 브릿지 연출과 판정의 "이전 라운드 기억" 주입이 이 배열 하나를 공유한다.
+  scenarioHistory?: { situationText: string; adoptedText: string | null; outcome?: string }[];
   hall: HallEntry[];
   round: RoundState | null;
   feed: FeedItem[];
@@ -113,8 +118,14 @@ export function createRoomState(
     // 라운드 상한 — 허용값 외엔 기본 10. 상황 덱(20개)을 넘지 않는 선택지만 노출한다.
     maxRounds: [5, 10, 15].includes(Number(config.maxRounds)) ? Number(config.maxRounds) : 5,
   };
+  // 시나리오 아크 — 유효한 id일 때만 붙는다(없는 id는 조용히 자유 모드 폴백).
+  const scenario = config.scenarioId ? persona.scenarios.find((sc) => sc.id === config.scenarioId) : undefined;
+  if (scenario) normalized.scenarioId = scenario.id;
+  // 자유 모드 덱은 arcOnly(아크 문맥 필요) 상황 제외.
+  const freeDeck = freeDeckIndices(persona);
   // 상황 덱보다 많은 라운드는 불가 — 커스텀 팩(상황 10개)에서 20라운드를 고르는 경우 클램프.
-  normalized.maxRounds = Math.min(normalized.maxRounds, persona.situations.length);
+  // 시나리오 방의 라운드 수는 아크 길이 그대로다.
+  normalized.maxRounds = scenario ? scenario.beats.length : Math.min(normalized.maxRounds, freeDeck.length);
 
   const host = makePlayer(hostNick, 0, persona.ranks[0]!, avatar);
   const token = newToken();
@@ -131,7 +142,8 @@ export function createRoomState(
     advisorFavor: {}, // 조언자 이름 -> 채택 수 (연출·현황용)
     advisorLastQuirk: {},
     ...(customPersona ? { customPersona } : {}),
-    situationOrder: shuffledIndices(persona.situations.length), // 상황 덱 셔플 — 판마다 등장 순서가 다르다
+    // 시나리오: 아크 beats 순서 고정. 자유 모드: 덱 셔플 — 판마다 등장 순서가 다르다.
+    situationOrder: newSituationOrder(persona, scenario?.id),
 
     hall: [], // 라운드별 채택자 — 명예의 전당
     round: null,
@@ -144,6 +156,33 @@ export function createRoomState(
   };
 
   return { room, playerId: host.id, token };
+}
+
+// 자유 모드 덱: arcOnly 상황을 뺀 인덱스 목록.
+export function freeDeckIndices(persona: FullPersona): number[] {
+  return persona.situations.map((s, i) => (s.arcOnly ? -1 : i)).filter((i) => i >= 0);
+}
+
+function shuffleDeck(indices: number[]): number[] {
+  return shuffledIndices(indices.length).map((i) => indices[i]!);
+}
+
+// 시나리오 아크의 상황 인덱스 순서. 무결성은 content loader가 보장하므로 여기선 존재만 매핑한다.
+export function scenarioOrder(persona: FullPersona, scenarioId: string): number[] {
+  const sc = persona.scenarios.find((s) => s.id === scenarioId);
+  if (!sc) return [];
+  return sc.beats
+    .map((beat) => persona.situations.findIndex((s) => s.id === beat))
+    .filter((i) => i >= 0);
+}
+
+// 세션 시작·리매치 공용 덱 생성: 시나리오면 아크 순서 고정, 자유 모드면 arcOnly 제외 셔플.
+export function newSituationOrder(persona: FullPersona, scenarioId?: string): number[] {
+  if (scenarioId) {
+    const order = scenarioOrder(persona, scenarioId);
+    if (order.length > 0) return order;
+  }
+  return shuffleDeck(freeDeckIndices(persona));
 }
 
 // 방의 페르소나 단일 조회 경로 — 커스텀이 있으면 커스텀, 없으면 내장 팩.
@@ -211,6 +250,7 @@ export function publicRoom(room: RoomState): PublicRoom {
       advisors: persona.advisors.map((a) => ({ name: a.name, emoji: a.emoji, style: a.style })),
     },
     situation: room.round?.situation ?? null,
+    bridge: room.round?.bridge ?? null,
     round: room.round
       ? {
         queue: room.round.queue,

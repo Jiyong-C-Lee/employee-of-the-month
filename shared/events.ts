@@ -12,6 +12,8 @@ export interface RoomConfig {
   difficulty: Difficulty;
   maxPlayers: number;
   maxRounds: number;        // 라운드 상한 — 도달 시 '올해의 사원'(최고 총애) 발표로 종료
+  // 시나리오 아크 id — 있으면 랜덤 덱 대신 아크 beats를 순서대로 진행한다(싱글·멀티 공통).
+  scenarioId?: string;
 }
 export interface PublicPlayer {
   id: string; nick: string; rank: string; joinOrder: number; favor: number; connected: boolean;
@@ -40,6 +42,8 @@ export interface PublicRoom {
   phase: Phase | null; roundNo: number;
   config: RoomConfig; players: PublicPlayer[];
   persona: PublicPersona; situation: Situation | null;
+  // 시나리오 모드: 이번 상황 앞에 붙는 보스의 회고 대사 (지난 라운드 채택의 결과). 없으면 생략.
+  bridge?: string | null;
   // submitted: 멀티 동시 입력 창에서 제출을 마친 플레이어 id 목록(본문은 공개 전까지 비밀).
   // revealing: 전원 제출(또는 마감) 후 순차 공개가 진행 중인지.
   round: { queue: QueueEntry[]; speeches: Speech[]; submitted: string[]; revealing: boolean } | null;
@@ -71,7 +75,7 @@ export interface EndedPayload { reason: string; standings: Standing[]; hall: Hal
 export type ServerEvent =
   | { kind: 'snapshot'; seq: number; room: PublicRoom; feed: FeedItem[]; speakTurn: SpeakTurn | null; timer: TimerInfo | null; ended: EndedPayload | null }
   | { kind: 'room'; seq: number; room: PublicRoom }
-  | { kind: 'phase'; seq: number; phase: Phase; roundNo: number; situation?: Situation }
+  | { kind: 'phase'; seq: number; phase: Phase; roundNo: number; situation?: Situation; bridge?: string }
   | { kind: 'turn'; seq: number; turn: SpeakTurn | null }
   | { kind: 'timer'; seq: number; timer: TimerInfo | null }
   | { kind: 'feed'; seq: number; item: FeedItem }

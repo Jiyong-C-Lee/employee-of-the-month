@@ -101,6 +101,8 @@
 .situation-cut .sc-boss { position: relative; width: 42%; flex: none; }
 .situation-cut .sc-boss img { display: block; width: 100%; height: auto; }
 .situation-cut .sc-bubble-wrap { flex: 1; position: relative; }
+/* 시나리오 브릿지 — 지난 라운드 회고 한마디. 상황 본문과 톤을 나눈다. */
+.situation-cut .sc-bridge { display: block; font-style: italic; opacity: 0.75; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed rgba(0, 0, 0, 0.25); }
 
 /* 말풍선 (좌측 꼬리 — 두 겹 삼각형) */
 .bubble-left { background: #fff; border: 2px solid var(--ink); border-radius: 16px; padding: 13px 15px; font-size: 13.5px; line-height: 1.65; }
