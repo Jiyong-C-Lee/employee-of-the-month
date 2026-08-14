@@ -12,7 +12,7 @@ import * as P from './prompts';
 import type { Candidate, HistoryEntry } from './prompts';
 import { mockAdvisorTurnsBatch, mockJudgeSpeeches, mockEpilogue } from './mock';
 import { trimSpeech, finalizeVerdict } from './verdict';
-import { advisorBatchOut, judgeOut, epilogueOut, bridgeOut } from './schemas';
+import { advisorBatchOut, judgeOut, epilogueOut } from './schemas';
 
 type Advisor = FullPersona['advisors'][number];
 
@@ -168,60 +168,47 @@ export async function judgeSpeeches(
   return { verdict, source: r.source, decision };
 }
 
-// ---- 에필로그 ----
+// ---- 라운드 마무리 (에필로그 + 다음 상황 첫마디 — 한 콜) ----
 
-export async function makeEpilogue(
+// 판정 시점에 다음 상황이 이미 확정돼 있으므로(링크 해석·덱 peek) story와 bridge를 한 번에 쓴다.
+// 두 시점이 같은 사건을 공유해 모순이 없고, 라운드당 LLM 콜이 하나 줄어든다.
+// mock 폴백: story는 게임 고유 mock, bridge는 저작된 lead — AI가 죽어도 연결이 끊기지 않는다.
+export async function makeRoundWrap(
   deps: Deps,
-  { persona, situation, adopted }: { persona: FullPersona; situation: Situation; adopted: { name: string; text: string } },
-): Promise<{ story: string; source: Source }> {
+  { persona, situation, adopted, nextSituation, lead }: {
+    persona: FullPersona;
+    situation: Situation;
+    adopted: { name: string; text: string } | null;
+    nextSituation?: Situation; // 없으면 세션 종료 직전 — bridge는 빈 문자열
+    lead?: string;             // 링크 전환의 저작 도입 문장 (인과 힌트 + 폴백)
+  },
+): Promise<{ story: string; bridge: string; source: Source }> {
   return withFallback(
     deps,
     async () => {
       const { raw, provider } = await deps.llm(
         {
           system: P.epilogueSystem(persona),
-          user: P.epilogueUser(persona, situation, adopted),
+          user: P.epilogueUser(persona, situation, adopted, nextSituation, lead),
           schema: P.epilogueSchema(),
           temperature: 1.0,
         },
-        { kind: 'epilogue', validate: (r) => { epilogueOut.parse(r); } },
+        {
+          kind: 'epilogue',
+          // 채택이 있으면 story, 다음 상황이 있으면 bridge가 비면 안 된다 — 비면 다음 공급자로.
+          validate: (r) => {
+            const p = epilogueOut.parse(r);
+            if (adopted && !p.story.trim()) throw new Error('story 누락');
+            if (nextSituation && !p.bridge.trim()) throw new Error('bridge 누락');
+          },
+        },
       );
       const parsed = epilogueOut.parse(raw);
-      return { value: { story: parsed.story }, provider };
+      return { value: { story: parsed.story, bridge: parsed.bridge }, provider };
     },
-    () => mockEpilogue({ persona, situation, adopted }),
-  );
-}
-
-// ---- 시나리오 브릿지 ----
-
-// 라운드 사이 보스의 회고 한마디. lead(아크에 사전 저작된 도입 문장)는 생성의 인과 힌트이자
-// mock 폴백 — AI가 죽어도 저작된 연결부가 그대로 나가서 이야기가 끊기지 않는다.
-export async function makeBridge(
-  deps: Deps,
-  { persona, prevSituation, adopted, nextSituation, lead, epilogue }: {
-    persona: FullPersona;
-    prevSituation: Situation;
-    adopted: { name: string; text: string } | null;
-    nextSituation: Situation;
-    lead?: string;
-    epilogue?: string; // 그 라운드 에필로그 본문 — 회고가 이 사실을 이어받는다
-  },
-): Promise<{ bridge: string; source: Source }> {
-  return withFallback(
-    deps,
-    async () => {
-      const { raw, provider } = await deps.llm(
-        {
-          system: P.bridgeSystem(persona),
-          user: P.bridgeUser(persona, prevSituation, adopted, nextSituation, lead, epilogue),
-          schema: P.bridgeSchema(),
-          temperature: 1.0,
-        },
-        { kind: 'bridge', validate: (r) => { bridgeOut.parse(r); } },
-      );
-      return { value: { bridge: bridgeOut.parse(raw).bridge }, provider };
-    },
-    () => ({ bridge: lead ?? '' }),
+    () => ({
+      story: adopted ? mockEpilogue({ persona, situation, adopted }).story : '',
+      bridge: lead ?? '',
+    }),
   );
 }

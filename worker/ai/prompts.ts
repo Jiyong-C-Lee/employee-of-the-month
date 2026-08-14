@@ -140,49 +140,33 @@ export function judgeSchema(axes: string[], decisionKeys?: string[]) {
   };
 }
 
-// ---- 에필로그 ----
+// ---- 라운드 마무리 (에필로그 story + 다음 상황 첫마디 bridge — 한 콜) ----
 
 export function epilogueSystem(persona: FullPersona): string {
   // personaIntro: 보스가 어느 회사의 누구인지 — 상황 속 타사(도원컴퍼니 등)로 시점이 새는 것을 막는다.
-  return fmt(PROMPTS.epilogueSystem, { personaName: persona.name, personaIntro: persona.intro });
+  // 말투는 bridge 규칙이 참조하도록 personaPrompt까지 준다.
+  return fmt(PROMPTS.epilogueSystem, { personaName: persona.name, personaIntro: `${persona.intro}\n${persona.personaPrompt}` });
 }
 
-export function epilogueUser(persona: FullPersona, situation: Situation, adopted: { name: string; text: string }): string {
-  return [`# 상황`, situation.text, `# 물음: ${situation.question}`, '', `# 채택된 간언 (${adopted.name})`, adopted.text].join('\n');
-}
-
-export function epilogueSchema() {
-  return { type: 'object', properties: { story: { type: 'string' } }, required: ['story'] };
-}
-
-// ---- 시나리오 브릿지 (라운드 사이 보스의 회고 한마디) ----
-
-export function bridgeSystem(persona: FullPersona): string {
-  return fmt(PROMPTS.bridgeSystem, { personaName: persona.name, personaPrompt: persona.personaPrompt });
-}
-
-export function bridgeUser(
+export function epilogueUser(
   persona: FullPersona,
-  prevSituation: Situation,
+  situation: Situation,
   adopted: { name: string; text: string } | null,
-  nextSituation: Situation,
+  nextSituation?: Situation,
   lead?: string,
-  epilogue?: string,
 ): string {
   return [
-    `# 지난 상황`,
-    prevSituation.text,
+    `# 상황`,
+    situation.text,
+    `# 물음: ${situation.question}`,
     '',
     adopted ? `# 채택한 간언 (${adopted.name})` : '# 채택한 간언',
     adopted ? adopted.text : '없음 — 쓸 만한 안이 하나도 없어 채택하지 않았다.',
-    ...(epilogue ? ['', `# 그 후 실제로 벌어진 일 (회고는 이 사실을 이어받는다 — 다른 결과를 새로 지어내면 실패)`, epilogue] : []),
-    '',
-    `# 다음 상황 (곧이어 따로 공개된다 — 세부 내용을 재서술하지 마라)`,
-    nextSituation.text,
-    ...(lead ? ['', `# 다음 상황으로 넘어가는 도입 방향 (이 인과를 따르되, 문장을 그대로 베끼지 마라)`, lead] : []),
+    ...(nextSituation ? ['', `# 다음 상황 (곧이어 따로 공개된다 — 세부 내용을 재서술하지 마라)`, nextSituation.text] : []),
+    ...(lead ? ['', `# 다음 상황 도입 방향 (이 인과를 따르되, 문장을 그대로 베끼지 마라)`, lead] : []),
   ].join('\n');
 }
 
-export function bridgeSchema() {
-  return { type: 'object', properties: { bridge: { type: 'string' } }, required: ['bridge'] };
+export function epilogueSchema() {
+  return { type: 'object', properties: { story: { type: 'string' }, bridge: { type: 'string' } }, required: ['story', 'bridge'] };
 }

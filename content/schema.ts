@@ -62,8 +62,7 @@ export const promptsSchema = z.object({
   judgeHumanBiasLine: z.string(),
   judgeHistoryRules: z.string(),
   judgeDefaultAddress: z.string(),
-  epilogueSystem: tmpl,
-  bridgeSystem: tmpl,
+  epilogueSystem: tmpl, // 라운드 마무리 통합 프롬프트 — story(에필로그)와 bridge(다음 상황 첫마디)를 한 콜로
   personaGenSystem: tmpl,
 }).passthrough(); // _readme 등 허용
 

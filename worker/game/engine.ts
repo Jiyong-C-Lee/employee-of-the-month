@@ -8,7 +8,7 @@ import type {
 import { computeStandings, newSituationOrder, pubSituation, publicRoom, roomPersona, type RoomState } from './state';
 import { ADVISORS_PER_ROUND, MAX_ROUNDS, buildSpeakQueue, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, MAX_SPEECH_CHARS } from './logic';
 import { APPROACHES } from '../ai/prompts';
-import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, makeBridge, type Deps } from '../ai/orchestrate';
+import { advisorTurnsBatch, judgeSpeeches, makeRoundWrap, type Deps } from '../ai/orchestrate';
 import { logger } from '../log';
 import type { Candidate } from '../ai/prompts';
 
@@ -585,37 +585,16 @@ export class Engine {
         ts: Date.now(),
       },
     });
-    // 에필로그 promise — 시나리오 브릿지가 이 결과("그 후 이야기")를 이어받아야 해서 밖으로 뺐다.
-    let epilogueP: Promise<string | undefined> | null = null;
-    if (verdict.adoptedKey) {
+    if (verdict.adoptedKey && room.pendingChampion) {
       // 채택 안내 sysMsg는 보스 총평 컷과 중복이라 내보내지 않는다 (승진 확정만 자막으로).
-      if (room.pendingChampion) {
-        const champ = room.players.find((p) => p.id === room.pendingChampion);
-        this.sysMsg(this.line('round.champion', { nick: champ?.nick ?? '', topRank: this.persona.ranks.at(-1) }), 'champion');
-      }
-      // 에필로그는 비동기 연출 레이어 — 실패해도 진행 무관. 디버그 판정은 생략.
-      const adopted = candidates.find((c) => c.key === verdict.adoptedKey);
-      if (judged.source !== 'debug' && adopted) {
-        epilogueP = makeEpilogue(this.deps, { persona: this.persona, situation: room.round!.situation, adopted: { name: adopted.name, text: adopted.text } })
-          .then((r) => {
-            // 에필로그 본문도 로그에 남긴다 — 시점 이탈 같은 품질 문제 추적용.
-            logger.epilogue({ roomCode: room.code, roundNo: room.roundNo, source: r.source, adoptedName: adopted.name, story: r.story });
-            if (this.room.state === 'PLAYING' && this.room.roundNo === room.roundNo) {
-              this.bus.emit({ kind: 'feed', item: { type: 'epilogue', roundNo: room.roundNo, story: r.story, source: r.source, ts: Date.now() } });
-            }
-            return r.story as string | undefined;
-          })
-          .catch((e) => {
-            logger.error({ where: 'engine.epilogue', error: e instanceof Error ? e.message : String(e) });
-            return undefined;
-          });
-        this.bg(epilogueP);
-      }
+      const champ = room.players.find((p) => p.id === room.pendingChampion);
+      this.sysMsg(this.line('round.champion', { nick: champ?.nick ?? '', topRank: this.persona.ranks.at(-1) }), 'champion');
     }
 
-    // 라운드 기록 누적 + 링크 확정 + 브릿지 선생성(RESULT 열람 시간 활용).
-    // 사슬: 채택안 → (decision 분류) → 링크 확정 → 에필로그(그 후 이야기) → 브릿지(그 사실을
-    // 이어받은 회고) → 다음 상황 → 판정 기억. 링크 전환은 lead가 폴백이라 AI가 죽어도 이어진다.
+    // 라운드 기록 + 링크 확정 + 라운드 마무리(에필로그·브릿지 한 콜) 선생성 — RESULT 열람 시간 활용.
+    // 사슬: 채택안 → (decision 분류) → 링크 확정 → {그 후 이야기 + 다음 상황 첫마디} → 판정 기억.
+    // 다음 상황은 판정 직후 이미 확정이므로 두 글을 한 번에 쓴다(콜 1회 절약 + 시점 간 모순 없음).
+    // 링크 전환은 lead가 폴백이라 AI가 죽어도 이어진다. 실패해도 진행 무관, 디버그 판정은 생략.
     {
       const adopted = verdict.adoptedKey ? candidates.find((c) => c.key === verdict.adoptedKey) ?? null : null;
       const history = (room.scenarioHistory = room.scenarioHistory ?? []);
@@ -632,25 +611,26 @@ export class Engine {
       history.push(entry);
       // 다음 상황 미리보기: 링크가 있으면 그 상황, 없으면 덱 peek (beginRound가 같은 걸 뽑는다).
       const next = link ? this.authoredById(link.to) : this.deckNext(false);
-      const prevSituation = authored; // 지금 캡처 — then 시점엔 round가 다음 라운드일 수 있다
-      if (next && judged.source !== 'debug') {
-        this.bg((epilogueP ?? Promise.resolve(undefined)).then((story) => {
-          // 에필로그가 이 라운드의 공식 결과다 — 판정 기억("그 후")과 브릿지 회고가 같은 사실을 본다.
-          if (story) entry.epilogueText = story;
-          return makeBridge(this.deps, {
-            persona: this.persona,
-            prevSituation,
-            adopted: adopted ? { name: adopted.name, text: adopted.text } : null,
-            nextSituation: next,
-            lead: link?.lead, // 링크 없는 랜덤 전환이면 인과 힌트도 없다 — 회고 후 '각설' 전환
-            epilogue: story,
-          });
+      if ((adopted || next) && judged.source !== 'debug') {
+        this.bg(makeRoundWrap(this.deps, {
+          persona: this.persona,
+          situation: authored,
+          adopted: adopted ? { name: adopted.name, text: adopted.text } : null,
+          nextSituation: next ?? undefined,
+          lead: link?.lead, // 링크 없는 랜덤 전환이면 인과 힌트도 없다 — 회고 후 '각설' 전환
         }).then((r) => {
+          if (r.story && adopted) {
+            // 에필로그 본문도 로그에 남긴다 — 시점 이탈 같은 품질 문제 추적용.
+            logger.epilogue({ roomCode: room.code, roundNo, source: r.source, adoptedName: adopted.name, story: r.story });
+            entry.epilogueText = r.story; // 이 라운드의 공식 결과 — 판정 기억("그 후")이 본다
+            if (this.room.state === 'PLAYING' && this.room.roundNo === roundNo) {
+              this.bus.emit({ kind: 'feed', item: { type: 'epilogue', roundNo, story: r.story, source: r.source, ts: Date.now() } });
+            }
+          }
           logger.bridge({ roomCode: room.code, roundNo, source: r.source, bridge: r.bridge });
-          if (!r.bridge || this.room.state !== 'PLAYING') return;
-          entry.outcome = r.bridge;
+          if (r.bridge && this.room.state === 'PLAYING') entry.outcome = r.bridge;
           this.persist();
-        }).catch((e) => logger.error({ where: 'engine.bridge', error: e instanceof Error ? e.message : String(e) })));
+        }).catch((e) => logger.error({ where: 'engine.roundWrap', error: e instanceof Error ? e.message : String(e) })));
       }
     }
     this.emitRoomState();

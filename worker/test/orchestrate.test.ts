@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest';
 import { getPersona } from '@content';
-import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, makeBridge, type Deps } from '../ai/orchestrate';
+import { advisorTurnsBatch, judgeSpeeches, makeRoundWrap, type Deps } from '../ai/orchestrate';
 
 const persona = getPersona('caocao')!;
 const situation = persona.situations[0]!;
@@ -38,8 +38,8 @@ test('키 없으면 mock 판정 — 익명 마스킹 복원 확인', async () =>
   expect(r.verdict.perSpeaker.every((s) => s.name !== '발언자1')).toBe(true);
 });
 
-test('키 없으면 mock 에필로그', async () => {
-  const r = await makeEpilogue(deps, { persona, situation, adopted: { name: '유저닉', text: '지릅시다.' } });
+test('키 없으면 mock 라운드 마무리 — story는 게임 고유 mock', async () => {
+  const r = await makeRoundWrap(deps, { persona, situation, adopted: { name: '유저닉', text: '지릅시다.' } });
   expect(r.source).toBe('mock');
   expect(r.story.length).toBeGreaterThan(10);
 });
@@ -58,14 +58,14 @@ test('키는 있는데 체인이 전소하면 게임 고유 mock으로 떨어진
 test('키 없으면 브릿지는 저작된 lead로 폴백 — 연결이 AI 없이도 유지된다', async () => {
   const args = {
     persona,
-    prevSituation: situation,
+    situation,
     adopted: { name: '유저닉', text: '지릅시다.' },
     nextSituation: persona.situations[1]!,
   };
-  const withLead = await makeBridge(deps, { ...args, lead: '그런데 다음 날, 문이 열렸네.' });
+  const withLead = await makeRoundWrap(deps, { ...args, lead: '그런데 다음 날, 문이 열렸네.' });
   expect(withLead.source).toBe('mock');
   expect(withLead.bridge).toBe('그런데 다음 날, 문이 열렸네.');
-  // lead가 없으면(비트 미저작) 빈 문자열 = 브릿지 생략.
-  const noLead = await makeBridge(deps, args);
+  // lead가 없으면(링크 없는 랜덤 전환) 빈 문자열 = 브릿지 생략.
+  const noLead = await makeRoundWrap(deps, args);
   expect(noLead.bridge).toBe('');
 });

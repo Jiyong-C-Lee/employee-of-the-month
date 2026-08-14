@@ -19,6 +19,5 @@ export const judgeOut = z.object({
   decision: z.string().optional(), // 분기 상황 한정: 채택안의 노선 분류
 });
 
-export const epilogueOut = z.object({ story: z.string().min(1) });
-
-export const bridgeOut = z.object({ bridge: z.string().min(1) });
+// 라운드 마무리 통합 출력 — 채택 없음(story '')·다음 상황 없음(bridge '')이 있어 빈 문자열 허용.
+export const epilogueOut = z.object({ story: z.string(), bridge: z.string() });
