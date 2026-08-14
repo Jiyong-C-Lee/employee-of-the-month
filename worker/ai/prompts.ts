@@ -151,6 +151,7 @@ export function bridgeUser(
   prevSituation: Situation,
   adopted: { name: string; text: string } | null,
   nextSituation: Situation,
+  lead?: string,
 ): string {
   return [
     `# 지난 상황`,
@@ -159,8 +160,9 @@ export function bridgeUser(
     adopted ? `# 채택한 간언 (${adopted.name})` : '# 채택한 간언',
     adopted ? adopted.text : '없음 — 쓸 만한 안이 하나도 없어 채택하지 않았다.',
     '',
-    `# 다음 상황 (참고용 — 내용을 미리 말하지 마라)`,
+    `# 다음 상황 (곧이어 따로 공개된다 — 세부 내용을 재서술하지 마라)`,
     nextSituation.text,
+    ...(lead ? ['', `# 다음 상황으로 넘어가는 도입 방향 (이 인과를 따르되, 문장을 그대로 베끼지 마라)`, lead] : []),
   ].join('\n');
 }
 

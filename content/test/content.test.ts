@@ -44,11 +44,13 @@ test('조조 팩 시나리오 아크가 로드되고 beats 참조가 온전하�
   const ids = new Set(p.situations.map((s) => s.id).filter(Boolean));
   for (const sc of p.scenarios) {
     expect(sc.beats.length).toBeGreaterThanOrEqual(4);
-    for (const beat of sc.beats) expect(ids.has(beat)).toBe(true);
+    for (const beat of sc.beats) expect(ids.has(beat.id)).toBe(true);
+    // 둘째 비트부터는 앞 비트와 잇는 저작 도입(lead)이 있어야 한다 — 연결이 AI 운에 좌우되지 않게.
+    for (const beat of sc.beats.slice(1)) expect(beat.lead && beat.lead.length > 0).toBe(true);
     expect(sc.finaleText).toBeTruthy();
   }
   // arcOnly 상황은 자유 모드 덱 제외 대상 — 최소한 아크에는 소속돼 있어야 한다.
-  const inBeats = new Set(p.scenarios.flatMap((sc) => sc.beats));
+  const inBeats = new Set(p.scenarios.flatMap((sc) => sc.beats.map((b) => b.id)));
   for (const s of p.situations.filter((x) => x.arcOnly)) expect(inBeats.has(s.id!)).toBe(true);
   // 자유 모드 덱(arcOnly 제외)이 증량됐다: 20 → 27
   expect(p.situations.filter((s) => !s.arcOnly).length).toBeGreaterThanOrEqual(27);

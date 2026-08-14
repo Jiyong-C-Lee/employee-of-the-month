@@ -172,7 +172,7 @@ export function scenarioOrder(persona: FullPersona, scenarioId: string): number[
   const sc = persona.scenarios.find((s) => s.id === scenarioId);
   if (!sc) return [];
   return sc.beats
-    .map((beat) => persona.situations.findIndex((s) => s.id === beat))
+    .map((beat) => persona.situations.findIndex((s) => s.id === beat.id))
     .filter((i) => i >= 0);
 }
 

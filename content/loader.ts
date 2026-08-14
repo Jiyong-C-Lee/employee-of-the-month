@@ -17,7 +17,7 @@ const PACKS: FullPersona[] = RAW_PACKS.map(({ persona, situations, scenarios }) 
     for (const [id, n] of idCount) if (n > 1) throw new Error(`상황 id 중복: "${id}"`);
     for (const sc of p.scenarios) {
       for (const beat of sc.beats) {
-        if (!idCount.has(beat)) throw new Error(`시나리오 "${sc.id}"의 beat "${beat}"가 situations에 없다`);
+        if (!idCount.has(beat.id)) throw new Error(`시나리오 "${sc.id}"의 beat "${beat.id}"가 situations에 없다`);
       }
     }
     return p;

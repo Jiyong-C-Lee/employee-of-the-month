@@ -273,7 +273,7 @@ test('시나리오 방: 아크 beats 순서 고정 진행 → 종장 문구로 �
   for (let r = 1; r <= arc.beats.length; r++) {
     expect(room.roundNo).toBe(r);
     // 상황이 beats 순서 그대로 나온다 (셔플 없음).
-    const beat = persona.situations.find((s) => s.id === arc.beats[r - 1])!;
+    const beat = persona.situations.find((s) => s.id === arc.beats[r - 1]!.id)!;
     expect(room.round!.situation.text).toBe(beat.text);
     await vi.waitUntil(() => ['SITUATION', 'PLAYER_TURNS', 'JUDGING'].includes(room.phase ?? ''), { timeout: 3000 });
     // adoptMe 연속이면 최고 직급 조기 등극이 종장을 가로채므로(정상), 완주는 noAdopt로 밟는다.
@@ -323,6 +323,6 @@ test('시나리오 리매치: 아크를 처음부터 다시, 히스토리 리셋
   expect(eng.rematch(playerId)).toEqual({ ok: true }); // 싱글은 즉시 재시작
   expect(room.roundNo).toBe(1);
   expect(room.scenarioHistory).toEqual([]);
-  const firstBeat = persona.situations.find((s) => s.id === arc.beats[0])!;
+  const firstBeat = persona.situations.find((s) => s.id === arc.beats[0]!.id)!;
   expect(room.round!.situation.text).toBe(firstBeat.text);
 });

@@ -514,15 +514,20 @@ export class Engine {
 
     // 시나리오: 라운드 기록 누적 + 다음 상황으로 넘어가는 브릿지를 미리 생성해 둔다(RESULT 열람 시간 활용).
     // 브릿지는 판정 기억의 "결과"이기도 하다 — 생성 실패·미완이면 다음 라운드가 브릿지 없이 뜰 뿐 진행 무영향.
-    if (this.scenario()) {
+    const scenarioArc = this.scenario();
+    if (scenarioArc) {
       const adopted = verdict.adoptedKey ? candidates.find((c) => c.key === verdict.adoptedKey) ?? null : null;
       const history = (room.scenarioHistory = room.scenarioHistory ?? []);
+      const roundNo = room.roundNo;
+      // 다음 비트의 lead(사전 저작 도입 문장) — AI 생성 전·실패 시의 브릿지 기본값.
+      // 연결이 저작으로 보장되고, AI는 그 위에 채택안 회고를 얹는 업그레이드일 뿐이다.
+      const lead = scenarioArc.beats[roundNo]?.lead;
       const entry: NonNullable<RoomState['scenarioHistory']>[number] = {
         situationText: room.round!.situation.text,
         adoptedText: adopted?.text ?? null,
+        ...(lead ? { outcome: lead } : {}),
       };
       history.push(entry);
-      const roundNo = room.roundNo;
       const nextIdx = room.situationOrder?.[roundNo]; // 다음 라운드(roundNo+1)의 상황
       const next = nextIdx != null ? this.persona.situations[nextIdx] : undefined;
       if (next && judged.source !== 'debug') {
@@ -531,6 +536,7 @@ export class Engine {
           prevSituation: room.round!.situation,
           adopted: adopted ? { name: adopted.name, text: adopted.text } : null,
           nextSituation: next,
+          lead,
         }).then((r) => {
           logger.bridge({ roomCode: room.code, roundNo, source: r.source, bridge: r.bridge });
           if (!r.bridge || this.room.state !== 'PLAYING') return;

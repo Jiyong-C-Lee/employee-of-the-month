@@ -55,13 +55,17 @@ test('키는 있는데 체인이 전소하면 게임 고유 mock으로 떨어진
   expect(r.speeches[0]!.text.length).toBeGreaterThan(5);
 });
 
-test('키 없으면 브릿지는 빈 문자열 (생략 — 진행 무영향)', async () => {
-  const r = await makeBridge(deps, {
+test('키 없으면 브릿지는 저작된 lead로 폴백 — 연결이 AI 없이도 유지된다', async () => {
+  const args = {
     persona,
     prevSituation: situation,
     adopted: { name: '유저닉', text: '지릅시다.' },
     nextSituation: persona.situations[1]!,
-  });
-  expect(r.source).toBe('mock');
-  expect(r.bridge).toBe('');
+  };
+  const withLead = await makeBridge(deps, { ...args, lead: '그런데 다음 날, 문이 열렸네.' });
+  expect(withLead.source).toBe('mock');
+  expect(withLead.bridge).toBe('그런데 다음 날, 문이 열렸네.');
+  // lead가 없으면(비트 미저작) 빈 문자열 = 브릿지 생략.
+  const noLead = await makeBridge(deps, args);
+  expect(noLead.bridge).toBe('');
 });

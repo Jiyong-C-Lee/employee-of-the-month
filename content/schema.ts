@@ -33,11 +33,16 @@ export const situationsSchema = z.array(situationSchema).min(5);
 
 // 시나리오 아크 — 사전 저작된 상황 비트를 연대기 순서로 진행하는 선형 시퀀스.
 // beats는 같은 팩 situations의 id 참조 (무결성은 loader가 검증).
+// lead: 이 비트가 "왜 지금 터지는지"를 앞 비트의 결과에 잇는 보스 말투 도입 문장(사전 저작).
+// AI 브릿지의 인과 힌트이자, AI 실패 시 그대로 브릿지로 나가는 폴백 — 연결이 저작으로 보장된다.
 export const scenarioSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9-]*$/),
   name: z.string().min(1),
   tagline: z.string().min(1),
-  beats: z.array(z.string().min(1)).min(4),
+  beats: z.array(z.object({
+    id: z.string().min(1),
+    lead: z.string().min(1).optional(), // 첫 비트는 도입이 필요 없다
+  })).min(4),
   finaleText: z.string().min(1), // 마지막 비트 뒤 세션 종료 연출 문구
 });
 export const scenariosSchema = z.array(scenarioSchema);

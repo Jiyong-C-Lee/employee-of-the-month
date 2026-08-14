@@ -186,14 +186,16 @@ export async function makeEpilogue(
 
 // ---- 시나리오 브릿지 ----
 
-// 라운드 사이 보스의 회고 한마디. 연출 레이어 — mock 폴백은 빈 문자열(브릿지 생략, 진행 무영향).
+// 라운드 사이 보스의 회고 한마디. lead(아크에 사전 저작된 도입 문장)는 생성의 인과 힌트이자
+// mock 폴백 — AI가 죽어도 저작된 연결부가 그대로 나가서 이야기가 끊기지 않는다.
 export async function makeBridge(
   deps: Deps,
-  { persona, prevSituation, adopted, nextSituation }: {
+  { persona, prevSituation, adopted, nextSituation, lead }: {
     persona: FullPersona;
     prevSituation: Situation;
     adopted: { name: string; text: string } | null;
     nextSituation: Situation;
+    lead?: string;
   },
 ): Promise<{ bridge: string; source: Source }> {
   return withFallback(
@@ -202,7 +204,7 @@ export async function makeBridge(
       const { raw, provider } = await deps.llm(
         {
           system: P.bridgeSystem(persona),
-          user: P.bridgeUser(persona, prevSituation, adopted, nextSituation),
+          user: P.bridgeUser(persona, prevSituation, adopted, nextSituation, lead),
           schema: P.bridgeSchema(),
           temperature: 1.0,
         },
@@ -210,6 +212,6 @@ export async function makeBridge(
       );
       return { value: { bridge: bridgeOut.parse(raw).bridge }, provider };
     },
-    () => ({ bridge: '' }),
+    () => ({ bridge: lead ?? '' }),
   );
 }
