@@ -105,6 +105,24 @@ describe('callJsonChain', () => {
     expect(calledUrls.some((u) => u.includes('generativelanguage'))).toBe(false);
   });
 
+  it('quotaTake가 throw하면 fail-open — 체인이 죽지 않고 프로바이더를 시도한다', async () => {
+    // 실사례: QuotaDO 일시 장애("internal error; reference = ...")가 체인 전체를 즉사시켜
+    // 4개 공급자를 하나도 시도 못 하고 mock으로 떨어졌다 (eotm 프로덕션, 2026-08-14).
+    const events: string[] = [];
+    const fetchImpl = (async () => geminiOkResponse({ crack: 'hit' })) as typeof fetch;
+    const ctx: ChainContext = {
+      env: { GOOGLE_AI_STUDIO_FREE_API_KEY: 'fake-key' },
+      kind: 'test',
+      fetchImpl,
+      quotaTake: async () => { throw new Error('internal error; reference = abc123'); },
+      logger: { event: (name) => { events.push(name); } },
+    };
+    const result = await callJsonChain(REQ, ctx);
+    expect(result.provider).toBe('gemini-free');
+    expect(result.raw).toEqual({ crack: 'hit' });
+    expect(events).toContain('quota_error');
+  });
+
   it('tools 요청은 mock까지 떨어져도 조용히 성공하지 않고 에러가 표면화된다', async () => {
     const toolsReq: ChainRequest = {
       messages: [{ role: 'user', content: 'u' }],

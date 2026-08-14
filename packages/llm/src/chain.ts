@@ -73,9 +73,19 @@ export async function callJsonChain(req: ChainRequest, ctx: ChainContext): Promi
 
   let lastError: Error | null = null;
   for (const entry of selected) {
-    if (entry.quota && ctx.quotaTake && !(await ctx.quotaTake(entry.quota))) {
-      ctx.logger?.event('quota_exceeded', { provider: entry.adapter.name, kind: ctx.kind });
-      continue;
+    if (entry.quota && ctx.quotaTake) {
+      // 쿼터 DO 장애는 fail-open — 카운터가 아파도(QuotaDO "internal error; reference = ...")
+      // 체인을 죽이지 않는다. 여기서 throw가 새면 공급자를 하나도 시도 못 하고 mock으로 떨어진다.
+      let quotaOk = true;
+      try {
+        quotaOk = await ctx.quotaTake(entry.quota);
+      } catch (e) {
+        ctx.logger?.event('quota_error', { provider: entry.adapter.name, kind: ctx.kind, error: e instanceof Error ? e.message : String(e) });
+      }
+      if (!quotaOk) {
+        ctx.logger?.event('quota_exceeded', { provider: entry.adapter.name, kind: ctx.kind });
+        continue;
+      }
     }
     const t0 = Date.now();
     try {
