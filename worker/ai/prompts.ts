@@ -86,7 +86,13 @@ export function judgeSystem(persona: FullPersona, difficulty: Difficulty = 'norm
   });
 }
 
-export function judgeUser(persona: FullPersona, situation: Situation, candidates: Candidate[], history: HistoryEntry[] = []): string {
+export function judgeUser(
+  persona: FullPersona,
+  situation: Situation,
+  candidates: Candidate[],
+  history: HistoryEntry[] = [],
+  branch?: { options: Record<string, string> },
+): string {
   const lines: string[] = [];
   if (history.length > 0) {
     lines.push('# 지난 라운드 기록 (오래된 것부터)');
@@ -101,10 +107,14 @@ export function judgeUser(persona: FullPersona, situation: Situation, candidates
   }
   lines.push(`# 상황`, situation.text, `# ${persona.name}의 물음: ${situation.question}`, '', '# 의견 (발언 순서대로)');
   for (const c of candidates) lines.push(`[${c.key}] ${c.name}${c.kind === 'ai' ? ' (참모)' : ''}: ${c.text}`);
+  if (branch) {
+    lines.push('', '# 노선 분류', '채점과 별개로, 최종 채택한 안이 아래 중 어느 노선인지 decision 필드에 키로 답하라:');
+    for (const [key, desc] of Object.entries(branch.options)) lines.push(`- ${key}: ${desc}`);
+  }
   return lines.join('\n');
 }
 
-export function judgeSchema(axes: string[]) {
+export function judgeSchema(axes: string[], decisionKeys?: string[]) {
   const axisProps = Object.fromEntries(axes.map((ax) => [ax, { type: 'integer' }]));
   return {
     type: 'object',
@@ -123,8 +133,10 @@ export function judgeSchema(axes: string[]) {
       },
       adoptedKey: { type: 'string' },
       adoptReason: { type: 'string' },
+      // 분기 상황 한정: 채택안의 노선 분류 — 다음 상황 링크 확정에 쓴다.
+      ...(decisionKeys ? { decision: { type: 'string', enum: decisionKeys } } : {}),
     },
-    required: ['perSpeaker', 'adoptedKey', 'adoptReason'],
+    required: ['perSpeaker', 'adoptedKey', 'adoptReason', ...(decisionKeys ? ['decision'] : [])],
   };
 }
 

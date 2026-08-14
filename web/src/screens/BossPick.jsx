@@ -24,7 +24,6 @@ export default function BossPick({ mode, nick, avatar, actions, onBack }) {
 
   const [difficulty, setDifficulty] = useState('normal');
   const [maxRounds, setMaxRounds] = useState(5);
-  const [scenarioId, setScenarioId] = useState(''); // '' = 자유 모드
   const [speakTime, setSpeakTime] = useState(60);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [aiCompete, setAiCompete] = useState(false);
@@ -48,7 +47,6 @@ export default function BossPick({ mode, nick, avatar, actions, onBack }) {
   // 카드를 고르면 캐러셀이 그 카드로 스크롤한다 — 반쯤 걸친 카드를 눌렀을 때 중앙으로 온다.
   function pick(p, i) {
     setPersonaId(p.id);
-    setScenarioId(''); // 아크는 보스별 — 보스를 바꾸면 자유 모드로 리셋
     const el = railRef.current?.children?.[i];
     el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
@@ -70,7 +68,7 @@ export default function BossPick({ mode, nick, avatar, actions, onBack }) {
       });
       const p = all[best];
       // setPersonaId만 부른다 — pick을 쓰면 scrollIntoView가 다시 스크롤을 일으켜 서로 문다.
-      if (p && p.id !== personaId) { setPersonaId(p.id); setScenarioId(''); }
+      if (p && p.id !== personaId) setPersonaId(p.id);
     }, 120);
   }
 
@@ -83,7 +81,6 @@ export default function BossPick({ mode, nick, avatar, actions, onBack }) {
     const config = isMulti
       ? { mode: 'multi', personaId, speakTime, maxPlayers, aiCompete, difficulty, maxRounds }
       : { mode: 'single', personaId, difficulty, maxRounds }; // 싱글은 제한시간 없음
-    if (scenarioId) config.scenarioId = scenarioId; // 시나리오 방은 라운드 수를 아크 길이가 정한다
     // 커스텀 페르소나 선택 시 팩 전체를 동봉 — 서버가 재검증 후 방에 영속한다.
     const custom = customs.find((p) => p.id === personaId);
     if (custom) config.customPersona = custom;
@@ -202,27 +199,12 @@ export default function BossPick({ mode, nick, avatar, actions, onBack }) {
                 </select>
               </label>
 
-              {(selected?.scenarios?.length ?? 0) > 0 && (
-                <label className="pb-field">
-                  <span>{T.scenario.label} <em>{T.scenario.note}</em></span>
-                  <select value={scenarioId} onChange={(e) => setScenarioId(e.target.value)}>
-                    <option value="">{T.scenario.free}</option>
-                    {selected.scenarios.map((sc) => (
-                      <option key={sc.id} value={sc.id}>{fmt(T.scenario.arc, { name: sc.name, n: sc.beatCount })}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              {/* 시나리오 방은 라운드 수를 아크 길이가 정한다 — 선택지를 감춘다 */}
-              {!scenarioId && (
-                <label className="pb-field">
-                  <span>{T.rounds.label} <em>{T.rounds.note}</em></span>
-                  <select value={maxRounds} onChange={(e) => setMaxRounds(Number(e.target.value))}>
-                    {ROUND_CHOICES.map((r) => <option key={r} value={r}>{T.rounds[`r${r}`]}</option>)}
-                  </select>
-                </label>
-              )}
+              <label className="pb-field">
+                <span>{T.rounds.label} <em>{T.rounds.note}</em></span>
+                <select value={maxRounds} onChange={(e) => setMaxRounds(Number(e.target.value))}>
+                  {ROUND_CHOICES.map((r) => <option key={r} value={r}>{T.rounds[`r${r}`]}</option>)}
+                </select>
+              </label>
 
               {isMulti && (
                 <>

@@ -109,10 +109,16 @@ interface JudgeRaw {
 
 export async function judgeSpeeches(
   deps: Deps,
-  { persona, situation, candidates, difficulty, history = [] }: { persona: FullPersona; situation: Situation; candidates: Candidate[]; difficulty: Difficulty; history?: HistoryEntry[] },
-): Promise<{ verdict: Verdict; source: Source }> {
+  { persona, situation, candidates, difficulty, history = [], branch }: {
+    persona: FullPersona; situation: Situation; candidates: Candidate[]; difficulty: Difficulty;
+    history?: HistoryEntry[];
+    // 상황의 분기 링크 — 있으면 채택안의 노선(decision)까지 분류시킨다. 분류 실패·mock은 첫 키.
+    branch?: { options: Record<string, string> };
+  },
+): Promise<{ verdict: Verdict; source: Source; decision?: string }> {
+  const fallbackDecision = branch ? Object.keys(branch.options)[0] : undefined;
   if (candidates.length === 0) {
-    return { verdict: { perSpeaker: [], adoptedKey: null, adoptReason: '', totals: {} }, source: 'mock' };
+    return { verdict: { perSpeaker: [], adoptedKey: null, adoptReason: '', totals: {} }, source: 'mock', decision: fallbackDecision };
   }
   // 편향 방지: 실명(참모, 유저 닉네임)을 감추고 익명 라벨로 채점 → 결과를 실명으로 복원.
   // (이름값에 점수를 주는 것을 막고, 내용만으로 채점하게 한다)
@@ -132,8 +138,8 @@ export async function judgeSpeeches(
         const { raw, provider } = await deps.llm(
           {
             system: P.judgeSystem(persona, difficulty, history.length > 0),
-            user: P.judgeUser(persona, situation, masked, history),
-            schema: P.judgeSchema(persona.axes),
+            user: P.judgeUser(persona, situation, masked, history, branch),
+            schema: P.judgeSchema(persona.axes, branch ? Object.keys(branch.options) : undefined),
             temperature: 0.7,
           },
           { kind: 'judge', validate: (r2) => { judgeOut.parse(r2); } },
@@ -156,7 +162,10 @@ export async function judgeSpeeches(
     adoptedKey: v.adoptedKey ? byMasked[v.adoptedKey]!.key : null,
     totals: Object.fromEntries(Object.entries(v.totals).map(([k, t]) => [byMasked[k]?.key ?? k, t])),
   };
-  return { verdict, source: r.source };
+  // 노선 분류: 스키마 enum이 강제하지만, mock 폴백·이상값은 첫 키로.
+  const rawDecision = (r.raw as JudgeRaw & { decision?: string }).decision;
+  const decision = branch ? (rawDecision && branch.options[rawDecision] ? rawDecision : fallbackDecision) : undefined;
+  return { verdict, source: r.source, decision };
 }
 
 // ---- 에필로그 ----

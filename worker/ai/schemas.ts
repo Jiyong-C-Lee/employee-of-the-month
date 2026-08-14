@@ -16,6 +16,7 @@ export const judgeOut = z.object({
   perSpeaker: z.array(z.object({ key: z.string(), axisScores: z.record(z.number()), comment: z.string() })).min(1),
   adoptedKey: z.string(),
   adoptReason: z.string(),
+  decision: z.string().optional(), // 분기 상황 한정: 채택안의 노선 분류
 });
 
 export const epilogueOut = z.object({ story: z.string().min(1) });

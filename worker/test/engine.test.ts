@@ -257,72 +257,100 @@ test('한 판 더: 싱글은 로비 없이 즉시 재시작', async () => {
   await waitUntil(() => room.phase === 'PLAYER_TURNS');
 });
 
-// ── 시나리오 모드 ──
+// ── sparse 링크 진행 ──
 
-test('시나리오 방: 아크 beats 순서 고정 진행 → 종장 문구로 종료, 히스토리 누적', async () => {
+// 덱 순서를 원하는 상황으로 고정하는 헬퍼 — 링크 전개를 결정적으로 시험한다.
+function forceDeck(room: ReturnType<typeof createRoomState>['room'], ids: string[]) {
+  const persona = getPersona(room.config.personaId)!;
+  room.situationOrder = ids.map((id) => persona.situations.findIndex((s) => s.id === id));
+  room.deckPos = 0;
+}
+
+test('무조건 링크(then): 상황을 치르면 다음 상황이 lead 브릿지와 함께 확정 연결된다', async () => {
   const persona = getPersona('caocao')!;
-  const arc = persona.scenarios.find((s) => s.id === 'recruits')!;
-  const { room, playerId } = createRoomState('SC1', '나', { mode: 'single', personaId: 'caocao', scenarioId: 'recruits' });
-  expect(room.config.scenarioId).toBe('recruits');
-  expect(room.config.maxRounds).toBe(arc.beats.length); // 라운드 수 = 아크 길이
+  const { room, playerId } = createRoomState('L1', '나', { mode: 'single', personaId: 'caocao' });
+  forceDeck(room, ['hanshil-chairman', 'gyeruk', 'maesil', 'jangsong-data', 'dongjak-tower']);
+  const { bus } = fakeBus();
+  const eng = new Engine(room, bus, deps);
+  expect(eng.start(playerId)).toEqual({ ok: true });
+  expect(room.round!.situation.text).toContain('한실그룹');
 
+  expect(eng.debug(playerId, 'noAdopt')).toEqual({ ok: true });
+  await waitUntil(() => room.phase === 'RESULT');
+  // 판의 결말이 다음 상황을 확정 연결했다.
+  expect(room.nextLink?.to).toBe('boncho-ultimatum');
+  eng.debug(playerId, 'next');
+  expect(room.round!.situation.text).toContain('최후통첩');
+  // 링크 전환의 브릿지는 저작된 lead가 기본값 (AI 없는 mock 환경에서도 연결 유지).
+  expect(room.round!.bridge).toContain('본색');
+  // 링크로 나온 상황은 출현 기록에 남는다.
+  expect(room.playedIds).toContain('boncho-ultimatum');
+});
+
+test('분기 링크(branch): mock 판정은 첫 노선 — 여포를 들이면 인질극이 온다', async () => {
+  const { room, playerId } = createRoomState('L2', '나', { mode: 'single', personaId: 'caocao' });
+  forceDeck(room, ['yeopo-apply', 'gyeruk', 'maesil', 'jangsong-data', 'dongjak-tower']);
+  const { bus } = fakeBus();
+  const eng = new Engine(room, bus, deps);
+  expect(eng.start(playerId)).toEqual({ ok: true });
+  expect(eng.proceed(playerId)).toEqual({ ok: true });
+  await waitUntil(
+    () => room.phase === 'PLAYER_TURNS' && room.round!.queue[room.round!.turnIdx]?.kind === 'user',
+  );
+  eng.handleSpeak(playerId, '여포는 뽑아야 합니다. 실력이 전부입니다.');
+  await waitUntil(() => room.phase === 'RESULT');
+  // mock 판정의 노선 분류 폴백 = 첫 키(hire) → 인질극 상황으로 확정 연결.
+  expect(room.nextLink?.to).toBe('yeopo-stock-demand');
+  eng.debug(playerId, 'next');
+  expect(room.round!.situation.text).toContain('스톡옵션');
+});
+
+test('링크로 이미 나온 상황은 덱에서 건너뛴다 · 랜덤 덱엔 linkedOnly가 없다', async () => {
+  const persona = getPersona('caocao')!;
+  // 새 방의 랜덤 덱은 linkedOnly 제외.
+  const { room, playerId } = createRoomState('L3', '나', { mode: 'single', personaId: 'caocao' });
+  const linkedOnlyIdx = new Set(persona.situations.map((s, i) => (s.linkedOnly ? i : -1)).filter((i) => i >= 0));
+  expect(linkedOnlyIdx.size).toBeGreaterThan(0);
+  expect(room.situationOrder!.some((i) => linkedOnlyIdx.has(i))).toBe(false);
+
+  // 덱 2번째(resume-folder)가 1라운드(heoyu)의 링크로 먼저 등장하면, 덱 차례에서 건너뛴다.
+  forceDeck(room, ['heoyu', 'resume-folder', 'gyeruk', 'maesil', 'dongjak-tower']);
   const { bus } = fakeBus();
   const eng = new Engine(room, bus, deps);
   expect(eng.start(playerId)).toEqual({ ok: true });
 
-  for (let r = 1; r <= arc.beats.length; r++) {
-    expect(room.roundNo).toBe(r);
-    // 상황이 beats 순서 그대로 나온다 (셔플 없음).
-    const beat = persona.situations.find((s) => s.id === arc.beats[r - 1]!.id)!;
-    expect(room.round!.situation.text).toBe(beat.text);
-    await vi.waitUntil(() => ['SITUATION', 'PLAYER_TURNS', 'JUDGING'].includes(room.phase ?? ''), { timeout: 3000 });
-    // adoptMe 연속이면 최고 직급 조기 등극이 종장을 가로채므로(정상), 완주는 noAdopt로 밟는다.
+  const play = async () => {
+    await waitUntil(() => ['SITUATION', 'PLAYER_TURNS', 'JUDGING'].includes(room.phase ?? ''));
     expect(eng.debug(playerId, 'noAdopt')).toEqual({ ok: true });
-    await vi.waitUntil(() => room.phase === 'RESULT', { timeout: 3000 });
+    await waitUntil(() => room.phase === 'RESULT');
     eng.debug(playerId, 'next');
-  }
-
-  expect(room.state).toBe('ENDED');
-  expect(room.endedReason).toContain(arc.finaleText.slice(0, 10)); // 저작된 종장 문구
-  // 라운드마다 히스토리가 쌓였다 (판정 기억·브릿지의 단일 진실).
-  expect(room.scenarioHistory!.length).toBe(arc.beats.length);
-  expect(room.scenarioHistory!.every((h) => h.situationText.length > 0)).toBe(true);
+  };
+  await play(); // R1 heoyu → 링크 resume-folder
+  expect(room.round!.situation.text).toContain('이력서');
+  await play(); // R2 resume-folder → 링크 boncho-heirs
+  expect(room.round!.situation.text).toContain('소송전');
+  await play(); // R3 boncho-heirs (링크 없음) → 덱: resume-folder는 이미 나왔으니 건너뛰고 gyeruk
+  expect(room.round!.situation.text).toContain('계륵');
 });
 
-test('자유 모드 덱은 arcOnly 상황을 제외한다', () => {
-  const persona = getPersona('caocao')!;
-  const arcOnlyIdx = new Set(persona.situations.map((s, i) => (s.arcOnly ? i : -1)).filter((i) => i >= 0));
-  expect(arcOnlyIdx.size).toBeGreaterThan(0); // 조조 팩에 arcOnly가 실제로 있다
-  const { room } = createRoomState('SC2', '나', { mode: 'single', personaId: 'caocao' });
-  expect(room.situationOrder!.some((i) => arcOnlyIdx.has(i))).toBe(false);
-  // 시나리오 방의 아크에는 arcOnly가 나올 수 있다.
-  const { room: scRoom } = createRoomState('SC3', '나', { mode: 'single', personaId: 'caocao', scenarioId: 'liubei-vessel' });
-  expect(scRoom.situationOrder!.some((i) => arcOnlyIdx.has(i))).toBe(true);
-});
-
-test('없는 시나리오 id는 조용히 자유 모드로 폴백한다', () => {
-  const { room } = createRoomState('SC4', '나', { mode: 'single', personaId: 'caocao', scenarioId: 'nope' });
-  expect(room.config.scenarioId).toBeUndefined();
-  expect(room.config.maxRounds).toBe(5);
-});
-
-test('시나리오 리매치: 아크를 처음부터 다시, 히스토리 리셋', async () => {
-  const persona = getPersona('caocao')!;
-  const arc = persona.scenarios.find((s) => s.id === 'succession')!;
-  const { room, playerId } = createRoomState('SC5', '나', { mode: 'single', personaId: 'caocao', scenarioId: 'succession' });
+test('리매치: 덱·출현 기록·링크·스토리 기록이 초기화된다', async () => {
+  const { room, playerId } = createRoomState('L4', '나', { mode: 'single', personaId: 'caocao', maxRounds: 5 });
+  forceDeck(room, ['gyeruk', 'maesil', 'dongjak-tower', 'security-app', 'yeonpanjang']);
   const { bus } = fakeBus();
   const eng = new Engine(room, bus, deps);
   expect(eng.start(playerId)).toEqual({ ok: true });
-  for (let r = 1; r <= arc.beats.length; r++) {
-    await vi.waitUntil(() => ['SITUATION', 'PLAYER_TURNS', 'JUDGING'].includes(room.phase ?? ''), { timeout: 3000 });
+  for (let r = 1; r <= 5; r++) {
+    await waitUntil(() => ['SITUATION', 'PLAYER_TURNS', 'JUDGING'].includes(room.phase ?? ''));
     expect(eng.debug(playerId, 'noAdopt')).toEqual({ ok: true });
-    await vi.waitUntil(() => room.phase === 'RESULT', { timeout: 3000 });
+    await waitUntil(() => room.phase === 'RESULT');
     eng.debug(playerId, 'next');
   }
   expect(room.state).toBe('ENDED');
+  expect(room.scenarioHistory!.length).toBe(5);
+
   expect(eng.rematch(playerId)).toEqual({ ok: true }); // 싱글은 즉시 재시작
   expect(room.roundNo).toBe(1);
+  expect(room.playedIds!.length).toBe(1); // 새 1라운드 상황만
+  expect(room.nextLink).toBeNull();
   expect(room.scenarioHistory).toEqual([]);
-  const firstBeat = persona.situations.find((s) => s.id === arc.beats[0]!.id)!;
-  expect(room.round!.situation.text).toBe(firstBeat.text);
 });

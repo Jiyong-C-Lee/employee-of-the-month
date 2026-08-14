@@ -37,25 +37,32 @@ test('스키마 위반 팩은 거부된다', () => {
   expect(() => personaSchema.parse({ id: 'bad' })).toThrow();
 });
 
-test('조조 팩 시나리오 아크가 로드되고 beats 참조가 온전하다', () => {
+test('조조 팩 sparse 링크가 온전하다 (대상 존재·lead 저작·linkedOnly 도달 가능)', () => {
   const p = getPersona('caocao')!;
-  expect(p.scenarios.length).toBe(4);
-  expect(p.scenarios.map((s) => s.id)).toEqual(['boncho-war', 'liubei-vessel', 'recruits', 'succession']);
   const ids = new Set(p.situations.map((s) => s.id).filter(Boolean));
-  for (const sc of p.scenarios) {
-    expect(sc.beats.length).toBeGreaterThanOrEqual(4);
-    for (const beat of sc.beats) expect(ids.has(beat.id)).toBe(true);
-    // 둘째 비트부터는 앞 비트와 잇는 저작 도입(lead)이 있어야 한다 — 연결이 AI 운에 좌우되지 않게.
-    for (const beat of sc.beats.slice(1)) expect(beat.lead && beat.lead.length > 0).toBe(true);
-    expect(sc.finaleText).toBeTruthy();
+  const targets = new Set<string>();
+  let linkCount = 0;
+  for (const s of p.situations) {
+    const links = [...(s.then ?? []), ...Object.values(s.branch?.then ?? {}).flat()];
+    for (const l of links) {
+      expect(ids.has(l.to)).toBe(true);
+      expect(l.lead.length).toBeGreaterThan(10); // 연결이 AI 운에 좌우되지 않게 lead는 저작 필수
+      targets.add(l.to);
+      linkCount += 1;
+    }
+    if (s.branch) for (const key of Object.keys(s.branch.then)) expect(s.branch.options[key]).toBeTruthy();
   }
-  // arcOnly 상황은 자유 모드 덱 제외 대상 — 최소한 아크에는 소속돼 있어야 한다.
-  const inBeats = new Set(p.scenarios.flatMap((sc) => sc.beats.map((b) => b.id)));
-  for (const s of p.situations.filter((x) => x.arcOnly)) expect(inBeats.has(s.id!)).toBe(true);
-  // 자유 모드 덱(arcOnly 제외)이 증량됐다: 20 → 27
-  expect(p.situations.filter((s) => !s.arcOnly).length).toBeGreaterThanOrEqual(27);
-  // listPersonas 요약에 아크가 실리되 본문(beats)은 새지 않는다
+  expect(linkCount).toBeGreaterThanOrEqual(10); // 그래프가 실제로 sparse하게 깔려 있다
+  // 여포 분기: 뽑으면 인질극, 내치면 복수
+  const yeopo = p.situations.find((s) => s.id === 'yeopo-apply')!;
+  expect(Object.keys(yeopo.branch!.then).sort()).toEqual(['hire', 'reject']);
+  expect(yeopo.branch!.then.hire![0]!.to).toBe('yeopo-stock-demand');
+  expect(yeopo.branch!.then.reject![0]!.to).toBe('yeopo-revenge');
+  // linkedOnly는 링크로만 등장 — 반드시 어떤 링크가 가리켜야 한다.
+  for (const s of p.situations.filter((x) => x.linkedOnly)) expect(targets.has(s.id!)).toBe(true);
+  // 랜덤 덱 크기(linkedOnly 제외)가 증량됐다: 20 → 27
   const summary = listPersonas().find((x) => x.id === 'caocao')!;
-  expect(summary.scenarios.map((s) => s.id)).toEqual(p.scenarios.map((s) => s.id));
-  expect(JSON.stringify(summary)).not.toContain('hanshil-chairman');
+  expect(summary.situationCount).toBeGreaterThanOrEqual(27);
+  // 요약에 링크·본문이 새지 않는다 (스포일러 방지)
+  expect(JSON.stringify(summary)).not.toContain('yeopo-stock-demand');
 });

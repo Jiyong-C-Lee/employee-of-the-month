@@ -6,8 +6,6 @@ export interface PersonaSummary {
   axes: string[]; ranks: string[];
   advisors: { name: string; emoji: string; style: string }[];
   situationCount: number;
-  // 시나리오 아크 요약 — 비트 본문은 제외(스포일러 방지). 아크 없는 팩은 빈 배열.
-  scenarios: { id: string; name: string; tagline: string; beatCount: number }[];
 }
 export interface CreateRoomReq { nick: string; avatar?: string; config: Partial<RoomConfig> & { personaId: string; customPersona?: CustomPersona } }
 export interface CreateRoomRes { ok: true; code: string; playerId: string; token: string; room: PublicRoom }

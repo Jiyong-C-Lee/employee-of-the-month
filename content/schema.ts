@@ -23,36 +23,35 @@ export const personaMetaSchema = z.object({
   advisors: z.array(advisorSchema).min(2).max(12), // 풀 — 라운드 출전은 ADVISORS_PER_ROUND명
 });
 
+// 진행 모델은 "랜덤픽 + sparse 링크 그래프"다. 게임은 늘 섞인 덱에서 상황을 뽑지만,
+// 상황이 링크를 가지면 그 판의 결말이 다음 상황을 확정 연결한다:
+// - then: 무조건 링크 — 이 상황을 치르면 다음은 후보 중 하나로 확정.
+// - branch: 판정이 채택안을 노선(options 키)으로 분류하고, then[노선]의 후보가 다음이 된다.
+//   mock·분류 실패 시 첫 키가 기본 노선이다.
+// 후보(Link[])가 여럿이면 아직 안 나온 상황 중 랜덤 — 같은 전개의 반복을 막는다.
+// lead: 앞 판의 결말이 그 상황을 불러오는 보스 말투 도입 문장(브릿지의 인과 힌트이자
+// AI 실패 시 그대로 나가는 폴백 — 연결이 저작으로 보장된다).
+// linkedOnly: 링크로만 등장 — 랜덤 덱에서 제외 (앞 문맥 없이는 어색한 상황).
+const linkSchema = z.object({ to: z.string().min(1), lead: z.string().min(1) });
 export const situationSchema = z.object({
   text: z.string().min(1),
   question: z.string().min(1),
-  id: z.string().regex(/^[a-z][a-z0-9-]*$/).optional(), // 시나리오 아크가 참조하는 슬러그
-  arcOnly: z.boolean().optional(), // true면 자유 모드 랜덤 덱에서 제외 (아크 문맥 없이는 어색한 상황)
+  id: z.string().regex(/^[a-z][a-z0-9-]*$/).optional(), // 링크가 참조하는 슬러그
+  linkedOnly: z.boolean().optional(),
+  then: z.array(linkSchema).min(1).optional(),
+  branch: z.object({
+    options: z.record(z.string().min(1)),      // 노선 키 → 판정에게 주는 분류 기준
+    then: z.record(z.array(linkSchema).min(1)), // 노선 키 → 다음 상황 후보들
+  }).optional(),
 });
 export const situationsSchema = z.array(situationSchema).min(5);
-
-// 시나리오 아크 — 사전 저작된 상황 비트를 연대기 순서로 진행하는 선형 시퀀스.
-// beats는 같은 팩 situations의 id 참조 (무결성은 loader가 검증).
-// lead: 이 비트가 "왜 지금 터지는지"를 앞 비트의 결과에 잇는 보스 말투 도입 문장(사전 저작).
-// AI 브릿지의 인과 힌트이자, AI 실패 시 그대로 브릿지로 나가는 폴백 — 연결이 저작으로 보장된다.
-export const scenarioSchema = z.object({
-  id: z.string().regex(/^[a-z][a-z0-9-]*$/),
-  name: z.string().min(1),
-  tagline: z.string().min(1),
-  beats: z.array(z.object({
-    id: z.string().min(1),
-    lead: z.string().min(1).optional(), // 첫 비트는 도입이 필요 없다
-  })).min(4),
-  finaleText: z.string().min(1), // 마지막 비트 뒤 세션 종료 연출 문구
-});
-export const scenariosSchema = z.array(scenarioSchema);
+export type SituationLink = z.infer<typeof linkSchema>;
+export type AuthoredSituation = z.infer<typeof situationSchema>;
 
 export const personaSchema = personaMetaSchema.extend({
   situations: situationsSchema,
-  scenarios: scenariosSchema.default([]),
 });
 export type FullPersona = z.infer<typeof personaSchema>;
-export type Scenario = z.infer<typeof scenarioSchema>;
 
 const tmpl = z.union([z.string(), z.array(z.string())]);
 export const promptsSchema = z.object({

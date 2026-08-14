@@ -2,22 +2,44 @@
 import { RAW_PACKS } from './packs.gen';
 import rawPrompts from './global/prompts.json';
 import rawStrings from './global/strings.json';
-import { personaSchema, promptsSchema, stringsSchema, type FullPersona } from './schema';
+import { personaSchema, promptsSchema, stringsSchema, type FullPersona, type SituationLink } from './schema';
 
 function fail(where: string, e: unknown): never {
   throw new Error(`[content] ${where} 검증 실패: ${e instanceof Error ? e.message : String(e)}`);
 }
 
-const PACKS: FullPersona[] = RAW_PACKS.map(({ persona, situations, scenarios }) => {
+const PACKS: FullPersona[] = RAW_PACKS.map(({ persona, situations }) => {
   try {
-    const p = personaSchema.parse({ ...persona, situations, scenarios });
-    // 아크 무결성: beats가 참조하는 상황 id가 전부 존재해야 한다 (id 중복도 여기서 걸린다).
-    const idCount = new Map<string, number>();
-    for (const s of p.situations) if (s.id) idCount.set(s.id, (idCount.get(s.id) ?? 0) + 1);
-    for (const [id, n] of idCount) if (n > 1) throw new Error(`상황 id 중복: "${id}"`);
-    for (const sc of p.scenarios) {
-      for (const beat of sc.beats) {
-        if (!idCount.has(beat.id)) throw new Error(`시나리오 "${sc.id}"의 beat "${beat.id}"가 situations에 없다`);
+    const p = personaSchema.parse({ ...persona, situations });
+    // 링크 무결성: id 중복 금지, 링크 대상 존재, branch의 then 키는 options에 있어야 하고,
+    // linkedOnly 상황은 어딘가의 링크가 가리켜야 한다(아니면 영원히 등장 불가 — 저작 실수).
+    const ids = new Set<string>();
+    for (const s of p.situations) {
+      if (!s.id) continue;
+      if (ids.has(s.id)) throw new Error(`상황 id 중복: "${s.id}"`);
+      ids.add(s.id);
+    }
+    const targets = new Set<string>();
+    const checkLinks = (from: string, links: SituationLink[]) => {
+      for (const l of links) {
+        if (!ids.has(l.to)) throw new Error(`"${from}"의 링크 대상 "${l.to}"가 없다`);
+        targets.add(l.to);
+      }
+    };
+    for (const s of p.situations) {
+      const from = s.id ?? s.text.slice(0, 20);
+      if (s.then) checkLinks(from, s.then);
+      if (s.branch) {
+        for (const [key, links] of Object.entries(s.branch.then)) {
+          if (!(key in s.branch.options)) throw new Error(`"${from}" branch.then의 키 "${key}"가 options에 없다`);
+          checkLinks(from, links);
+        }
+      }
+      if ((s.then || s.branch) && !s.id) throw new Error(`링크를 가진 상황 "${from}"에 id가 없다`);
+    }
+    for (const s of p.situations) {
+      if (s.linkedOnly && (!s.id || !targets.has(s.id))) {
+        throw new Error(`linkedOnly 상황 "${s.id ?? s.text.slice(0, 20)}"를 가리키는 링크가 없다`);
       }
     }
     return p;
@@ -39,9 +61,8 @@ export function listPersonas() {
     id: p.id, name: p.name, emoji: p.emoji, intro: p.intro,
     axes: p.axes, ranks: p.ranks,
     advisors: p.advisors.map((a) => ({ name: a.name, emoji: a.emoji, style: a.style })),
-    situationCount: p.situations.length,
-    // 아크 요약 — 비트 본문은 제외 (스포일러 방지)
-    scenarios: p.scenarios.map((sc) => ({ id: sc.id, name: sc.name, tagline: sc.tagline, beatCount: sc.beats.length })),
+    // 랜덤 덱 크기 기준 — linkedOnly(링크로만 등장)는 제외
+    situationCount: p.situations.filter((s) => !s.linkedOnly).length,
   }));
 }
 

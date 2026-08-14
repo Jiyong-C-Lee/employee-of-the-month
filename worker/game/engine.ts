@@ -1,11 +1,11 @@
 // 이달의 우수사원 상태 머신: SITUATION → PLAYER_TURNS → JUDGING → RESULT → (다음/END)
 // 원본 server/sycophant/engine.js 이식 — 클래스 구조·메서드·분기·문구(line())는 그대로 두고,
 // 전송(bcast→bus.emit)·타이머(setInterval→timer 이벤트+alarm)·짧은 연출 지연(setTimeout→bus.delay)만 교체.
-import { STRINGS, fmt, type FullPersona } from '@content';
+import { STRINGS, fmt, type FullPersona, type SituationLink } from '@content';
 import type {
   AdoptedInfo, FeedItem, ServerEvent, Situation, Standing, Verdict,
 } from '@shared';
-import { computeStandings, newSituationOrder, publicRoom, roomPersona, type RoomState } from './state';
+import { computeStandings, newSituationOrder, pubSituation, publicRoom, roomPersona, type RoomState } from './state';
 import { ADVISORS_PER_ROUND, MAX_ROUNDS, buildSpeakQueue, pickApproaches, pickQuirks, pickRoundAdvisors, rankIdxFor, isChampion, MAX_SPEECH_CHARS } from './logic';
 import { APPROACHES } from '../ai/prompts';
 import { advisorTurnsBatch, judgeSpeeches, makeEpilogue, makeBridge, type Deps } from '../ai/orchestrate';
@@ -40,7 +40,8 @@ export interface EngineBus {
   background?(p: Promise<unknown>): void;
 }
 
-type Judged = { verdict: Verdict; source: string };
+type Judged = { verdict: Verdict; source: string; decision?: string };
+type Authored = FullPersona['situations'][number];
 
 export class Engine {
   private room: RoomState;
@@ -77,10 +78,54 @@ export class Engine {
     this.bus.emit({ kind: 'room', room: publicRoom(this.room) });
   }
 
-  // 방의 시나리오 아크 — 자유 모드면 null.
-  private scenario() {
-    const id = this.room.config.scenarioId;
-    return id ? this.persona.scenarios.find((s) => s.id === id) ?? null : null;
+  // ---- sparse 링크 진행: 링크가 걸리면 확정 연결, 아니면 덱에서 뽑는다 ----
+
+  private authoredById(id: string): Authored | undefined {
+    return this.persona.situations.find((s) => s.id === id);
+  }
+
+  // 덱에서 다음 미출현 상황을 본다(peek). consume=true면 포인터를 그 뒤로 옮긴다.
+  private deckNext(consume: boolean): Authored | null {
+    const room = this.room;
+    const order = room.situationOrder ?? this.persona.situations.map((_, i) => i);
+    const played = new Set(room.playedIds ?? []);
+    let pos = room.deckPos ?? Math.max(0, room.roundNo - 1); // 구버전 스냅샷: roundNo 기반 폴백
+    while (pos < order.length) {
+      const s = this.persona.situations[order[pos]!];
+      if (s && (!s.id || !played.has(s.id))) {
+        if (consume) room.deckPos = pos + 1;
+        return s;
+      }
+      pos += 1;
+    }
+    return null;
+  }
+
+  // 이번 라운드의 상황을 정한다: 직전 판이 확정 연결한 링크 우선, 없으면 덱.
+  private drawSituation(): Authored | null {
+    const room = this.room;
+    const link = room.nextLink;
+    room.nextLink = null;
+    if (link) {
+      const s = this.authoredById(link.to);
+      if (s && !(room.playedIds ?? []).includes(link.to)) return s;
+    }
+    return this.deckNext(true);
+  }
+
+  // 판의 결말(decision)로 다음 링크를 확정한다. 후보 여럿이면 미출현 중 랜덤 — 반복 방지.
+  private resolveLink(authored: Authored, decision?: string): SituationLink | null {
+    const played = new Set(this.room.playedIds ?? []);
+    const pick = (cands?: SituationLink[]): SituationLink | null => {
+      const fresh = (cands ?? []).filter((l) => !played.has(l.to) && this.authoredById(l.to));
+      return fresh.length > 0 ? fresh[Math.floor(Math.random() * fresh.length)]! : null;
+    };
+    if (authored.branch) {
+      const keys = Object.keys(authored.branch.then);
+      const key = decision && authored.branch.then[decision] ? decision : keys[0];
+      return key ? pick(authored.branch.then[key]) : null;
+    }
+    return pick(authored.then);
   }
 
   private setPhase(phase: NonNullable<RoomState['phase']>, extra: { situation?: Situation; bridge?: string } = {}): void {
@@ -145,7 +190,10 @@ export class Engine {
     room.hall = [];
     room.advisorFavor = {};
     room.advisorLastQuirk = {};
-    room.situationOrder = newSituationOrder(this.persona, room.config.scenarioId); // 시나리오=아크 재시작, 자유=덱 재셔플
+    room.situationOrder = newSituationOrder(this.persona); // 덱 재셔플
+    room.deckPos = 0;
+    room.playedIds = [];
+    room.nextLink = null;
     room.scenarioHistory = [];
     room.pendingChampion = null;
     room.endedReason = null;
@@ -167,19 +215,19 @@ export class Engine {
   private beginRound(): void {
     const room = this.room;
     room.roundNo += 1;
-    // 섞어둔 상황 덱에서 뽑는다. 구버전 스냅샷(덱 없음)은 정의 순서로 폴백.
-    const situationIdx = room.situationOrder?.[room.roundNo - 1] ?? room.roundNo - 1;
-    const situation = this.persona.situations[situationIdx];
+    // 직전 판이 확정 연결한 링크가 있으면 그 상황, 없으면 섞인 덱에서 뽑는다.
+    const situation = this.drawSituation();
     if (!situation) {
       this.endByExhaustion();
       return;
     }
-    // 시나리오 2라운드부터: 직전 라운드 기록의 결과(outcome)가 이번 상황의 브릿지 대사가 된다.
-    // 아직 생성이 안 끝났거나 mock 폴백(빈 문자열)이면 브릿지 없이 진행 — 연출 레이어일 뿐이다.
-    const bridge = this.scenario() && room.roundNo > 1 ? room.scenarioHistory?.at(-1)?.outcome : undefined;
+    if (situation.id) (room.playedIds = room.playedIds ?? []).push(situation.id);
+    // 2라운드부터: 직전 라운드 기록의 결과(outcome)가 이번 상황의 브릿지 대사가 된다.
+    // 아직 생성이 안 끝났거나 실패면 브릿지 없이 진행 — 연출 레이어일 뿐이다.
+    const bridge = room.roundNo > 1 ? room.scenarioHistory?.at(-1)?.outcome : undefined;
     room.round = { situation, ...(bridge ? { bridge } : {}), speeches: [], queue: [], turnIdx: 0, skipped: [], usedApproaches: [], verdict: null, submissions: {}, revealing: false };
     logger.roundStarted({ roomCode: room.code, roundNo: room.roundNo, situation: situation.text });
-    this.setPhase('SITUATION', { situation, ...(bridge ? { bridge } : {}) });
+    this.setPhase('SITUATION', { situation: pubSituation(situation)!, ...(bridge ? { bridge } : {}) });
     // 라운드 자막(round.intro·round.question)은 만화 UI의 상황 카드(SituationCut)가 본문·질문을 이미 렌더하므로 중복 — 발행하지 않는다.
     // 자동 진행하지 않는다 — 전원이 상황을 읽는 동안 대기하고, 방장의 proceed로 발언(AI 배치 요청)을 시작한다.
   }
@@ -458,8 +506,10 @@ export class Engine {
     try {
       judged = await judgeSpeeches(this.deps, {
         persona: this.persona, situation: room.round!.situation, candidates, difficulty: room.config.difficulty,
-        // 시나리오: 지난 라운드 기록을 기억한 채 채점 (재탕·지난 결과와 어긋난 발언 감점). 토큰 상한으로 최근 3개.
-        history: this.scenario() ? (room.scenarioHistory ?? []).slice(-3) : [],
+        // 지난 라운드 기록을 기억한 채 채점 (재탕·지난 결과와 어긋난 발언 감점). 토큰 상한으로 최근 3개.
+        history: (room.scenarioHistory ?? []).slice(-3),
+        // 상황에 분기 링크가 있으면 채택안의 노선(decision)까지 분류시킨다 — 다음 상황 확정용.
+        branch: (room.round!.situation as Authored).branch,
       });
     } catch (e) {
       logger.error({ where: 'engine.judge', error: e instanceof Error ? e.message : String(e) });
@@ -526,7 +576,7 @@ export class Engine {
       item: {
         type: 'verdict',
         roundNo: room.roundNo,
-        situation: room.round!.situation,
+        situation: pubSituation(room.round!.situation)!,
         verdict,
         adoptedName,
         adopted: adoptedInfo,
@@ -563,25 +613,26 @@ export class Engine {
       }
     }
 
-    // 시나리오: 라운드 기록 누적 + 브릿지 선생성(RESULT 열람 시간 활용).
-    // 사슬: 채택안 → 에필로그(그 후 이야기) → 브릿지(그 사실을 이어받은 회고) → 다음 상황 → 판정 기억.
-    // 에필로그·브릿지가 실패·미완이어도 다음 라운드는 저작된 lead로 연결된다 — 진행 무영향.
-    const scenarioArc = this.scenario();
-    if (scenarioArc) {
+    // 라운드 기록 누적 + 링크 확정 + 브릿지 선생성(RESULT 열람 시간 활용).
+    // 사슬: 채택안 → (decision 분류) → 링크 확정 → 에필로그(그 후 이야기) → 브릿지(그 사실을
+    // 이어받은 회고) → 다음 상황 → 판정 기억. 링크 전환은 lead가 폴백이라 AI가 죽어도 이어진다.
+    {
       const adopted = verdict.adoptedKey ? candidates.find((c) => c.key === verdict.adoptedKey) ?? null : null;
       const history = (room.scenarioHistory = room.scenarioHistory ?? []);
       const roundNo = room.roundNo;
-      // 다음 비트의 lead(사전 저작 도입 문장) — AI 생성 전·실패 시의 브릿지 기본값.
-      const lead = scenarioArc.beats[roundNo]?.lead;
+      const authored = room.round!.situation as Authored;
+      // 판의 결말이 다음 상황을 확정 연결하는가 (sparse 그래프 간선)
+      const link = this.resolveLink(authored, judged.decision);
+      room.nextLink = link;
       const entry: NonNullable<RoomState['scenarioHistory']>[number] = {
-        situationText: room.round!.situation.text,
+        situationText: authored.text,
         adoptedText: adopted?.text ?? null,
-        ...(lead ? { outcome: lead } : {}),
+        ...(link ? { outcome: link.lead } : {}), // 링크 전환은 저작 lead가 브릿지 기본값
       };
       history.push(entry);
-      const nextIdx = room.situationOrder?.[roundNo]; // 다음 라운드(roundNo+1)의 상황
-      const next = nextIdx != null ? this.persona.situations[nextIdx] : undefined;
-      const prevSituation = room.round!.situation; // 지금 캡처 — then 시점엔 round가 다음 라운드일 수 있다
+      // 다음 상황 미리보기: 링크가 있으면 그 상황, 없으면 덱 peek (beginRound가 같은 걸 뽑는다).
+      const next = link ? this.authoredById(link.to) : this.deckNext(false);
+      const prevSituation = authored; // 지금 캡처 — then 시점엔 round가 다음 라운드일 수 있다
       if (next && judged.source !== 'debug') {
         this.bg((epilogueP ?? Promise.resolve(undefined)).then((story) => {
           // 에필로그가 이 라운드의 공식 결과다 — 판정 기억("그 후")과 브릿지 회고가 같은 사실을 본다.
@@ -591,7 +642,7 @@ export class Engine {
             prevSituation,
             adopted: adopted ? { name: adopted.name, text: adopted.text } : null,
             nextSituation: next,
-            lead,
+            lead: link?.lead, // 링크 없는 랜덤 전환이면 인과 힌트도 없다 — 회고 후 '각설' 전환
             epilogue: story,
           });
         }).then((r) => {
@@ -627,22 +678,10 @@ export class Engine {
     // 구버전 방 스냅샷(config.maxRounds 없음)은 기본 상한으로 폴백.
     const cap = this.room.config.maxRounds ?? MAX_ROUNDS;
     if (this.room.roundNo >= cap) {
-      // 시나리오: 아크 비트 소진 = 저작된 종장 문구로 막을 내린다 (뒤에 우승 발표를 잇는다).
-      const sc = this.scenario();
-      if (sc) this.endByScenarioFinale(sc.finaleText, cap);
-      else this.endByMaxRounds(cap);
+      this.endByMaxRounds(cap);
       return;
     }
     this.beginRound();
-  }
-
-  private endByScenarioFinale(finaleText: string, cap: number): void {
-    const standings = this.standings();
-    const top = standings[0];
-    const winnerLine = top && top.favor > 0
-      ? this.line('session.maxRoundsMvp', { maxRounds: cap, nick: top.nick, favor: top.favor })
-      : this.line('session.maxRoundsNone', { maxRounds: cap });
-    this.endSession(`${finaleText} ${winnerLine}`);
   }
 
   private endByMaxRounds(cap: number): void {
