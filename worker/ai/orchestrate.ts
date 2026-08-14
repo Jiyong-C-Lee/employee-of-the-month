@@ -190,12 +190,13 @@ export async function makeEpilogue(
 // mock 폴백 — AI가 죽어도 저작된 연결부가 그대로 나가서 이야기가 끊기지 않는다.
 export async function makeBridge(
   deps: Deps,
-  { persona, prevSituation, adopted, nextSituation, lead }: {
+  { persona, prevSituation, adopted, nextSituation, lead, epilogue }: {
     persona: FullPersona;
     prevSituation: Situation;
     adopted: { name: string; text: string } | null;
     nextSituation: Situation;
     lead?: string;
+    epilogue?: string; // 그 라운드 에필로그 본문 — 회고가 이 사실을 이어받는다
   },
 ): Promise<{ bridge: string; source: Source }> {
   return withFallback(
@@ -204,7 +205,7 @@ export async function makeBridge(
       const { raw, provider } = await deps.llm(
         {
           system: P.bridgeSystem(persona),
-          user: P.bridgeUser(persona, prevSituation, adopted, nextSituation, lead),
+          user: P.bridgeUser(persona, prevSituation, adopted, nextSituation, lead, epilogue),
           schema: P.bridgeSchema(),
           temperature: 1.0,
         },

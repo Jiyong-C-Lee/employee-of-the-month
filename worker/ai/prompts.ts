@@ -9,7 +9,8 @@ export const APPROACHES = PROMPTS.approaches; // 조언자 해법 축 (중복 �
 export interface Candidate { key: string; name: string; kind: 'ai' | 'user'; order: number; text: string }
 
 // 시나리오 모드 라운드 기록 — 판정의 "이전 라운드 기억"과 브릿지 생성이 공유한다.
-export interface HistoryEntry { situationText: string; adoptedText: string | null; outcome?: string }
+// epilogueText: 그 라운드의 공식 결과(에필로그). outcome: 브릿지 본문(에필로그를 이어받은 회고).
+export interface HistoryEntry { situationText: string; adoptedText: string | null; epilogueText?: string; outcome?: string }
 
 type Advisor = FullPersona['advisors'][number];
 
@@ -92,7 +93,9 @@ export function judgeUser(persona: FullPersona, situation: Situation, candidates
     for (const h of history) {
       lines.push(`- 상황: ${h.situationText}`);
       lines.push(`  채택: ${h.adoptedText ?? '채택 없음'}`);
-      if (h.outcome) lines.push(`  결과: ${h.outcome}`);
+      // 그 후 = 에필로그(공식 결과). 없으면 브릿지 회고라도 준다.
+      const after = h.epilogueText ?? h.outcome;
+      if (after) lines.push(`  그 후: ${after}`);
     }
     lines.push('');
   }
@@ -152,6 +155,7 @@ export function bridgeUser(
   adopted: { name: string; text: string } | null,
   nextSituation: Situation,
   lead?: string,
+  epilogue?: string,
 ): string {
   return [
     `# 지난 상황`,
@@ -159,6 +163,7 @@ export function bridgeUser(
     '',
     adopted ? `# 채택한 간언 (${adopted.name})` : '# 채택한 간언',
     adopted ? adopted.text : '없음 — 쓸 만한 안이 하나도 없어 채택하지 않았다.',
+    ...(epilogue ? ['', `# 그 후 실제로 벌어진 일 (회고는 이 사실을 이어받는다 — 다른 결과를 새로 지어내면 실패)`, epilogue] : []),
     '',
     `# 다음 상황 (곧이어 따로 공개된다 — 세부 내용을 재서술하지 마라)`,
     nextSituation.text,

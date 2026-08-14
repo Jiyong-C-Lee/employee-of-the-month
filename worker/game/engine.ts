@@ -512,40 +512,6 @@ export class Engine {
       if (adoptedInfo) room.hall.push({ roundNo: room.roundNo, ...adoptedInfo });
     }
 
-    // 시나리오: 라운드 기록 누적 + 다음 상황으로 넘어가는 브릿지를 미리 생성해 둔다(RESULT 열람 시간 활용).
-    // 브릿지는 판정 기억의 "결과"이기도 하다 — 생성 실패·미완이면 다음 라운드가 브릿지 없이 뜰 뿐 진행 무영향.
-    const scenarioArc = this.scenario();
-    if (scenarioArc) {
-      const adopted = verdict.adoptedKey ? candidates.find((c) => c.key === verdict.adoptedKey) ?? null : null;
-      const history = (room.scenarioHistory = room.scenarioHistory ?? []);
-      const roundNo = room.roundNo;
-      // 다음 비트의 lead(사전 저작 도입 문장) — AI 생성 전·실패 시의 브릿지 기본값.
-      // 연결이 저작으로 보장되고, AI는 그 위에 채택안 회고를 얹는 업그레이드일 뿐이다.
-      const lead = scenarioArc.beats[roundNo]?.lead;
-      const entry: NonNullable<RoomState['scenarioHistory']>[number] = {
-        situationText: room.round!.situation.text,
-        adoptedText: adopted?.text ?? null,
-        ...(lead ? { outcome: lead } : {}),
-      };
-      history.push(entry);
-      const nextIdx = room.situationOrder?.[roundNo]; // 다음 라운드(roundNo+1)의 상황
-      const next = nextIdx != null ? this.persona.situations[nextIdx] : undefined;
-      if (next && judged.source !== 'debug') {
-        this.bg(makeBridge(this.deps, {
-          persona: this.persona,
-          prevSituation: room.round!.situation,
-          adopted: adopted ? { name: adopted.name, text: adopted.text } : null,
-          nextSituation: next,
-          lead,
-        }).then((r) => {
-          logger.bridge({ roomCode: room.code, roundNo, source: r.source, bridge: r.bridge });
-          if (!r.bridge || this.room.state !== 'PLAYING') return;
-          entry.outcome = r.bridge;
-          this.persist();
-        }).catch((e) => logger.error({ where: 'engine.bridge', error: e instanceof Error ? e.message : String(e) })));
-      }
-    }
-
     this.setPhase('RESULT');
     logger.verdictIssued({
       roomCode: room.code,
@@ -569,6 +535,8 @@ export class Engine {
         ts: Date.now(),
       },
     });
+    // 에필로그 promise — 시나리오 브릿지가 이 결과("그 후 이야기")를 이어받아야 해서 밖으로 뺐다.
+    let epilogueP: Promise<string | undefined> | null = null;
     if (verdict.adoptedKey) {
       // 채택 안내 sysMsg는 보스 총평 컷과 중복이라 내보내지 않는다 (승진 확정만 자막으로).
       if (room.pendingChampion) {
@@ -578,14 +546,60 @@ export class Engine {
       // 에필로그는 비동기 연출 레이어 — 실패해도 진행 무관. 디버그 판정은 생략.
       const adopted = candidates.find((c) => c.key === verdict.adoptedKey);
       if (judged.source !== 'debug' && adopted) {
-        makeEpilogue(this.deps, { persona: this.persona, situation: room.round!.situation, adopted: { name: adopted.name, text: adopted.text } })
+        epilogueP = makeEpilogue(this.deps, { persona: this.persona, situation: room.round!.situation, adopted: { name: adopted.name, text: adopted.text } })
           .then((r) => {
             // 에필로그 본문도 로그에 남긴다 — 시점 이탈 같은 품질 문제 추적용.
             logger.epilogue({ roomCode: room.code, roundNo: room.roundNo, source: r.source, adoptedName: adopted.name, story: r.story });
-            if (this.room.state !== 'PLAYING' || this.room.roundNo !== room.roundNo) return;
-            this.bus.emit({ kind: 'feed', item: { type: 'epilogue', roundNo: room.roundNo, story: r.story, source: r.source, ts: Date.now() } });
+            if (this.room.state === 'PLAYING' && this.room.roundNo === room.roundNo) {
+              this.bus.emit({ kind: 'feed', item: { type: 'epilogue', roundNo: room.roundNo, story: r.story, source: r.source, ts: Date.now() } });
+            }
+            return r.story as string | undefined;
           })
-          .catch((e) => logger.error({ where: 'engine.epilogue', error: e instanceof Error ? e.message : String(e) }));
+          .catch((e) => {
+            logger.error({ where: 'engine.epilogue', error: e instanceof Error ? e.message : String(e) });
+            return undefined;
+          });
+        this.bg(epilogueP);
+      }
+    }
+
+    // 시나리오: 라운드 기록 누적 + 브릿지 선생성(RESULT 열람 시간 활용).
+    // 사슬: 채택안 → 에필로그(그 후 이야기) → 브릿지(그 사실을 이어받은 회고) → 다음 상황 → 판정 기억.
+    // 에필로그·브릿지가 실패·미완이어도 다음 라운드는 저작된 lead로 연결된다 — 진행 무영향.
+    const scenarioArc = this.scenario();
+    if (scenarioArc) {
+      const adopted = verdict.adoptedKey ? candidates.find((c) => c.key === verdict.adoptedKey) ?? null : null;
+      const history = (room.scenarioHistory = room.scenarioHistory ?? []);
+      const roundNo = room.roundNo;
+      // 다음 비트의 lead(사전 저작 도입 문장) — AI 생성 전·실패 시의 브릿지 기본값.
+      const lead = scenarioArc.beats[roundNo]?.lead;
+      const entry: NonNullable<RoomState['scenarioHistory']>[number] = {
+        situationText: room.round!.situation.text,
+        adoptedText: adopted?.text ?? null,
+        ...(lead ? { outcome: lead } : {}),
+      };
+      history.push(entry);
+      const nextIdx = room.situationOrder?.[roundNo]; // 다음 라운드(roundNo+1)의 상황
+      const next = nextIdx != null ? this.persona.situations[nextIdx] : undefined;
+      const prevSituation = room.round!.situation; // 지금 캡처 — then 시점엔 round가 다음 라운드일 수 있다
+      if (next && judged.source !== 'debug') {
+        this.bg((epilogueP ?? Promise.resolve(undefined)).then((story) => {
+          // 에필로그가 이 라운드의 공식 결과다 — 판정 기억("그 후")과 브릿지 회고가 같은 사실을 본다.
+          if (story) entry.epilogueText = story;
+          return makeBridge(this.deps, {
+            persona: this.persona,
+            prevSituation,
+            adopted: adopted ? { name: adopted.name, text: adopted.text } : null,
+            nextSituation: next,
+            lead,
+            epilogue: story,
+          });
+        }).then((r) => {
+          logger.bridge({ roomCode: room.code, roundNo, source: r.source, bridge: r.bridge });
+          if (!r.bridge || this.room.state !== 'PLAYING') return;
+          entry.outcome = r.bridge;
+          this.persist();
+        }).catch((e) => logger.error({ where: 'engine.bridge', error: e instanceof Error ? e.message : String(e) })));
       }
     }
     this.emitRoomState();

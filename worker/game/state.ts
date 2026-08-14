@@ -53,9 +53,9 @@ export interface RoomState {
   situationOrder?: number[];
   // 커스텀 페르소나 팩 전체 — 있으면 내장 팩 대신 이것을 쓴다(roomPersona). storage에 그대로 영속.
   customPersona?: FullPersona;
-  // 시나리오 모드 라운드별 기록: 상황·채택 발언·결과(outcome=브릿지 본문, 생성 실패 시 없음).
+  // 시나리오 모드 라운드별 기록: 상황·채택 발언·에필로그(그 후 이야기)·결과(outcome=브릿지 본문).
   // 다음 라운드 브릿지 연출과 판정의 "이전 라운드 기억" 주입이 이 배열 하나를 공유한다.
-  scenarioHistory?: { situationText: string; adoptedText: string | null; outcome?: string }[];
+  scenarioHistory?: { situationText: string; adoptedText: string | null; epilogueText?: string; outcome?: string }[];
   hall: HallEntry[];
   round: RoundState | null;
   feed: FeedItem[];
