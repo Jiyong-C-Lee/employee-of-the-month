@@ -38,11 +38,10 @@
 }
 .comic-appbar .ca-title { flex: 1; font-weight: 800; font-size: 19px; letter-spacing: -0.01em; }
 
-/* narre 칩이 좌상단에 상시 떠 있다. 상단바가 열 폭에 맞춰 서 있어서 화면이 넓으면 칩이 바깥
-   여백에 앉지만, 좁아지면 제목 위로 올라온다. 겹치는 폭에서만 제목을 민다.
-   610 = 상단바 470 + 칩이 필요한 좌우 여백 70 × 2. */
+/* narre 칩과 상단바가 겹치는 좁은 화면(610 = 상단바 470 + 칩 여백 70 × 2)에서는
+   칩을 아예 숨긴다 — 제목을 밀면 상단바가 두 줄로 깨졌다. 칩은 메인(홈, .ph-card)에서만 보이면 된다. */
 @media (max-width: 610px) {
-  .comic-appbar { padding-left: var(--narre-chip-inset); }
+  .narre-shell:not(:has(.ph-card)) .narre-shell__chip { display: none; }
 }
 
 /* 넓은 화면에서는 열도 같이 넓어진다 — 데스크톱에서 폰만 한 기둥으로 서 있지 않게.
@@ -96,24 +95,39 @@
 .boss-card .bc-tag { background: var(--tan); color: var(--tan-text); font-weight: 700; font-size: 11px; padding: 3px 9px; border-radius: 11px; }
 .boss-card .bc-state { position: absolute; top: 9px; right: 10px; background: var(--ink); color: #fff; font-weight: 800; font-size: 11px; letter-spacing: .02em; padding: 3px 8px; border-radius: 10px; }
 
-/* ── 문제 상황 컷 ── */
-.situation-cut { display: flex; gap: 8px; align-items: center; padding: 12px 12px 12px 8px; }
-.situation-cut .sc-boss { position: relative; width: 42%; flex: none; }
+/* ── 문제 상황 컷 ──
+   모바일(기본): 말풍선이 위에 전폭으로, 보스가 아래 가운데 — 세로 화면에서 말풍선이
+   옆에 서면 세로로 길게 늘어져 읽기 나빴다.
+   PC(768+): 원래 구도 — 보스 왼쪽, 말풍선 오른쪽. 꼬리는 공용 tail-b-*를 미디어쿼리로
+   아래(모바일)/왼쪽(PC)으로 돌려 쓴다. */
+.situation-cut { display: flex; flex-direction: column; gap: 14px; align-items: stretch; padding: 12px; }
+.situation-cut .sc-boss { position: relative; width: 40%; max-width: 200px; flex: none; align-self: center; }
 .situation-cut .sc-boss img { display: block; width: 100%; height: auto; }
-.situation-cut .sc-bubble-wrap { flex: 1; position: relative; }
+.situation-cut .sc-bubble-wrap { flex: none; position: relative; }
+/* 하단 꼬리를 컷 가운데(보스 위치)로 */
+.situation-cut .tail-b-ink { left: calc(50% - 7px); }
+.situation-cut .tail-b-fill { left: calc(50% - 5px); }
+
+@media (min-width: 768px) {
+  .situation-cut { flex-direction: row-reverse; gap: 8px; align-items: center; padding: 12px 12px 12px 8px; }
+  .situation-cut .sc-boss { width: 42%; max-width: none; align-self: auto; }
+  .situation-cut .sc-bubble-wrap { flex: 1; }
+  /* 하단 꼬리를 좌측 꼬리로 재조립 */
+  .situation-cut .tail-b-ink { left: -11px; top: 34%; bottom: auto; border: 11px solid transparent; border-left: 0; border-right: 11px solid var(--ink); }
+  .situation-cut .tail-b-fill { left: -6px; top: 34%; bottom: auto; border: 9px solid transparent; border-left: 0; border-right: 9px solid #fff; }
+}
 /* 시나리오 브릿지 — 지난 라운드 회고 한마디. 상황 본문과 톤을 나눈다. */
 .situation-cut .sc-bridge { display: block; font-style: italic; opacity: 0.75; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed rgba(0, 0, 0, 0.25); }
 
-/* 말풍선 (좌측 꼬리 — 두 겹 삼각형) */
+/* 상황 컷 말풍선 (꼬리는 공용 tail-b-*를 쓴다) */
 .bubble-left { background: #fff; border: 2px solid var(--ink); border-radius: 16px; padding: 13px 15px; font-size: 13.5px; line-height: 1.65; }
 .bubble-left b.q { display: block; margin-top: 6px; color: var(--red); }
-.tail-l-ink { position: absolute; left: -11px; top: 34%; width: 0; height: 0; border-top: 11px solid transparent; border-bottom: 11px solid transparent; border-right: 11px solid var(--ink); }
-.tail-l-fill { position: absolute; left: -6px; top: 34%; width: 0; height: 0; border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-right: 9px solid #fff; }
 
-/* ── 발언 컷 그리드 ── */
-.speak-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+/* ── 발언 컷 그리드 ──
+   모바일(기본): 한 컷이 한 줄 — 캐릭터는 span2 구도처럼 1칸 폭으로 가운데.
+   PC(768+): 원래 2열 네컷 구도, 홀수 마지막 컷만 span2로 두 칸. */
+.speak-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
 .speak-panel { display: flex; flex-direction: column; gap: 6px; padding: 10px 8px 0; }
-.speak-panel.span2 { grid-column: 1 / -1; }
 .speak-panel.speaking { background: #fff8e6; box-shadow: 0 0 0 3px var(--gold); animation: speakPulse 1.3s ease-in-out infinite; }
 @keyframes speakPulse { 0%, 100% { box-shadow: 0 0 0 3px #f2b01e; } 50% { box-shadow: 0 0 0 6px #f7c84e; } }
 .speak-badge { position: absolute; top: -12px; left: 8px; background: var(--gold); color: var(--ink); font-weight: 800; font-size: 11px; letter-spacing: .02em; padding: 3px 10px; border-radius: 11px; z-index: 10; white-space: nowrap; }
@@ -125,13 +139,25 @@
 .tail-b-ink { position: absolute; left: 16px; bottom: -9px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid var(--ink); }
 .tail-b-fill { position: absolute; left: 18px; bottom: -5px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid #fff; }
 
-.sp-figure { position: relative; width: 100%; margin-top: auto; }
+/* 모바일: 캐릭터는 옛 2열 시절 1칸 폭(50% - 15px) 그대로 가운데 정렬 — 전폭으로 두면 2배로 커진다.
+   꼬리도 상황 컷처럼 가운데(인물 위)로. */
+.sp-figure { position: relative; width: calc(50% - 15px); margin: auto auto 0; }
 .sp-figure img { display: block; width: 100%; height: auto; }
-/* 홀수 인원 마지막 컷(span2, 가로 두 칸)은 폭만 넓어지고 캐릭터는 1칸 폭 그대로 가운데 정렬 —
-   그림이 %폭 기준이라 그대로 두면 span2에서 2배 커지며 컷 높이도 덩달아 늘어나던 문제.
-   50% - 15px = (그리드 gap 14px + 패널 좌우 padding 16px) / 2 를 뺀 값으로, 1칸 컷의 sp-figure와
-   정확히 같은 픽셀 폭이 나온다(양쪽 다 box-sizing: border-box 기준 계산). */
-.speak-panel.span2 .sp-figure { width: calc(50% - 15px); margin-left: auto; margin-right: auto; }
+.sp-bubble-wrap .tail-b-ink { left: calc(50% - 7px); }
+.sp-bubble-wrap .tail-b-fill { left: calc(50% - 5px); }
+
+@media (min-width: 768px) {
+  .speak-grid { grid-template-columns: repeat(2, 1fr); }
+  .speak-panel.span2 { grid-column: 1 / -1; }
+  .sp-figure { width: 100%; margin: auto 0 0; }
+  /* 홀수 인원 마지막 컷(span2, 가로 두 칸)은 폭만 넓어지고 캐릭터는 1칸 폭 그대로 가운데 정렬.
+     50% - 15px = (그리드 gap 14px + 패널 좌우 padding 16px) / 2 를 뺀 값으로, 1칸 컷의 sp-figure와
+     정확히 같은 픽셀 폭이 나온다(양쪽 다 box-sizing: border-box 기준 계산). */
+  .speak-panel.span2 .sp-figure { width: calc(50% - 15px); margin-left: auto; margin-right: auto; }
+  /* PC는 원래 좌측 치우친 꼬리로 */
+  .sp-bubble-wrap .tail-b-ink { left: 16px; }
+  .sp-bubble-wrap .tail-b-fill { left: 18px; }
+}
 .speak-panel.waiting .sp-figure { filter: grayscale(.6) opacity(.55); }
 .speak-panel.waiting .face-slot { opacity: .5; }
 .sp-label { position: absolute; right: -2px; bottom: -2px; background: var(--ink); color: #fff; font-weight: 800; font-size: 11px; letter-spacing: .02em; padding: 4px 9px; z-index: 10; max-width: 96%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

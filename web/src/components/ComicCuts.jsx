@@ -133,18 +133,19 @@ export function BossCard({ persona, roundNo, phase }) {
 export function SituationCut({ persona, situation, bridge }) {
   return (
     <div className="cut situation-cut">
-      <div className="sc-boss">
-        <img src={poseUrl(BOSS_FRONT)} alt="" />
-        <FaceSlot pose={BOSS_FRONT} entry={{ kind: 'ai', emoji: persona.emoji }} />
-      </div>
+      {/* 말풍선이 위에 가로로 넓게, 보스는 그 아래 — 꼬리는 아래(보스)를 향한다. */}
       <div className="sc-bubble-wrap">
         <div className="bubble-left">
           {bridge && <i className="sc-bridge">{bridge}</i>}
           {situation.text}
           <b className="q">“{situation.question}”</b>
         </div>
-        <div className="tail-l-ink" />
-        <div className="tail-l-fill" />
+        <div className="tail-b-ink" />
+        <div className="tail-b-fill" />
+      </div>
+      <div className="sc-boss">
+        <img src={poseUrl(BOSS_FRONT)} alt="" />
+        <FaceSlot pose={BOSS_FRONT} entry={{ kind: 'ai', emoji: persona.emoji }} />
       </div>
     </div>
   );
@@ -207,6 +208,7 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
         const speaking = speakTurn?.current === entry.key && !spoken;
         const waiting = !spoken && !speaking;
         const mine = entry.kind === 'user' && entry.key === playerId;
+        // span2는 PC 2열 구도에서만 의미가 있다(모바일은 전 컷이 한 줄).
         const span2 = queue.length % 2 === 1 && i === queue.length - 1;
         const adopted = verdict && entry.key === adoptedKey;
         const rejected = verdict && !adopted;
@@ -245,7 +247,7 @@ export function SpeakGrid({ queue, speeches, speakTurn, playerId, timer, players
                 {adopted ? UI.game.stamp.adopt : UI.game.stamp.reject}
               </span>
             )}
-            {/* 이름표는 컷(패널) 기준 우하단 고정 — span2에서 캐릭터가 가운데 정렬돼도 모든 컷과 같은 구석 위치를 유지한다. */}
+            {/* 이름표는 컷(패널) 기준 우하단 고정 — 캐릭터가 가운데 정렬돼도 모든 컷과 같은 구석 위치를 유지한다. */}
             <span className="sp-label">{label}</span>
           </div>
         );
